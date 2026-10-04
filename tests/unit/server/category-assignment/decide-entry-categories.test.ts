@@ -74,6 +74,20 @@ describe("entryCategoryDeciderAdapter", () => {
     });
   });
 
+  it("accepts the model's notes and ignores them", async () => {
+    generateContent.mockResolvedValue({
+      content:
+        '{"document_context":"Convenience store snack run","decisions":[{"entry_index":1,"reason":"Store sells food","category_index":1}]}',
+    });
+
+    await expect(
+      decideEntryCategories({ candidates, group: group(), images: [] })
+    ).resolves.toEqual({
+      decisions: [{ ledgerEntryId: "entry-1", categoryId: "cat-food" }],
+      confirmedCount: 0,
+    });
+  });
+
   it("sends the document's own context, not just the entries", async () => {
     generateContent.mockResolvedValue({
       content: '{"decisions":[{"entry_index":1,"category_index":1}]}',

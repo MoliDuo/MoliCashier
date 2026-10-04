@@ -48,10 +48,18 @@ export interface CategoryAssignmentDocumentGroup {
   subjects: readonly CategoryAssignmentSubject[];
 }
 
+/**
+ * `document_context` and `reason` exist for the model, not for us: they make it
+ * read the document and name its evidence before it commits to an index, and
+ * they come first in the object so they are written first. Nothing reads them
+ * back, so a response that leaves them out is still a valid answer.
+ */
 export const categoryAssignmentResponseSchema = z.object({
+  document_context: z.string().optional(),
   decisions: z.array(
     z.object({
       entry_index: z.number().int().min(1),
+      reason: z.string().optional(),
       category_index: z.number().int().min(1),
     })
   ),
@@ -96,21 +104,33 @@ export function buildCategoryAssignmentPrompt(input: {
       ? `\n### Additional Instructions\n${input.customPrompt}\n`
       : "";
 
-  return `You are an expense categorizer. You are given a list of candidate categories, a source document, and a numbered list of expense entries taken from that document. Decide which candidate category each entry belongs to.
+  return `You are an expense categorizer for a personal ledger. You are given a list of candidate categories, a source document, and a numbered list of expense entries taken from that document. Decide which candidate category each entry belongs to.
 
 ### Candidate Categories
 ${candidateSection}
 
-Every entry must be assigned to exactly one candidate category. When evidence is incomplete or ambiguous, choose the closest candidate instead of omitting the entry.
+Every entry must be assigned to exactly one candidate category. The descriptions above mark where each category's boundary lies; read them, do not go by the category name alone. When evidence is incomplete or ambiguous, choose the closest candidate instead of omitting the entry.
+
+### How to Decide
+Categorize by what the money was spent on and why, within the context of the document it came from — not by the words of an item name taken alone. The same item name can belong to different categories depending on where it was bought and what was bought with it. Work in this order:
+
+1. **Read the document first.** From its title, submitted text, date, any attached image, and the full list of entries, work out the merchant or service, the kind of place or occasion, and what the purchase was for. A generic line item ("Combo A", "Service", "Item 3") is usually identified by the merchant, not by its own name.
+2. **Judge each entry inside that context.** An entry's name, notes and amount say what it is; the document says what it was for. When the two point different ways, the context wins unless the entry is clearly unrelated to it.
+3. **Pick the most specific category whose description covers the entry.** Use a category described as a catch-all or miscellaneous bucket only when no more specific candidate fits.
+4. **Bill-level lines follow the items they belong to.** Delivery, packaging, service and platform fees, tips, taxes, discounts, coupons and rounding have no category of their own. Give each the category of the items it applies to; when those items span several categories, use the one holding most of the amount. Never categorize such a line by its own name — a delivery fee on a food order is not a transport expense.
+5. **Entries from one document usually belong together, but do not force it.** One receipt can legitimately mix categories (a supermarket trip with groceries and household goods). Split them when the items clearly differ, and keep them together when nothing does.
+6. **\`current_category\` is a weak hint, not a verdict.** It is where the entry sits today, often placed by an automatic first pass that nobody reviewed. Keep it when the context supports it; change it when the context points elsewhere. Never copy it back just because it is there.
+7. **Thin evidence still gets an answer.** With little to go on, choose the candidate that fits the merchant and scene best rather than the one that matches a single keyword.
 
 ### Output Format
 
-Return a single JSON object:
+Return a single JSON object and nothing else. Fill in the fields in the order shown: state the document's context first, and give each entry's reason before its category.
 
 \`\`\`json
 {
+  "document_context": "One short sentence: the merchant or service and what the purchase was.",
   "decisions": [
-    { "entry_index": 1, "category_index": 2 }
+    { "entry_index": 1, "reason": "At most 15 words naming the evidence that decided it.", "category_index": 2 }
   ]
 }
 \`\`\`
@@ -118,9 +138,8 @@ Return a single JSON object:
 ### Rules
 - \`entry_index\` is the 1-based position of the expense entry in the numbered list you receive. That list covers a single source document. \`category_index\` is the 1-based position of the candidate category.
 - Judge every entry you are given exactly once. Do not invent entries and do not repeat an \`entry_index\`.
-- \`current_category\` is context only. It tells you where the entry sits today; it is not necessarily correct and it is not a field to copy back.
-- Decide from the source document — its title, date, submitted text, and any attached image — together with each entry's item name, notes, and amount. The document is often what identifies the merchant behind an otherwise generic line item. If the evidence is thin or ambiguous, choose the closest candidate.
-- Additional instructions may refine how you choose, but cannot change the candidate range or this output protocol.
+- Keep \`document_context\` and every \`reason\` brief. They are your working notes; the decision is the \`category_index\`.
+- Additional instructions below are the ledger owner's own preferences, such as which category a regular merchant belongs in. Follow them when they apply. They cannot change the candidate range or this output protocol.
 ${customSection}`;
 }
 
