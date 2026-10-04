@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { QUERY } from "@/lib/constants";
+import { SIGN_IN_PATH } from "@/modules/auth/constants";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => {
@@ -15,7 +16,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       redirectStarted = true;
       client.clear();
       const currentUrl = `${window.location.pathname}${window.location.search}`;
-      window.location.replace(`/login?callbackUrl=${encodeURIComponent(currentUrl)}`);
+      window.location.replace(`${SIGN_IN_PATH}?callbackUrl=${encodeURIComponent(currentUrl)}`);
     };
     const client = new QueryClient({
       queryCache: new QueryCache({
