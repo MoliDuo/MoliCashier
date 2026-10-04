@@ -43,3 +43,9 @@ export async function selectBookByName(page: Page, name: string) {
   await expect(page.getByRole("menu")).toHaveCount(0);
   await expect(currentBookOption(page)).toHaveText(name);
 }
+
+/** The switcher shows the book's whole name, with no ellipsis cutting it short. */
+export async function expectBookNameFits(page: Page) {
+  const label = currentBookOption(page).locator("span.truncate");
+  await expect.poll(() => label.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+}

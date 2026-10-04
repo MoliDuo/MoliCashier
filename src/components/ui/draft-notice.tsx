@@ -15,12 +15,19 @@ export function DraftNotice({ outdated = false, disabled = false, onDiscard }: D
   return (
     <div
       role="status"
-      className="flex items-center justify-between gap-3 rounded-md border border-border bg-surface2 px-3 py-2"
+      className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-border bg-surface2 px-3 py-2"
     >
       <p className={textRoleClassName("meta")}>
         {outdated ? commonCopy.draftOutdated : commonCopy.draftRestored}
       </p>
-      <Button type="button" variant="ghost" size="sm" disabled={disabled} onClick={onDiscard}>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="max-md:h-11"
+        disabled={disabled}
+        onClick={onDiscard}
+      >
         {commonCopy.discard}
       </Button>
     </div>

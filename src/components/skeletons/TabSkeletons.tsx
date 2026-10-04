@@ -257,33 +257,33 @@ export function StatsTabSkeleton() {
 
 /**
  * Skeleton for the Settings tab.
- * Shows 5 section placeholders matching actual layout.
+ * Shows the bordered, titled cards the page is made of.
  */
 export function SettingsTabSkeleton() {
   return (
-    <div aria-hidden="true" className="space-y-6 sm:space-y-8" data-testid="settings-tab-skeleton">
+    <div aria-hidden="true" className="space-y-4" data-testid="settings-tab-skeleton">
       {[1, 2, 3, 4, 5].map((sectionIndex) => (
-        <div key={sectionIndex} className="space-y-4">
-          {/* Section title */}
-          <div className="h-5 w-28 bg-surface2 rounded animate-pulse" />
+        <div
+          key={sectionIndex}
+          className="space-y-4 rounded-lg border border-border bg-surface p-4"
+        >
+          {/* Card title */}
+          <div className="h-5 w-28 animate-pulse rounded bg-surface2" />
 
-          {/* Section content */}
-          <div className="space-y-6 pt-4">
-            {/* Multiple setting items per section */}
-            {[1, 2, 3].map((itemIndex) => (
-              <div key={itemIndex}>
-                {/* Setting item with label + description + control */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  {/* Label and description */}
-                  <div className="space-y-1.5 flex-1">
-                    <div className="h-4 w-24 bg-surface2 rounded animate-pulse" />
-                    <div className="h-3 w-40 bg-surface2/70 rounded animate-pulse" />
-                  </div>
-                  {/* Control (button, switch, or select) */}
-                  <div className="h-8 w-24 bg-surface2 rounded animate-pulse shrink-0" />
+          {/* Card fields */}
+          <div className="[&>*+*]:mt-4 [&>*+*]:border-t [&>*+*]:border-border [&>*+*]:pt-4">
+            {[1, 2].map((itemIndex) => (
+              <div
+                key={itemIndex}
+                className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                {/* Label and description */}
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-4 w-24 animate-pulse rounded bg-surface2" />
+                  <div className="h-3 w-40 animate-pulse rounded bg-surface2/70" />
                 </div>
-                {/* Divider between items (except last) */}
-                {itemIndex < 3 && <div className="h-px bg-border mt-4" />}
+                {/* Control (button, switch, or select) */}
+                <div className="h-9 w-full shrink-0 animate-pulse rounded bg-surface2 sm:w-44" />
               </div>
             ))}
           </div>

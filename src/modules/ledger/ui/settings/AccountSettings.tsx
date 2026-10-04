@@ -72,6 +72,7 @@ export function AccountSettings({
             <Button
               variant="destructive"
               size="sm"
+              className="max-md:h-11"
               disabled={isPending || isSigningOut}
               onClick={() => setSignOutConfirmOpen(true)}
             >

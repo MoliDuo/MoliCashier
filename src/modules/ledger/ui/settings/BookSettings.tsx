@@ -199,6 +199,7 @@ export function BookSettings({ initialBooks }: BookSettingsProps) {
         <Button
           type="button"
           size="sm"
+          className="max-md:h-11"
           disabled={busy}
           onClick={() => {
             setNewName("");
@@ -219,7 +220,13 @@ export function BookSettings({ initialBooks }: BookSettingsProps) {
             )}
           >
             <span>{ledgerQueryErrorCopy.description}</span>
-            <Button type="button" variant="outline" size="sm" onClick={retryBooks}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="max-md:h-11"
+              onClick={retryBooks}
+            >
               <RefreshCw className="size-4" />
               {ledgerQueryErrorCopy.retry}
             </Button>
@@ -234,7 +241,13 @@ export function BookSettings({ initialBooks }: BookSettingsProps) {
             )}
           >
             <span>{ledgerQueryErrorCopy.description}</span>
-            <Button type="button" variant="outline" size="sm" onClick={retryBooks}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="max-md:h-11"
+              onClick={retryBooks}
+            >
               <RefreshCw className="size-4" />
               {ledgerQueryErrorCopy.retry}
             </Button>
@@ -280,7 +293,7 @@ export function BookSettings({ initialBooks }: BookSettingsProps) {
                             cancelRename();
                           }
                         }}
-                        className="h-8"
+                        className="h-9 max-md:h-11"
                       />
                     ) : (
                       <span className={textRoleClassName("bodyStrong", "block truncate")}>
@@ -295,6 +308,7 @@ export function BookSettings({ initialBooks }: BookSettingsProps) {
                           type="button"
                           variant="ghost"
                           size="icon-sm"
+                          className="max-md:size-11"
                           disabled={renameDraft.trim() === "" || updateBook.isPending}
                           aria-label={commonCopy.save}
                           title={commonCopy.save}
@@ -306,6 +320,7 @@ export function BookSettings({ initialBooks }: BookSettingsProps) {
                           type="button"
                           variant="ghost"
                           size="icon-sm"
+                          className="max-md:size-11"
                           disabled={updateBook.isPending}
                           aria-label={commonCopy.cancel}
                           title={commonCopy.cancel}
@@ -320,6 +335,7 @@ export function BookSettings({ initialBooks }: BookSettingsProps) {
                           type="button"
                           variant="ghost"
                           size="icon-sm"
+                          className="max-md:size-11"
                           disabled={busy}
                           aria-label={settingsBooksCopy.rename({ name: book.name })}
                           title={settingsBooksCopy.rename({ name: book.name })}
@@ -335,6 +351,7 @@ export function BookSettings({ initialBooks }: BookSettingsProps) {
                               type="button"
                               variant="ghost"
                               size="icon-sm"
+                              className="max-md:size-11"
                               disabled={busy}
                               aria-label={settingsBooksCopy.moreActions({ name: book.name })}
                               title={settingsBooksCopy.moreActions({ name: book.name })}
@@ -344,6 +361,7 @@ export function BookSettings({ initialBooks }: BookSettingsProps) {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-40">
                             <DropdownMenuItem
+                              className="max-md:min-h-11"
                               disabled={index === 0}
                               onSelect={() => move(index, -1)}
                             >
@@ -351,6 +369,7 @@ export function BookSettings({ initialBooks }: BookSettingsProps) {
                               {settingsBooksCopy.moveUpShort}
                             </DropdownMenuItem>
                             <DropdownMenuItem
+                              className="max-md:min-h-11"
                               disabled={index === list.length - 1}
                               onSelect={() => move(index, 1)}
                             >
@@ -358,12 +377,15 @@ export function BookSettings({ initialBooks }: BookSettingsProps) {
                               {settingsBooksCopy.moveDownShort}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onSelect={() => setArchiveTarget(book)}>
+                            <DropdownMenuItem
+                              className="max-md:min-h-11"
+                              onSelect={() => setArchiveTarget(book)}
+                            >
                               <Archive className="mr-2 size-4" />
                               {settingsBooksCopy.archive}
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              className="text-danger focus:text-danger"
+                              className="text-danger focus:text-danger max-md:min-h-11"
                               onSelect={() => setDeleteTarget(book)}
                             >
                               <Trash2 className="mr-2 size-4" />
@@ -400,6 +422,7 @@ export function BookSettings({ initialBooks }: BookSettingsProps) {
                   type="button"
                   variant="ghost"
                   size="sm"
+                  className="max-md:h-11"
                   disabled={busy}
                   onClick={() => restoreBook.mutate(book.id)}
                 >
@@ -413,12 +436,12 @@ export function BookSettings({ initialBooks }: BookSettingsProps) {
       ) : null}
 
       <Dialog open={isAddOpen} onOpenChange={(open) => !createBook.isPending && setIsAddOpen(open)}>
-        <DialogContent variant="modal">
+        <DialogContent variant="sheet">
           <DialogHeader>
             <DialogTitle>{settingsBooksCopy.addTitle}</DialogTitle>
             <DialogDescription>{settingsBooksCopy.addDesc}</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-2 py-4">
+          <div className="grid gap-2 py-2">
             <Label htmlFor="new-book-name">{settingsBooksCopy.name}</Label>
             <Input
               id="new-book-name"
@@ -426,6 +449,7 @@ export function BookSettings({ initialBooks }: BookSettingsProps) {
               maxLength={20}
               autoComplete="off"
               placeholder={settingsBooksCopy.namePlaceholder}
+              className="max-md:h-11"
               disabled={createBook.isPending}
               onChange={(event) => setNewName(event.target.value)}
             />

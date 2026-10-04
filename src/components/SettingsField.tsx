@@ -10,6 +10,11 @@ interface SettingsFieldProps {
   actions?: ReactNode;
   stacked?: boolean;
   /**
+   * Keeps the control beside the title at every width, for a switch, which is
+   * too small to need a row of its own on a phone.
+   */
+  inline?: boolean;
+  /**
    * Omitted when the heading and its actions are the whole field — 退出登录 has
    * nothing under its button — so no empty row is left behind.
    */
@@ -21,16 +26,22 @@ export function SettingsField({
   description,
   actions,
   stacked = false,
+  inline = false,
   children,
 }: SettingsFieldProps) {
   return (
     <div
       className={cn(
-        "flex flex-col gap-3",
-        !stacked && "sm:flex-row sm:items-center sm:justify-between"
+        inline ? "flex flex-row items-center justify-between gap-3" : "flex flex-col gap-3",
+        !stacked && !inline && "sm:flex-row sm:items-center sm:justify-between"
       )}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div
+        className={cn(
+          "flex flex-wrap items-center justify-between gap-3",
+          inline && "min-w-0 flex-1"
+        )}
+      >
         <div className="min-w-0">
           <h3 className={textRoleClassName("bodyStrong")}>{title}</h3>
           {description != null && (
@@ -39,7 +50,11 @@ export function SettingsField({
         </div>
         {actions != null && <div className="shrink-0">{actions}</div>}
       </div>
-      {children != null && <div className={cn(stacked ? "w-full" : "sm:max-w-md")}>{children}</div>}
+      {children != null && (
+        <div className={cn(inline ? "shrink-0" : stacked ? "w-full" : "sm:max-w-md")}>
+          {children}
+        </div>
+      )}
     </div>
   );
 }

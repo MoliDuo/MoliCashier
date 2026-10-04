@@ -61,7 +61,7 @@ function PreferredCurrenciesMenu({
           type="button"
           variant="outline"
           size="sm"
-          className="w-full justify-between font-normal sm:w-64"
+          className="w-full justify-between font-normal max-md:h-11 sm:w-64"
           aria-label={settingsCopy.preferredCurrencies}
           disabled={disabled}
         >
@@ -101,7 +101,7 @@ function PreferredCurrenciesMenu({
                 key={currency}
                 className={textRoleClassName(
                   "body",
-                  "flex min-h-10 cursor-pointer items-center gap-3 rounded-md px-2 hover:bg-surface2"
+                  "flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-2 hover:bg-surface2"
                 )}
               >
                 <Checkbox
@@ -154,7 +154,10 @@ export function CurrencySection({
           <h3 className={textRoleClassName("bodyStrong")}>{settingsCopy.mainCurrency}</h3>
         </div>
         <Select value={mainCurrency} onValueChange={updateMainCurrency} disabled={disabled}>
-          <SelectTrigger aria-label={settingsCopy.mainCurrency} className="w-full sm:w-44">
+          <SelectTrigger
+            aria-label={settingsCopy.mainCurrency}
+            className="w-full max-md:h-11 sm:w-44"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent position="popper">

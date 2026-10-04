@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { currentBookOption, selectBook, selectBookByName } from "./book-switch";
+import { currentBookOption, expectBookNameFits, selectBook, selectBookByName } from "./book-switch";
 import { bookAction, bookMenu, bookRow } from "./book-rows";
 import { openTab } from "./navigation";
 import { seedRecord } from "./seed-record";
@@ -48,6 +48,10 @@ test("@demo shows a record in its own book and moves it to another", async ({ pa
   // personal books.
   await selectBook(page, 2);
   await expect(page.getByText(item, { exact: true }).first()).toBeVisible();
+  // A four-character name shows whole in the top bar, on a phone too.
+  await selectBook(page, 0);
+  await expect(currentBookOption(page)).toHaveText("共同支出");
+  await expectBookNameFits(page);
   await selectBook(page, 1);
   await expect(page.getByText(item, { exact: true })).toHaveCount(0);
 

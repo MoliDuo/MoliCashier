@@ -26,7 +26,7 @@ export function ThemeField() {
   return (
     <SettingsField title={settingsCopy.theme}>
       <Select value={theme ?? "system"} onValueChange={setTheme}>
-        <SelectTrigger aria-label={settingsCopy.theme} className="w-full sm:w-44">
+        <SelectTrigger aria-label={settingsCopy.theme} className="w-full max-md:h-11 sm:w-44">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

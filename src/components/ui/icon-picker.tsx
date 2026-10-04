@@ -63,7 +63,7 @@ export function IconPicker({ value, onChange, disabled = false, className }: Ico
           <CategoryIcon iconName={value ?? null} className="w-6 h-6" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-2" align="start" sideOffset={4}>
+      <PopoverContent className="w-fit p-2" align="start" sideOffset={4}>
         <div
           id={listboxId}
           role="listbox"

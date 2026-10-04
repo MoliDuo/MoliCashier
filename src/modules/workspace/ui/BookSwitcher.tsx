@@ -54,18 +54,19 @@ export function BookSwitcher({ disabled = false, align = "end" }: BookSwitcherPr
           aria-label={`${bookScopeCopy.label}：${label}`}
           className={textRoleClassName(
             "bodyStrong",
-            "inline-flex h-9 min-w-0 max-w-[12rem] items-center gap-1 rounded-md px-2 transition-colors hover:bg-surface2 disabled:opacity-60"
+            "inline-flex h-9 min-w-0 max-w-[12rem] items-center gap-0.5 rounded-md px-1.5 transition-colors hover:bg-surface2 disabled:opacity-60 max-md:max-w-[9rem] md:gap-1 md:px-2"
           )}
         >
           <span className="truncate">{label}</span>
           <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align={align} className="w-52">
+      <DropdownMenuContent align={align} className="min-w-52 max-w-[calc(100vw-2rem)]">
         {options.map((option, index) => (
           <Fragment key={option.scope ?? "all"}>
             {index === 1 ? <DropdownMenuSeparator /> : null}
             <DropdownMenuItem
+              className="max-md:min-h-11"
               aria-current={scope === option.scope ? "true" : undefined}
               onSelect={() => {
                 if (scope !== option.scope) setScope(option.scope);
