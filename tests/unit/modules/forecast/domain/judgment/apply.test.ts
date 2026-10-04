@@ -72,10 +72,6 @@ describe("applyJudgment", () => {
     // The rent lands on the 15th, the fifth day ahead.
     expect(forecast.running[4]!.p50 - forecast.running[3]!.p50).toBe(1235);
 
-    expect(forecast.upcoming.map((item) => [item.label, item.inPeriod])).toEqual([
-      ["房租", true],
-      ["学费", false],
-    ]);
     expect(forecast.documents).toEqual([{ documentId: "books", kind: "one_off", cadence: null }]);
   });
 

@@ -34,7 +34,6 @@ function forecastFixture(overrides: Partial<ForecastDto> = {}): ForecastDto {
     exceedPrevious: { total: "2200", probability: 0.684 },
     lifeChange: null,
     largePurchaseFrom: null,
-    upcoming: [],
     anomalies: [],
     model: null,
     judgment: null,
@@ -60,6 +59,7 @@ describe("StatsCategoryForecast", () => {
       name: "餐饮, 预计 ¥1,800.00, ¥1,500.00–¥2,100.00, 已花 ¥300.00",
     });
     expect(screen.getByRole("button", { name: /^未分类, 预计 ¥120.00/ })).toBeInTheDocument();
+    expect(screen.getByText("30 天前的一天只算昨天的一半", { exact: false })).toBeInTheDocument();
 
     fireEvent.click(food);
     expect(open).toHaveBeenCalledWith("food");
@@ -80,34 +80,6 @@ describe("StatsCategoryForecast", () => {
       <StatsCategoryForecast forecast={forecastFixture({ categories: [] })} currencySymbol="CNY" />
     );
     expect(container).toBeEmptyDOMElement();
-  });
-
-  it("lists the bills expected before the period ends, with how they come back", () => {
-    render(
-      <StatsCategoryForecast
-        forecast={forecastFixture({
-          upcoming: [
-            {
-              id: "home",
-              name: "居住",
-              icon: null,
-              date: "2026-10-15",
-              label: "房租",
-              amount: "1200.00",
-              cadence: "monthly",
-              streak: 6,
-              seen: null,
-              inPeriod: true,
-            },
-          ],
-        })}
-        currencySymbol="CNY"
-      />
-    );
-
-    expect(screen.getByText("接下来大概会有")).toBeInTheDocument();
-    expect(screen.getByText("10/15 房租 约 ¥1,200.00")).toBeInTheDocument();
-    expect(screen.getByText("每月 · 已连续 6 次")).toBeInTheDocument();
   });
 
   it("carries no footnote about how the forecast was made or how well it did", () => {
@@ -135,7 +107,7 @@ describe("StatsCategoryForecast", () => {
     expect(screen.queryByText(/神经网络|统计模型/)).not.toBeInTheDocument();
   });
 
-  it("computes from the AI's judgment: trends and what is expected next", () => {
+  it("computes from the AI's judgment: trends", () => {
     render(
       <StatsCategoryForecast
         forecast={forecastFixture({
@@ -157,20 +129,6 @@ describe("StatsCategoryForecast", () => {
               trend: { direction: "steady", change: 0.01 },
             },
           ],
-          upcoming: [
-            {
-              id: "edu",
-              name: "教育",
-              icon: null,
-              date: "2026-12-20",
-              label: "学费",
-              amount: "4000.00",
-              cadence: "semester",
-              streak: null,
-              seen: 2,
-              inPeriod: false,
-            },
-          ],
           judgment: {
             asOf: "2026-10-04",
             phases: [],
@@ -187,7 +145,6 @@ describe("StatsCategoryForecast", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("+25%")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^娱乐, 最近平稳/ })).toBeInTheDocument();
-    expect(screen.getByText("12/20 学费 约 ¥4,000.00")).toBeInTheDocument();
-    expect(screen.getByText("每学期 · 见过 2 次 · 本期之后，不计入")).toBeInTheDocument();
+    expect(screen.queryByText("接下来大概会有")).not.toBeInTheDocument();
   });
 });

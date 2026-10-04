@@ -168,7 +168,6 @@ describe("StatsContentView", () => {
       exceedPrevious: null,
       lifeChange: null,
       largePurchaseFrom: null,
-      upcoming: [],
       anomalies: [],
       model: null,
       judgment: {
@@ -183,7 +182,10 @@ describe("StatsContentView", () => {
     };
     render(<StatsContentView {...baseProps} stats={stats} forecast={forecast} />);
 
-    expect(screen.getByRole("heading", { name: "生活阶段" })).toBeInTheDocument();
+    const phases = screen.getByRole("heading", { name: "生活阶段" });
+    const largest = screen.getByRole("heading", { name: "最大几笔" });
+    // The life phases close the page, after the panels about this period.
+    expect(largest.compareDocumentPosition(phases) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByText("现在")).toBeInTheDocument();
     expect(screen.getByText("日常 ¥120/天")).toBeInTheDocument();
     expect(screen.getByText("2026/2/1–2026/7/31")).toBeInTheDocument();

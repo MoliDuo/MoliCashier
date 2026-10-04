@@ -2,13 +2,7 @@ import { add, compare } from "@/lib/money/decimal";
 import { addCivilDays, civilDaysBetween } from "@/modules/ledger/domain/period";
 import { categoryKeyOf, type HistoryRow } from "../series";
 import type { Quantiles } from "../simulate";
-import type {
-  JudgedDocument,
-  JudgedExpected,
-  Judgment,
-  JudgmentCadence,
-  JudgmentTrend,
-} from "./schema";
+import type { JudgedDocument, Judgment, JudgmentTrend } from "./schema";
 
 /** How a category is heading against the current phase's usual level. */
 export interface CategoryTrend {
@@ -22,17 +16,6 @@ export interface JudgedCategoryForecast {
   spent: string;
   forecast: Quantiles;
   trend: CategoryTrend | null;
-}
-
-export interface JudgedUpcoming {
-  date: string;
-  label: string;
-  key: string;
-  amount: number;
-  cadence: JudgmentCadence;
-  seen: number;
-  /** Whether it falls before the period ends, and so counts in the forecast. */
-  inPeriod: boolean;
 }
 
 export interface JudgedPhaseSummary {
@@ -49,7 +32,6 @@ export interface JudgedPeriodForecast {
   total: Quantiles;
   running: Quantiles[];
   categories: JudgedCategoryForecast[];
-  upcoming: JudgedUpcoming[];
   phases: JudgedPhaseSummary[];
   /** The documents of the period so far that were judged not everyday. */
   documents: JudgedDocument[];
@@ -154,7 +136,6 @@ export function applyJudgment(input: {
     total: running[remaining - 1]!,
     running,
     categories,
-    upcoming: expected.map((item) => upcomingOf(item, period.end)),
     phases,
     documents: [...periodDocuments.values()],
   };
@@ -175,10 +156,6 @@ function spread(judgment: Judgment, days: number, base: number): Quantiles {
     p50: middle,
     p90: middle + Math.sqrt(highSquares),
   };
-}
-
-function upcomingOf(item: JudgedExpected, periodEnd: string): JudgedUpcoming {
-  return { ...item, inPeriod: item.date <= periodEnd };
 }
 
 /** The phases with their days and everyday spending a day, the current one running to yesterday. */
