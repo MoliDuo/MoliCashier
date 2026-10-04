@@ -66,13 +66,19 @@ Moli Cashier 部署在 Moli 服务器上的 Docker 里，地址 <https://cashier
 
 ## 4. 回滚
 
-部署失败时脚本自动回到上一个版本。要手动回到更早的提交：在 GitHub 里对那次提交重新运行 `ci`（或在旧提交上重新运行 `deploy`），它会重新构建并部署那个提交。服务器上已有该镜像时，也可以直接：
+部署失败时脚本自动回到上一个版本。要手动回到更早的提交，用部署脚本的回滚入口：它直接启动服务器上已有的旧镜像（服务器保留最近 5 个），不重新构建、不做迁移，启动后同样核对 `/healthz` 的提交。先看服务器上有哪些版本可回：
 
 ```bash
-cd /data/apps/cashier
-echo APP_TAG=<提交哈希> > .tag
-docker compose --env-file .tag up -d
+docker images --format '{{.Tag}}' moli-cashier
 ```
+
+再在服务器上执行（`<提交哈希>` 是上面列出的 40 位标签）：
+
+```bash
+printf '%s %s rollback\n' cashier <提交哈希> | /data/apps/deploy/deploy-app
+```
+
+服务器上没有那个镜像时，在 GitHub 里对该提交重新运行 `ci`，让它重新构建并部署。或者用 `git revert` 撤销有问题的提交，走正常的 PR 和部署。
 
 数据库不做反向迁移。迁移前的备份在 `/data/apps/cashier/backups/`（最近 5 份），只有迁移本身损坏了数据时才用它恢复：
 
