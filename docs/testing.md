@@ -115,3 +115,46 @@ advisory lock 和停机交还各有自己的测试；调度器测试用 fake tim
 - 失败时截图和 trace 留在 `test-results/`，报告在 `playwright-report/`。
 
 `npm run test:demo` 在 demo 工作区（`npm run dev:demo` 的同一套数据）上跑带 `@demo` 标签的用例。
+
+## 提示词基准
+
+`scripts/bench/` 用真实票据评测 AI 提示词。它直接调用线上的函数（解析任务调用 `runParsePipeline`），所以测的就是
+应用发出的那份提示词。它**不属于 `npm run check`**：每次运行都要花钱，温度默认为 1 所以结果会变，也需要真实的
+AI 凭证。
+
+| 命令                                       | 内容                                                                       |
+| ------------------------------------------ | -------------------------------------------------------------------------- |
+| `npm run bench:prompt -- --task parse`     | 跑一个任务；`--repeat`、`--concurrency`、`--model`、`--rule`、`--baseline` |
+| `npm run bench:prompt -- --dry-run`        | 只加载并校验用例，不调用模型                                               |
+| `npm run bench:data -- verify`             | 用 `scripts/bench/manifest.json` 校验数据目录                              |
+| `npm run bench:data -- manifest`           | 数据增删或修正后重写清单                                                   |
+| `npm run bench:migrate -- --from <旧项目>` | 一次性：把旧 promptfoo 项目的金标迁移过来                                  |
+
+### 数据
+
+数据是真实票据，含姓名、卡号尾号和地址，**任何 git 仓库都不能提交它**。它放在仓库之外，目录由环境变量
+`CASHIER_BENCH_DATA_DIR`（绝对路径）指定；目录落在任何 git 仓库之内时脚本直接拒绝运行。数据目录要自己备份，仓库里没有它的副本。
+
+文档和标注分开，多个任务共用同一份文档（图片只存一份）：
+
+```
+$CASHIER_BENCH_DATA_DIR/
+  documents/<id>/document.json     输入：文字、图片（文件名和 sha256）、账本的分类和设置
+  documents/<id>/evidence/<文件>
+  annotations/<任务>/<id>.json     某个任务对该文档的期望答案和标签
+  results/                         每次运行的完整结果（含期望和实际金额）
+```
+
+标注文件的 `labels` 有三个互相独立的维度：`status`（`gold` 默认参与运行，`candidate`、`needs-fix` 不参与）、
+`rules`（覆盖哪条提示词规则，如 `refund-stacked`，报告按它分组）、`provenance` 加 `humanCorrected`。
+
+仓库提交的只有 `scripts/bench/manifest.json`：每份 `document.json` 和标注文件的 sha256。`document.json` 又固定了每张图片的 sha256，
+所以一条记录就锁定整个输入。运行前会按清单校验要跑的用例，数据被改动或损坏时拒绝运行；新增的用例清单里没有时只给警告。
+
+### 解析任务的评分
+
+一个用例通过，要求 outcome 正确，且成功文档的每个（币种，分类）合计与期望一致。按合计而不是逐条比，因为同一张票据
+拆成怎样的条目（商品和费用是否合并）并不影响账本是否正确。条目的 precision 和 recall 一并报告，
+能看出靠运气过关的用例。每个用例默认跑 3 次，报告通过率并区分"总是过"、"总是不过"和"不稳定"。
+
+终端报告只打印用例 id 和比例；期望和实际金额只写进 `results/` 下的结果文件。
