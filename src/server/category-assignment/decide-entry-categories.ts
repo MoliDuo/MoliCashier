@@ -13,8 +13,11 @@ import {
 } from "@/modules/ledger/domain/category-assignment-protocol";
 import { AI_CATEGORY_REQUEST_TIMEOUT_MS } from "@/config/tuning";
 
-/** One document can be a full receipt: up to MAX_BATCH_SIZE rows, one decision each. */
-const MAX_TOKENS = 4000;
+/**
+ * One request block is up to 50 rows, one decision each, and every decision now
+ * carries a short reason ahead of its index, so the room has to hold the notes too.
+ */
+const MAX_TOKENS = 6000;
 /** Batch assignment is a judgement call, not a creative one. */
 const TEMPERATURE = 0.1;
 

@@ -68,12 +68,28 @@ describe("buildCategoryAssignmentPrompt", () => {
     expect(prompt).not.toContain("category_index 0");
   });
 
-  it("points the model at the document itself and scopes the entry list to one document", () => {
+  it("scopes the entry list to one document and treats the current category as a weak hint", () => {
     const prompt = buildCategoryAssignmentPrompt({ candidates });
 
     expect(prompt).toContain("That list covers a single source document");
-    expect(prompt).toContain("its title, date, submitted text, and any attached image");
-    expect(prompt).toContain("it is not a field to copy back");
+    expect(prompt).toContain("weak hint, not a verdict");
+    expect(prompt).toContain("Never copy it back");
+  });
+
+  it("has the model judge each entry in the document's context, not by its name alone", () => {
+    const prompt = buildCategoryAssignmentPrompt({ candidates });
+
+    expect(prompt).toContain("not by the words of an item name taken alone");
+    expect(prompt).toContain("Read the document first");
+    expect(prompt).toContain("title, submitted text, date, any attached image");
+    expect(prompt).toContain("Bill-level lines follow the items they belong to");
+  });
+
+  it("asks for the document's context and a reason before each category index", () => {
+    const prompt = buildCategoryAssignmentPrompt({ candidates });
+
+    expect(prompt).toContain('"document_context"');
+    expect(prompt.indexOf('"reason"')).toBeLessThan(prompt.indexOf('"category_index": 2'));
   });
 
   it("carries the ledger's own instructions when it has any", () => {
@@ -84,6 +100,12 @@ describe("buildCategoryAssignmentPrompt", () => {
       "Additional Instructions"
     );
     expect(buildCategoryAssignmentPrompt({ candidates })).not.toContain("Additional Instructions");
+  });
+
+  it("opens as an expense categorizer, which is how the demo AI server recognizes the request", () => {
+    expect(buildCategoryAssignmentPrompt({ candidates })).toContain(
+      "You are an expense categorizer"
+    );
   });
 
   it("says nothing about an output locale", () => {
