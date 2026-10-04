@@ -5,8 +5,11 @@ import {
   FORECAST_AI_EXPECTED_DAYS,
   FORECAST_AI_INPUT_MAX_CHARS,
   FORECAST_AI_INPUT_TEXT_CHARS,
+  FORECAST_AI_MAX_ATTEMPTS,
+  FORECAST_AI_MAX_TOKENS,
   FORECAST_AI_REFRESH_MINUTES,
   FORECAST_AI_RETENTION_DAYS,
+  FORECAST_AI_TIMEOUT_MS,
   FORECAST_BACKTEST_PATHS,
   FORECAST_CHANGE_DISCOUNT,
   FORECAST_HALF_LIFE_DAYS,
@@ -49,7 +52,6 @@ import {
   type StoredJudgment,
 } from "./judgments";
 
-const MAX_TOKENS = 8000;
 const TEMPERATURE = 0.2;
 const MINUTE_MS = 60_000;
 
@@ -152,8 +154,10 @@ async function judge(input: {
       ...(input.language == null ? {} : { language: input.language }),
     }),
     messages: [{ role: "user", content: digest.text }],
-    maxTokens: MAX_TOKENS,
+    maxTokens: FORECAST_AI_MAX_TOKENS,
     temperature: TEMPERATURE,
+    timeoutMs: FORECAST_AI_TIMEOUT_MS,
+    maxAttempts: FORECAST_AI_MAX_ATTEMPTS,
   });
   const judgment = resolveJudgment(response, digest.refs, {
     earliest: digest.earliest ?? asOf,
