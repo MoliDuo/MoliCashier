@@ -125,3 +125,9 @@ export const FORECAST_AI_BACKFILL_WEEKS = 12;
 export const FORECAST_AI_ACCURACY_HORIZON_DAYS = 14;
 /** How long judgments are kept for scoring. */
 export const FORECAST_AI_RETENTION_DAYS = 400;
+/** The most tokens one judgment may spend, the model's reasoning included: a reasoning model that runs out mid-thought returns nothing. */
+export const FORECAST_AI_MAX_TOKENS = 32_000;
+/** How long one judgment may take before it is given up; far more than a parse, since the model reasons over the whole ledger. */
+export const FORECAST_AI_TIMEOUT_MS = 300_000;
+/** A judgment is tried this many times; each try is long, so fewer than the default. */
+export const FORECAST_AI_MAX_ATTEMPTS = 2;

@@ -15,6 +15,13 @@ import {
 } from "@/persistence";
 import { getPeriodForecast } from "@/modules/forecast/server/get-forecast";
 import { addCivilDays } from "@/modules/ledger/domain/period";
+import { AppError } from "@/lib/errors";
+import { logger } from "@/lib/logger";
+import {
+  FORECAST_AI_MAX_ATTEMPTS,
+  FORECAST_AI_MAX_TOKENS,
+  FORECAST_AI_TIMEOUT_MS,
+} from "@/config/tuning";
 
 // The daily run also sweeps object storage; an empty bucket keeps it off the network.
 vi.mock("@/lib/storage/s3", () => ({ getS3Storage: () => new MemoryObjectStore() }));
@@ -126,6 +133,12 @@ describe("the AI analyst's nightly judgment", () => {
       .from(forecastJudgments)
       .orderBy(asc(forecastJudgments.asOf));
     expect(rows).toHaveLength(13);
+    // A reasoning model spends its reasoning from the same budget, so the request leaves room for it.
+    expect(transport.complete.mock.calls[0]![0]).toMatchObject({
+      maxTokens: FORECAST_AI_MAX_TOKENS,
+      timeoutMs: FORECAST_AI_TIMEOUT_MS,
+      maxAttempts: FORECAST_AI_MAX_ATTEMPTS,
+    });
     expect(rows.at(-1)).toEqual({ asOf: "2026-10-10", backfilled: false });
     expect(rows[0]).toEqual({ asOf: "2026-07-18", backfilled: true });
     // A past day is judged from only what was recorded by then.
@@ -204,13 +217,19 @@ describe("the AI analyst's nightly judgment", () => {
   it("falls back to the statistical model when the AI cannot be reached", async () => {
     setAiTransportForTests(
       fakeAiTransport(() => {
-        throw new Error("provider down");
+        throw new AppError("provider down", "ai_provider_unavailable", 503);
       })
     );
+    const warn = vi.spyOn(logger, "warn");
 
     const outcomes = await runDailyMaintenance({ now: new Date() });
     expect(outcomes.forecast_judgments).toBe("failed");
     expect(outcomes.forecast_models).toBe("done");
+    // The log says why, by a code that survives the production build.
+    expect(warn).toHaveBeenCalledWith(
+      expect.objectContaining({ step: "forecast_judgments", errorCode: "ai_provider_unavailable" }),
+      "Daily maintenance step failed"
+    );
 
     const forecast = (await getPeriodForecast({ period: THIS_MONTH }, "Asia/Shanghai"))!;
     expect(forecast.judgment).toBeNull();

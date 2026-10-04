@@ -10,6 +10,7 @@ import {
   storedFiles,
 } from "@/persistence";
 import { getS3Storage } from "@/lib/storage/s3";
+import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { runWithConcurrency } from "@/lib/concurrency";
 import { AI_CORRECTIONS_RETENTION_DAYS, FORECAST_AI_RETENTION_DAYS } from "@/config/tuning";
@@ -55,7 +56,12 @@ export async function runDailyMaintenance(
     } catch (error) {
       outcomes[name] = "failed";
       logger.warn(
-        { step: name, errorName: error instanceof Error ? error.name : "UnknownError" },
+        {
+          step: name,
+          errorName: error instanceof Error ? error.name : "UnknownError",
+          // The class name does not survive the production build; the code does.
+          ...(error instanceof AppError ? { errorCode: error.code } : {}),
+        },
         "Daily maintenance step failed"
       );
     }
