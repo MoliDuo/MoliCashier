@@ -65,25 +65,30 @@ function before(a: Element, b: Element): boolean {
 }
 
 describe("LedgerTopBar", () => {
-  it("puts the one book switcher on the left, before the summary and the select toggle", () => {
+  it("puts the select toggle on the left, the summary in the middle and the switcher on the right", () => {
     renderBar("records", selection(false));
 
+    // One switcher for the desktop bar and one for the phone's; the phone's is last.
     const switchers = screen.getAllByTestId("book-switcher");
-    expect(switchers).toHaveLength(1);
-    const summaryButton = screen.getByRole("button", { name: /本月/ });
+    expect(switchers).toHaveLength(2);
+    const phoneSwitcher = switchers[1]!;
+    expect(phoneSwitcher.parentElement).toHaveClass("md:hidden");
     const selectToggle = screen.getByRole("button", { name: "选择" });
-    expect(before(switchers[0]!, summaryButton)).toBe(true);
-    expect(before(summaryButton, selectToggle)).toBe(true);
+    const summaryButton = screen.getByRole("button", { name: /本月/ });
+    expect(before(selectToggle, summaryButton)).toBe(true);
+    expect(before(summaryButton, phoneSwitcher)).toBe(true);
   });
 
-  it("moves select-all to the left and cancel to the right while selecting", () => {
+  it("keeps cancel on the left, the count in the middle and select-all on the right while selecting", () => {
     renderBar("records", selection(true));
 
-    const selectAll = screen.getByRole("checkbox");
-    const count = screen.getByText(/2/, { selector: "p" });
     const cancel = screen.getByRole("button", { name: "取消" });
-    expect(before(selectAll, count)).toBe(true);
-    expect(before(count, cancel)).toBe(true);
+    const count = screen.getByText(/2/, { selector: "p" });
+    const selectAll = screen.getByRole("checkbox");
+    expect(before(cancel, count)).toBe(true);
+    expect(before(count, selectAll)).toBe(true);
+    // The phone's switcher steps aside for select-all.
+    expect(screen.getAllByTestId("book-switcher")[1]!.parentElement).toHaveClass("max-md:hidden");
   });
 
   it("has no book switcher in 设置, only its name", () => {
