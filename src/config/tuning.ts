@@ -78,3 +78,12 @@ export const PREFERENCE_LEARNING_MAX_RULES = 15;
 export const PREFERENCE_LEARNING_RULE_MAX_CHARS = 160;
 /** How long a corrections row that a run already read is kept. */
 export const AI_CORRECTIONS_RETENTION_DAYS = 180;
+
+/** How far back the 统计 forecast reads; older days have faded to nothing by then anyway. */
+export const FORECAST_HISTORY_DAYS = 730;
+/** How fast the forecast lets the past fade: a day this many days old counts half as much as yesterday. */
+export const FORECAST_HALF_LIFE_DAYS = 30;
+/** How many times the forecast plays out the rest of a period. */
+export const FORECAST_SIMULATION_PATHS = 1000;
+/** Fewer recorded days than this before today are too few for the forecast to learn from. */
+export const FORECAST_MIN_HISTORY_DAYS = 7;

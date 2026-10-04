@@ -6,9 +6,11 @@ import { textRoleClassName } from "@/components/typography";
 import { Button } from "@/components/ui/button";
 import type { DateRangeType } from "@/lib/date-utils";
 import { openLedgerEntrySourceDocument } from "@/lib/navigation/ledger-detail-navigation";
+import type { ForecastDto } from "@/modules/forecast/contracts";
 import type { EnhancedStatsDto } from "@/modules/stats/contracts";
 import { deriveStatsInsights, type StatsInsights } from "@/modules/stats/lib/derived-insights";
 import { CalendarHeatmapSection } from "./CalendarHeatmapSection";
+import { StatsCategoryForecast } from "./StatsCategoryForecast";
 import { StatsChart } from "./StatsChart";
 import { StatsCumulativeChart } from "./StatsCumulativeChart";
 import { StatsHighlights } from "./StatsHighlights";
@@ -55,6 +57,12 @@ interface StatsContentViewProps {
   /** What the figures are set against, e.g. 上月; null hides the comparison. */
   comparisonLabel: string | null;
   stats: EnhancedStatsDto | undefined;
+  /**
+   * The simulated forecast for the same figures, when the period is running
+   * and it has arrived. Without it the summary and the running total fall back
+   * to the typical-day projection the figures carry.
+   */
+  forecast?: ForecastDto | null;
   isLoading?: boolean;
   isError?: boolean;
   onRetry?: () => void;
@@ -71,6 +79,7 @@ export function StatsContentView({
   scale,
   comparisonLabel,
   stats,
+  forecast = null,
   isLoading = false,
   isError = false,
   onRetry,
@@ -160,6 +169,7 @@ export function StatsContentView({
         comparison={comparisonLabel == null ? undefined : comparison}
         periodLabel={periodLabel}
         insights={insights ?? NO_INSIGHTS}
+        forecast={forecast?.total ?? null}
         isLoading={isLoading && stats == null}
       />
 
@@ -203,6 +213,7 @@ export function StatsContentView({
                 range={stats.range}
                 periodEnd={stats.periodEnd}
                 forecast={insights?.forecast ?? null}
+                forecastBand={forecast?.running ?? null}
                 previous={
                   comparisonLabel == null
                     ? null
@@ -246,6 +257,20 @@ export function StatsContentView({
                 }
               : {})}
           />
+
+          {forecast != null ? (
+            <StatsCategoryForecast
+              forecast={forecast}
+              currencySymbol={currencySymbol}
+              periodLabel={comparisonLabel}
+              {...(onCategoryDrilldown !== undefined
+                ? {
+                    onCategoryClick: (categoryId: string) =>
+                      onCategoryDrilldown(categoryId, startDateStr, endDateStr),
+                  }
+                : {})}
+            />
+          ) : null}
 
           {stats != null ? (
             <StatsLargestEntries

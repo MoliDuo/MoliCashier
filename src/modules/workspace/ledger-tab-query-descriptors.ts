@@ -77,6 +77,8 @@ export interface StatsQueryInput {
 
 export interface StatsQueryDescriptor {
   queryKey: readonly unknown[];
+  /** The forecast shown beside the same statistics, read with the same input. */
+  forecastQueryKey: readonly unknown[];
   input: StatsQueryInput;
 }
 
@@ -85,12 +87,14 @@ export function buildStatsQueryDescriptor(input: {
   period: Period;
   mainCurrency: string;
 }): StatsQueryDescriptor {
+  const keyParams = {
+    bookId: input.bookId ?? null,
+    period: periodKey(input.period),
+    mainCurrency: input.mainCurrency,
+  };
   return {
-    queryKey: queryKeys.enhancedStats({
-      bookId: input.bookId ?? null,
-      period: periodKey(input.period),
-      mainCurrency: input.mainCurrency,
-    }),
+    queryKey: queryKeys.enhancedStats(keyParams),
+    forecastQueryKey: queryKeys.forecast(keyParams),
     input: {
       ...(input.bookId == null ? {} : { bookId: input.bookId }),
       period: input.period,

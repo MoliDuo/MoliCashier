@@ -4,6 +4,7 @@ import { formatCurrencyAmount } from "@/lib/format/currency";
 import { abs, compare } from "@/lib/money/decimal";
 import { cn } from "@/lib/utils";
 import { AmountText } from "@/modules/currency/ui/amount-text";
+import type { ForecastRangeDto } from "@/modules/forecast/contracts";
 import type { EnhancedStatsDto } from "@/modules/stats/contracts";
 import type { StatsInsights } from "@/modules/stats/lib/derived-insights";
 import { StatsMetricStrip } from "./StatsMetricStrip";
@@ -17,6 +18,8 @@ interface StatsSummaryProps {
   comparison: EnhancedStatsDto["summary"]["comparison"] | undefined;
   periodLabel: string;
   insights: StatsInsights;
+  /** The simulated forecast for the whole period, when there is one. */
+  forecast?: ForecastRangeDto | null;
   isLoading?: boolean;
 }
 
@@ -27,6 +30,7 @@ export function StatsSummary({
   comparison,
   periodLabel,
   insights,
+  forecast = null,
   isLoading = false,
 }: StatsSummaryProps) {
   const locale = DISPLAY_LOCALE;
@@ -89,6 +93,7 @@ export function StatsSummary({
           ) : (
             <StatsMetricStrip
               insights={insights}
+              forecast={forecast}
               dailyAverage={dailyAverage}
               currencySymbol={currencySymbol}
             />

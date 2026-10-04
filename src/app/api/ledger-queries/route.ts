@@ -35,6 +35,7 @@ import {
 import { getSourceDocumentInput } from "@/modules/source-document/server/reads/input";
 import { convertCurrency } from "@/modules/currency/server/convert-currency";
 import { parseEnhancedStatsInput } from "@/modules/stats/contract-schemas";
+import { getPeriodForecast } from "@/modules/forecast/server/get-forecast";
 
 const requestSchema = z
   .object({
@@ -52,6 +53,7 @@ const requestSchema = z
       "summary",
       "settings",
       "stats",
+      "forecast",
       "category-assignment",
       "category-assignment-results",
       "category-assignment-entry-states",
@@ -81,6 +83,11 @@ export async function POST(request: Request) {
           findEarliestDocumentDate(bookId)
         );
         result = await queryEnhancedStats(parseEnhancedStatsInput(resolved));
+        break;
+      }
+      case "forecast": {
+        const { ledger } = await requireLedgerAccess();
+        result = await getPeriodForecast(input, ledger.settings.timeZone);
         break;
       }
       case "detail":

@@ -61,4 +61,42 @@ describe("StatsCumulativeChart", () => {
     for (let day = 0; day < 5; day++) fireEvent.keyDown(plot, { key: "ArrowRight" });
     expect(within(screen.getByRole("tooltip")).getByText(/^预计 /)).toBeVisible();
   });
+
+  it("draws the forecast's spread for the days left and reads it in the tooltip", () => {
+    // Twenty days left, at 10 to 30 a day around a middle of 20.
+    const band = Array.from({ length: 20 }, (_, index) => ({
+      p10: String(3030 + 10 * (index + 1)),
+      p50: String(3030 + 20 * (index + 1)),
+      p90: String(3030 + 30 * (index + 1)),
+    }));
+    render(
+      <StatsCumulativeChart {...september} forecast="9999" forecastBand={band} previous={null} />
+    );
+    const plot = screen.getByRole("img");
+
+    // The band's last middle replaces the typical-day forecast.
+    expect(plot).toHaveAccessibleName(
+      "累计支出：本期 ¥3,030.00，预计 ¥3,430.00，¥3,230.00–¥3,630.00"
+    );
+    plot.focus();
+    fireEvent.keyDown(plot, { key: "ArrowRight" });
+    const tooltip = screen.getByRole("tooltip");
+    expect(within(tooltip).getByText("预计 ¥3,050.00")).toBeVisible();
+    expect(within(tooltip).getByText("¥3,040.00–¥3,060.00")).toBeVisible();
+  });
+
+  it("ignores a band that does not cover the days left", () => {
+    render(
+      <StatsCumulativeChart
+        {...september}
+        forecast="3630"
+        forecastBand={[{ p10: "1", p50: "2", p90: "3" }]}
+        previous={null}
+      />
+    );
+
+    expect(screen.getByRole("img")).toHaveAccessibleName(
+      "累计支出：本期 ¥3,030.00，预计 ¥3,630.00"
+    );
+  });
 });

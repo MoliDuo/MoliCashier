@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { usePathname, useSearchParams } from "next/navigation";
+import { fetchForecast } from "@/modules/forecast/queries";
 import { fetchEnhancedStats } from "@/modules/stats/queries";
 import { StatsContentView, type StatsScale } from "@/modules/stats/ui/StatsContentView";
 import type { Ledger } from "@/modules/ledger/contracts";
@@ -103,6 +104,18 @@ export function StatsTab({
     staleTime: QUERY.DEFAULT_STALE_TIME_MS,
     refetchOnWindowFocus: false,
   });
+  // Only a calendar period that is still running has anywhere left to head.
+  const forecastPeriod = scopeDescriptor.input.period;
+  const forecastQuery = useQuery({
+    queryKey: scopeDescriptor.forecastQueryKey,
+    queryFn: () => fetchForecast(scopeDescriptor.input),
+    enabled:
+      forecastPeriod.range !== "all" &&
+      forecastPeriod.range !== "custom" &&
+      forecastPeriod.offset === 0,
+    staleTime: QUERY.DEFAULT_STALE_TIME_MS,
+    refetchOnWindowFocus: false,
+  });
   // The last successful figures are kept while a refetch runs, but only for the
   // book they belong to: switching books must not show the previous book's
   // figures. The period travels with them, so the comparison label stays the
@@ -133,6 +146,15 @@ export function StatsTab({
   // The figures carry the days they cover; before any arrive, the same
   // resolution the server makes names them.
   const range = stats?.range ?? resolveComparison(contentPeriod, today).range;
+  // The forecast is shown only beside the figures it was made for: while the
+  // period changes, the old figures stay up and the new forecast waits.
+  const forecast =
+    forecastQuery.data != null &&
+    stats != null &&
+    forecastQuery.data.asOf === stats.range.to &&
+    forecastQuery.data.periodEnd === stats.periodEnd
+      ? forecastQuery.data
+      : null;
   // A phone prints the period and the total between the book and the gear, as
   // 账目 does; the period is 统计's own, so the two pages never move each other.
   const total =
@@ -167,6 +189,7 @@ export function StatsTab({
         scale={scaleOf(range)}
         comparisonLabel={comparisonLabelOf(contentPeriod)}
         stats={stats}
+        forecast={forecast}
         isLoading={statsQuery.isFetching}
         isError={statsQuery.isError}
         onRetry={() => void statsQuery.refetch()}
