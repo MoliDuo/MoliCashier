@@ -1,6 +1,5 @@
 "use client";
 import type { ReactNode } from "react";
-import Image from "next/image";
 import { ChevronDown, ChevronLeft, ChevronRight, SquareCheckBig, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { textRoleClassName } from "@/components/typography";
@@ -34,8 +33,8 @@ interface LedgerTopBarProps {
  * figures, which drops that page's period and filter down) between arrows that
  * step the period, and the book switcher on the right. While a list is being selected from, the middle is the
  * count and the right is select-all; 设置 has only its name, since the book
- * being viewed has no bearing there. From md up the bar holds the logo, the
- * tabs, 记账 and the book switcher instead, and selecting stays in the page.
+ * being viewed has no bearing there. From md up the bar holds the book switcher
+ * on the left, then the tabs and 记账, and selecting stays in the page.
  */
 export function LedgerTopBar({
   activeTab,
@@ -59,10 +58,11 @@ export function LedgerTopBar({
           selecting ? "flex-none" : "flex-1"
         )}
       >
-        <span className="hidden items-center gap-2 pl-1 font-semibold text-text md:inline-flex">
-          <Image src="/icon.svg" alt="" width={24} height={24} unoptimized className="size-6" />
-          Moli Cashier
-        </span>
+        {inSettings ? null : (
+          <div className="hidden md:flex">
+            <BookSwitcher disabled={disabled} align="start" />
+          </div>
+        )}
         {!inSettings && headerSelection != null ? (
           <Button
             type="button"
@@ -188,7 +188,7 @@ export function LedgerTopBar({
           {ledgerPageCopy.newRecord}
         </Button>
         {inSettings ? null : (
-          <div className={cn("flex min-w-0 justify-end", selecting && "max-md:hidden")}>
+          <div className={cn("flex min-w-0 justify-end md:hidden", selecting && "max-md:hidden")}>
             <BookSwitcher disabled={disabled} />
           </div>
         )}

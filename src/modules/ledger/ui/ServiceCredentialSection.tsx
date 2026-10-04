@@ -125,7 +125,6 @@ export function ServiceCredentialSection({
 
   return (
     <SettingsSection
-      title={serviceCredentialsCopy.title}
       actions={
         <Button onClick={openCreateDialog} size="sm" disabled={isCreating || isDeleting}>
           {serviceCredentialsCopy.newCredential}

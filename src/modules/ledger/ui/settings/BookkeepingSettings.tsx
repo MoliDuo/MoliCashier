@@ -94,12 +94,9 @@ export function BookkeepingSettings({
         fields share one save, so a field in one card waits for a save made in
         another; 主题 belongs to this browser and never waits.
       */}
-      <SettingsSection title={settingsCopy.appearance}>
+      <SettingsSection>
         <ThemeField />
-        <SettingsField
-          title={settingsCopy.collapseEntries}
-          description={settingsCopy.collapseEntriesDesc}
-        >
+        <SettingsField title={settingsCopy.collapseEntries}>
           <Switch
             aria-label={settingsCopy.collapseEntries}
             checked={shown.collapseEntriesDefault}
@@ -108,7 +105,7 @@ export function BookkeepingSettings({
           />
         </SettingsField>
       </SettingsSection>
-      <SettingsSection title={settingsCopy.timeZoneAndCurrency}>
+      <SettingsSection>
         <SettingsField title={settingsCopy.timeZone} description={settingsCopy.timeZoneDesc}>
           <Select
             value={shown.timeZone}
@@ -133,7 +130,7 @@ export function BookkeepingSettings({
           disabled={saving}
         />
       </SettingsSection>
-      <SettingsSection title={settingsCopy.aiParsing}>
+      <SettingsSection>
         <SettingsField title={settingsCopy.aiLanguage}>
           <Select
             value={shown.aiLanguage}
@@ -152,11 +149,7 @@ export function BookkeepingSettings({
             </SelectContent>
           </Select>
         </SettingsField>
-        <SettingsField
-          title={settingsCopy.aiPrompt}
-          description={settingsCopy.aiPromptDesc}
-          stacked
-        >
+        <SettingsField title={settingsCopy.aiPrompt} stacked>
           <Textarea
             value={prompt ?? shown.aiCustomPrompt}
             name="aiCustomPrompt"
