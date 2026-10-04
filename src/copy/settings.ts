@@ -1,10 +1,6 @@
 import type { CommonLucideIcon } from "@/config/icons";
 
 export const settingsCopy = {
-  account: "账户",
-  appearance: "外观",
-  timeZoneAndCurrency: "时区与货币",
-  aiParsing: "AI 解析",
   theme: "主题",
   themeAuto: "跟随系统",
   themeLight: "浅色模式",
@@ -14,14 +10,12 @@ export const settingsCopy = {
   timeZoneDesc: "决定「今天」和每月从哪天算起，所有分账共用。",
   mainCurrency: "主货币",
   collapseEntries: "默认折叠账单",
-  collapseEntriesDesc: "账单卡片默认只显示标题和合计。",
   preferredCurrencies: "偏好货币",
   preferredCurrenciesNone: "未选择币种",
   preferredCurrenciesSummary: (v: { currencies: string | number; count: string | number }) =>
     `${v.currencies}（${v.count} 种）`,
   preferredCurrenciesSearch: "搜索币种",
   preferredCurrenciesNoResults: "没有匹配的币种",
-  categories: "分类",
   manageCategories: "管理分类",
   categoryAssignmentActive: "分类任务进行中，结束后才能修改分类。",
   moveCategoryUp: "上移",
@@ -34,13 +28,8 @@ export const settingsCopy = {
     `确定删除分类“${v.name}”吗？相关明细将变为未分类。`,
   categoryName: "分类名称",
   aiPrompt: "账本提示词",
-  aiPromptDesc: "AI 解析和分类时会参考，例如常去的商家归哪类。",
   learnPreferences: "从我的修改中学习",
-  learnPreferencesDesc:
-    "记录你对分类、商品名和标题的修改，每天整理成下面的偏好。关闭后不再记录和整理，已学到的内容仍会使用。",
   learnedPreferences: "自动学到的偏好",
-  learnedPreferencesDesc:
-    "由 AI 根据你的修改整理，优先级低于账本提示词。可以直接修改，也可以清空。",
   learnedPreferencesEmpty: "还没有学到偏好。修改几条 AI 的结果后，第二天会出现在这里。",
   learnedPreferencesUpdatedAt: (v: { date: string }) => `最近整理于 ${v.date}`,
   clearLearnedPreferences: "清空",
@@ -141,8 +130,6 @@ export const settingsCopy = {
 };
 
 export const settingsBooksCopy = {
-  title: "分账",
-  description: "每张账单属于一个分账，总账汇总全部分账。",
   name: "名称",
   namePlaceholder: "分账名称",
   add: "新增分账",
@@ -175,7 +162,6 @@ export const settingsBooksCopy = {
 };
 
 export const serviceCredentialsCopy = {
-  title: "API 密钥",
   newCredential: "新建密钥",
   noCredentials: "暂无服务密钥",
   createdAt: (v: { date: string | number }) => `创建于 ${v.date}`,

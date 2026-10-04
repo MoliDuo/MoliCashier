@@ -19,6 +19,8 @@ import { bookScopeCopy } from "@/copy/common";
 
 interface BookSwitcherProps {
   disabled?: boolean;
+  /** Which edge of the trigger the menu lines up with. */
+  align?: "start" | "end";
 }
 
 /**
@@ -26,7 +28,7 @@ interface BookSwitcherProps {
  * device's preference, not a history entry, so it lives in the workspace store
  * (and its cookie) rather than the URL.
  */
-export function BookSwitcher({ disabled = false }: BookSwitcherProps) {
+export function BookSwitcher({ disabled = false, align = "end" }: BookSwitcherProps) {
   const { books } = useBooks({});
   const storedScope = useWorkspaceStore((state) => state.bookId);
   const setScope = useWorkspaceStore((state) => state.setBookId);
@@ -59,7 +61,7 @@ export function BookSwitcher({ disabled = false }: BookSwitcherProps) {
           <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
+      <DropdownMenuContent align={align} className="w-52">
         {options.map((option, index) => (
           <Fragment key={option.scope ?? "all"}>
             {index === 1 ? <DropdownMenuSeparator /> : null}

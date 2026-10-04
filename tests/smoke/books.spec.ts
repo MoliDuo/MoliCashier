@@ -83,9 +83,9 @@ test("@demo manages books and the book each API key writes to", async ({ page })
   await expect(page).not.toHaveURL(/\/login/);
   await openTab(page, "设置");
 
-  // 分账 section: the three seeded books. 总账 is a view over all of them, so
+  // 分账 card: the three seeded books. 总账 is a view over all of them, so
   // nothing here marks a default any more, and the ledger has one zone for all.
-  await expect(page.getByRole("heading", { name: "分账", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "新增分账", exact: true })).toBeVisible();
   await expect(bookMenu(page, "梁梁")).toBeVisible();
   await expect(page.getByRole("combobox", { name: "时区", exact: true })).toHaveText(
     "Asia/Shanghai"
@@ -199,7 +199,7 @@ test("@demo deletes, archives and restores a book it creates for itself", async 
   await page.getByRole("button", { name: "以开发身份进入", exact: true }).click();
   await expect(page).not.toHaveURL(/\/login/);
   await openTab(page, "设置");
-  await expect(page.getByRole("heading", { name: "分账", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "新增分账", exact: true })).toBeVisible();
 
   // A key is still bound to 梁梁, so archiving it is refused with the reason,
   // and the refusal changes nothing.

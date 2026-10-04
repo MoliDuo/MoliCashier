@@ -90,7 +90,6 @@ export function CategorySection({
 
   return (
     <SettingsSection
-      title={settingsCopy.categories}
       actions={
         managing ? null : (
           <Button

@@ -57,7 +57,7 @@ export function StatsSummary({
 
   return (
     <section className="rounded-lg border border-border bg-surface p-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-8">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
         <div className="min-w-0 space-y-1">
           <p className={textRoleClassName("bodyMuted")}>{statsTabCopy.totalExpense}</p>
           {isLoading ? (

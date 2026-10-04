@@ -38,11 +38,7 @@ export function StatsMetricStrip({
     },
     {
       label: statsTabCopy.entries,
-      value: (
-        <span className={textRoleClassName("bodyStrong", "tabular-nums")}>
-          {insights.entryCount}
-        </span>
-      ),
+      value: <AmountText variant="summary">{insights.entryCount}</AmountText>,
     },
     ...(insights.forecast == null
       ? []
