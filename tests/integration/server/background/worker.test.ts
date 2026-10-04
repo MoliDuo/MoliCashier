@@ -4,12 +4,10 @@ import { getTestDb } from "tests/setup";
 import { createTestLedger, testBookId } from "tests/helpers/schema-setup";
 import { createPendingAttempt } from "tests/helpers/processing-attempt";
 import { extractionAttempts } from "@/persistence";
-import { AppError } from "@/lib/errors";
+import { setAiTransportForTests } from "@/lib/ai/client";
+import { fakeAiTransport } from "tests/helpers/fake-ai";
 import { createBackgroundWorker } from "@/server/background/worker";
 import { requestBackgroundWork } from "@/server/background/wake";
-
-vi.mock("@/lib/tasks/ai-context", () => ({ createAIContext: vi.fn() }));
-import { createAIContext } from "@/lib/tasks/ai-context";
 
 const workers: Array<ReturnType<typeof createBackgroundWorker>> = [];
 
@@ -21,6 +19,7 @@ function worker(pollIntervalMs = 60_000) {
 
 afterEach(async () => {
   await Promise.all(workers.splice(0).map((created) => created.stop({ graceMs: 100 })));
+  setAiTransportForTests(null);
   vi.restoreAllMocks();
 });
 
@@ -43,23 +42,23 @@ function findAttempt(attemptId: string) {
 /** A model call that never settles on its own and rejects when the run is aborted. */
 function hangingModel() {
   const started = Promise.withResolvers<void>();
-  vi.mocked(createAIContext).mockImplementation(({ signal }) => ({
-    generate: () => {
-      started.resolve();
-      return new Promise((_resolve, reject) => {
-        signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
-      });
-    },
-  }));
+  setAiTransportForTests(
+    fakeAiTransport(
+      ({ signal }) =>
+        new Promise((_resolve, reject) => {
+          started.resolve();
+          signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+        })
+    )
+  );
   return started.promise;
 }
 
+/** A model that only ever replies with something that is not the parser's JSON. */
 function failingModel() {
-  const generate = vi.fn(async () => {
-    throw new AppError("bad output", "ai_schema_invalid", 502);
-  });
-  vi.mocked(createAIContext).mockReturnValue({ generate });
-  return generate;
+  const transport = fakeAiTransport(() => "not json");
+  setAiTransportForTests(transport);
+  return transport;
 }
 
 describe("background worker", () => {
@@ -116,12 +115,13 @@ describe("background worker", () => {
     await pendingAttempt();
     await pendingAttempt();
     await pendingAttempt();
-    const generate = failingModel();
+    const transport = failingModel();
 
     const ran = await Promise.all([worker().drain(), worker().drain()]);
 
     expect(ran[0]! + ran[1]!).toBe(3);
-    expect(generate).toHaveBeenCalledTimes(3);
+    // Each attempt asks once and, the reply being invalid, once more to repair it.
+    expect(transport.complete).toHaveBeenCalledTimes(6);
   });
 
   it("picks up an attempt whose earlier holder died with its lease expired", async () => {

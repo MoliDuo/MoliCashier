@@ -1,6 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { executeParser } from "@/modules/source-document/domain/parse/parser";
-import type { AIContext, AIGenerateOptions } from "@/lib/tasks/types";
+import { ProcessingCancelledError } from "@/modules/source-document/domain/parse/contracts";
+import type { CompleteRequest } from "@/lib/ai/client";
+import type { GenerateStructured } from "@/lib/ai/structured";
+import { fakeAiTransport, generateVia, type FakeAiTransport } from "../../../../../helpers/fake-ai";
 
 const SIMPLE_SUCCESS_RESPONSE = {
   outcome: "success",
@@ -21,24 +24,23 @@ const SIMPLE_SUCCESS_RESPONSE = {
   reasoning: "Single item receipt",
 };
 
-function createMockAI(response: unknown = SIMPLE_SUCCESS_RESPONSE): AIContext {
-  return {
-    generate: vi.fn().mockResolvedValue({
-      content: JSON.stringify(response),
-    }),
-  };
+type MockAI = { transport: FakeAiTransport; generate: GenerateStructured };
+
+function createMockAI(response: unknown = SIMPLE_SUCCESS_RESPONSE): MockAI {
+  const transport = fakeAiTransport(() => JSON.stringify(response));
+  return { transport, generate: generateVia(transport) };
 }
 
-function getFirstGenerateCall(generate: ReturnType<typeof vi.fn>): AIGenerateOptions {
-  const firstCall = generate.mock.calls[0]?.[0];
+function getFirstCompleteCall(transport: FakeAiTransport): CompleteRequest {
+  const firstCall = transport.complete.mock.calls[0]?.[0];
   if (firstCall == null) {
-    throw new Error("Expected AI generate to be called");
+    throw new Error("Expected the AI transport to be called");
   }
-  return firstCall as AIGenerateOptions;
+  return firstCall;
 }
 
 describe("executeParser — single-pass receipt parser", () => {
-  let mockAI: AIContext;
+  let mockAI: MockAI;
 
   beforeEach(() => {
     mockAI = createMockAI();
@@ -47,7 +49,7 @@ describe("executeParser — single-pass receipt parser", () => {
   it("returns NormalizedParseOutput with outcome, title, entries, adjustments", async () => {
     const result = await executeParser(
       { evidence: { images: [{ dataUrl: "data:image/jpeg;base64,abc" }] }, originalCategories: [] },
-      mockAI
+      mockAI.generate
     );
 
     expect(result.outcome).toBe("success");
@@ -68,7 +70,7 @@ describe("executeParser — single-pass receipt parser", () => {
 
     const result = await executeParser(
       { evidence: { images: [{ dataUrl: "data:image/jpeg;base64,abc" }] }, originalCategories: [] },
-      aiWithAdjustment
+      aiWithAdjustment.generate
     );
 
     expect(result.order_adjustments).toHaveLength(1);
@@ -76,98 +78,126 @@ describe("executeParser — single-pass receipt parser", () => {
   });
 
   it("instructs the model to accept transaction-linked prices and normalize debit display signs", async () => {
-    await executeParser({ originalCategories: [] }, mockAI);
+    await executeParser({ originalCategories: [] }, mockAI.generate);
 
-    const prompt = getFirstGenerateCall(mockAI.generate as ReturnType<typeof vi.fn>).prompt;
+    const prompt = getFirstCompleteCall(mockAI.transport).system;
     expect(prompt).toContain("Valid evidence isn't limited to completed receipts/invoices");
     expect(prompt).toContain("A displayed minus sign on a debit/payment/charge");
     expect(prompt).toContain("balance, available credit, coupon value, price range");
   });
 
-  // === Model selection ===
+  // === Request shape ===
 
-  it("uses the configured model when image evidence is provided", async () => {
+  it("asks for the generous output budget and passes the abort signal through", async () => {
+    const controller = new AbortController();
     await executeParser(
       { evidence: { images: [{ dataUrl: "data:image/jpeg;base64,abc" }] }, originalCategories: [] },
-      mockAI
+      mockAI.generate,
+      controller.signal
     );
 
-    expect(getFirstGenerateCall(mockAI.generate as ReturnType<typeof vi.fn>)).not.toHaveProperty(
-      "model"
-    );
+    expect(mockAI.transport.complete).toHaveBeenCalledTimes(1);
+    expect(getFirstCompleteCall(mockAI.transport)).toMatchObject({
+      maxTokens: 8192,
+      temperature: 1,
+      signal: controller.signal,
+    });
   });
 
-  it("passes preloaded image evidence to the AI", async () => {
+  it("passes preloaded image evidence to the AI as user message parts", async () => {
     await executeParser(
       {
         evidence: { images: [{ dataUrl: "data:image/png;base64,STORED" }] },
         originalCategories: [],
       },
-      mockAI
+      mockAI.generate
     );
 
-    const call = getFirstGenerateCall(mockAI.generate as ReturnType<typeof vi.fn>);
+    const call = getFirstCompleteCall(mockAI.transport);
+    expect(call.messages).toHaveLength(1);
+    expect(call.messages[0]?.role).toBe("user");
     expect(call.messages[0]?.content).toEqual([
       { type: "text", text: "Please parse this source document." },
       { type: "image_url", image_url: { url: "data:image/png;base64,STORED" } },
     ]);
   });
 
-  it("passes user content through messages instead of stored file evidence", async () => {
-    const generate = vi.fn(async (options: AIGenerateOptions) => {
-      const firstMessage = options.messages[0];
-      expect(firstMessage).toBeDefined();
-      expect(firstMessage?.role).toBe("user");
-      expect(Array.isArray(firstMessage?.content)).toBe(true);
+  it("sends only the text part when no image evidence is provided", async () => {
+    await executeParser({ text: "Taxi fare SGD 28.00", originalCategories: [] }, mockAI.generate);
 
-      const content = firstMessage?.content;
-      if (!Array.isArray(content)) {
-        throw new Error("Expected multimodal user content array");
-      }
-
-      expect(content[0]).toEqual({ type: "text", text: "Please parse this source document." });
-      expect(content[1]).toEqual({
-        type: "image_url",
-        image_url: { url: "data:image/png;base64,STORED" },
-      });
-
-      return {
-        content: JSON.stringify(SIMPLE_SUCCESS_RESPONSE),
-      };
-    });
-
-    await executeParser(
-      {
-        evidence: { images: [{ dataUrl: "data:image/png;base64,STORED" }] },
-        originalCategories: [],
-      },
-      { generate }
-    );
-
-    expect(generate).toHaveBeenCalledTimes(1);
+    expect(getFirstCompleteCall(mockAI.transport).messages[0]?.content).toEqual([
+      { type: "text", text: "Please parse this source document." },
+    ]);
   });
 
-  it("uses the configured model when only text is provided", async () => {
-    await executeParser({ text: "Taxi fare SGD 28.00", originalCategories: [] }, mockAI);
-
-    expect(getFirstGenerateCall(mockAI.generate as ReturnType<typeof vi.fn>)).not.toHaveProperty(
-      "model"
-    );
-  });
-
-  it("uses vision model for mixed text+image input", async () => {
+  it("sends the text and every image together for mixed input", async () => {
     await executeParser(
       {
         text: "meal",
         evidence: { images: [{ dataUrl: "data:image/jpeg;base64,abc" }] },
         originalCategories: [],
       },
-      mockAI
+      mockAI.generate
     );
 
-    expect(getFirstGenerateCall(mockAI.generate as ReturnType<typeof vi.fn>)).not.toHaveProperty(
-      "model"
+    const call = getFirstCompleteCall(mockAI.transport);
+    expect(call.system).toContain("meal");
+    expect(call.messages[0]?.content).toEqual([
+      { type: "text", text: "Please parse this source document." },
+      { type: "image_url", image_url: { url: "data:image/jpeg;base64,abc" } },
+    ]);
+  });
+
+  // === Failures ===
+
+  it("repairs once and fails with ai_schema_invalid when the reply stays invalid", async () => {
+    const transport = fakeAiTransport(() => "not json at all");
+
+    await expect(
+      executeParser({ text: "coffee", originalCategories: [] }, generateVia(transport))
+    ).rejects.toMatchObject({ code: "ai_schema_invalid" });
+    expect(transport.complete).toHaveBeenCalledTimes(2);
+  });
+
+  it("accepts the reply from the repair round when the first one is invalid", async () => {
+    let calls = 0;
+    const transport = fakeAiTransport(() =>
+      ++calls === 1 ? '{"outcome":"success"}' : JSON.stringify(SIMPLE_SUCCESS_RESPONSE)
     );
+
+    const result = await executeParser(
+      { text: "coffee", originalCategories: [] },
+      generateVia(transport)
+    );
+
+    expect(result.title).toBe("Test Restaurant");
+    expect(transport.complete).toHaveBeenCalledTimes(2);
+  });
+
+  it("maps a transport failure to ai_provider_unavailable", async () => {
+    const transport = fakeAiTransport(() => {
+      throw new Error("socket hang up");
+    });
+
+    await expect(
+      executeParser({ text: "coffee", originalCategories: [] }, generateVia(transport))
+    ).rejects.toMatchObject({ code: "ai_provider_unavailable" });
+  });
+
+  it("reports cancellation instead of a provider failure when the signal aborted", async () => {
+    const controller = new AbortController();
+    const transport = fakeAiTransport(() => {
+      controller.abort();
+      throw new Error("aborted");
+    });
+
+    await expect(
+      executeParser(
+        { text: "coffee", originalCategories: [] },
+        generateVia(transport),
+        controller.signal
+      )
+    ).rejects.toBeInstanceOf(ProcessingCancelledError);
   });
 
   // === Outcome branches ===
@@ -180,7 +210,10 @@ describe("executeParser — single-pass receipt parser", () => {
       receipt_totals: [],
     });
 
-    const result = await executeParser({ text: "random text", originalCategories: [] }, aiInvalid);
+    const result = await executeParser(
+      { text: "random text", originalCategories: [] },
+      aiInvalid.generate
+    );
 
     expect(result.outcome).toBe("invalid");
   });
@@ -196,7 +229,7 @@ describe("executeParser — single-pass receipt parser", () => {
 
     const result = await executeParser(
       { evidence: { images: [{ dataUrl: "data:image/jpeg;base64,abc" }] }, originalCategories: [] },
-      aiInvalid
+      aiInvalid.generate
     );
 
     expect(result.outcome).toBe("invalid");
@@ -211,26 +244,22 @@ describe("executeParser — single-pass receipt parser", () => {
         text: "coffee 10 USD",
         originalCategories: [{ name: "Food", description: "Meals and snacks" }],
       },
-      mockAI
+      mockAI.generate
     );
 
-    expect(getFirstGenerateCall(mockAI.generate as ReturnType<typeof vi.fn>).prompt).toContain(
-      "Food"
-    );
+    expect(getFirstCompleteCall(mockAI.transport).system).toContain("Food");
   });
 
   it("prompt contains expense evidence parser identifier", async () => {
-    await executeParser({ text: "coffee 10 USD", originalCategories: [] }, mockAI);
+    await executeParser({ text: "coffee 10 USD", originalCategories: [] }, mockAI.generate);
 
-    expect(getFirstGenerateCall(mockAI.generate as ReturnType<typeof vi.fn>).prompt).toContain(
-      "expense evidence parser"
-    );
+    expect(getFirstCompleteCall(mockAI.transport).system).toContain("expense evidence parser");
   });
 
   it("uses the v11 rules for mixed refund cards and bookkeeping totals", async () => {
-    await executeParser({ text: "payment feed", originalCategories: [] }, mockAI);
+    await executeParser({ text: "payment feed", originalCategories: [] }, mockAI.generate);
 
-    const prompt = getFirstGenerateCall(mockAI.generate as ReturnType<typeof vi.fn>).prompt;
+    const prompt = getFirstCompleteCall(mockAI.transport).system;
     expect(prompt).toContain("refund/credit note is the only thing on it");
     expect(prompt).toContain("skip the refund card entirely");
     expect(prompt).toContain("Ignore running balances and day/period summary headers");
@@ -246,10 +275,10 @@ describe("executeParser — single-pass receipt parser", () => {
         aiCustomPrompt: "Use my preferred wording.",
         preferredCurrencies: ["USD"],
       },
-      mockAI
+      mockAI.generate
     );
 
-    const prompt = getFirstGenerateCall(mockAI.generate as ReturnType<typeof vi.fn>).prompt ?? "";
+    const prompt = getFirstCompleteCall(mockAI.transport).system;
     const fixedRuleIndex = prompt.indexOf("skip the refund card entirely");
     const dynamicContextIndex = prompt.indexOf("### Expense Categories");
 
@@ -269,10 +298,10 @@ describe("executeParser — single-pass receipt parser", () => {
         aiLanguage: "zh-CN",
         aiCustomPrompt: "Write every ledger field in English.",
       },
-      mockAI
+      mockAI.generate
     );
 
-    const prompt = getFirstGenerateCall(mockAI.generate as ReturnType<typeof vi.fn>).prompt ?? "";
+    const prompt = getFirstCompleteCall(mockAI.transport).system;
     const customPromptIndex = prompt.indexOf("Write every ledger field in English.");
     const localePolicyIndex = prompt.indexOf("Mandatory Output Locale");
 
@@ -291,10 +320,10 @@ describe("executeParser — single-pass receipt parser", () => {
         aiLanguage: "en-US",
         aiCustomPrompt: "Always include the amount in the title.",
       },
-      mockAI
+      mockAI.generate
     );
 
-    const prompt = getFirstGenerateCall(mockAI.generate as ReturnType<typeof vi.fn>).prompt ?? "";
+    const prompt = getFirstCompleteCall(mockAI.transport).system;
     expect(prompt).toContain("### Title");
     expect(prompt).toContain("merchant/service-first");
     expect(prompt).toContain("No amounts, dates, or payment status");
@@ -321,7 +350,7 @@ describe("executeParser — single-pass receipt parser", () => {
         },
         originalCategories: [],
       },
-      mockAI
+      mockAI.generate
     );
     expect(result.outcome).toBe("success");
   });

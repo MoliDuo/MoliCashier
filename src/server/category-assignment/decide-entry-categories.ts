@@ -1,8 +1,5 @@
 import "server-only";
-import { getOpenAIClient } from "@/lib/ai/openai-client";
-import { runtimeEnv } from "@/lib/env/runtime";
-import { AppError } from "@/lib/errors";
-import { extractJson } from "@/lib/tasks/json-utils";
+import { generateStructured } from "@/lib/ai/structured";
 import {
   buildCategoryAssignmentDocumentMessage,
   buildCategoryAssignmentPrompt,
@@ -40,9 +37,11 @@ export async function decideEntryCategories(input: {
     candidates: input.candidates,
     ...(input.customPrompt == null ? {} : { customPrompt: input.customPrompt }),
   });
-  const result = await getOpenAIClient().generateContent(
-    prompt,
-    [
+  const response = await generateStructured({
+    task: "category-assignment",
+    schema: categoryAssignmentResponseSchema,
+    system: prompt,
+    messages: [
       {
         role: "user",
         content: buildCategoryAssignmentDocumentMessage({
@@ -51,25 +50,15 @@ export async function decideEntryCategories(input: {
         }),
       },
     ],
-    runtimeEnv.aiModel,
-    MAX_TOKENS,
-    TEMPERATURE,
-    input.signal,
-    { maxAttempts: 1, timeoutMs: AI_CATEGORY_REQUEST_TIMEOUT_MS }
-  );
-
-  try {
-    const response = categoryAssignmentResponseSchema.parse(
-      JSON.parse(extractJson(result.content))
-    );
-    return resolveCategoryAssignmentDecisions({
-      subjects: input.group.subjects,
-      candidates: input.candidates,
-      response,
-    });
-  } catch (error) {
-    throw new AppError("AI category assignment response was invalid", "ai_schema_invalid", 502, {
-      cause: error instanceof Error ? error.name : "UnknownError",
-    });
-  }
+    maxTokens: MAX_TOKENS,
+    temperature: TEMPERATURE,
+    ...(input.signal === undefined ? {} : { signal: input.signal }),
+    maxAttempts: 1,
+    timeoutMs: AI_CATEGORY_REQUEST_TIMEOUT_MS,
+  });
+  return resolveCategoryAssignmentDecisions({
+    subjects: input.group.subjects,
+    candidates: input.candidates,
+    response,
+  });
 }

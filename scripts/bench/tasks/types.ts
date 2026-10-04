@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { AiContextContract } from "@/modules/source-document/domain/parse/contracts";
+import type { GenerateStructured } from "@/lib/ai/structured";
 import type { BenchDocument } from "../lib/schema";
 
 /** How one run of a task fared against its annotation. */
@@ -14,7 +14,7 @@ export interface Score {
 export interface TaskRunContext {
   document: BenchDocument;
   images: readonly { dataUrl: string }[];
-  ai: AiContextContract;
+  generate: GenerateStructured;
   signal: AbortSignal;
 }
 

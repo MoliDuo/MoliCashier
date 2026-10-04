@@ -6,7 +6,6 @@ import type {
 import { NotFoundError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { logIdentifier } from "@/lib/security/log-identifier";
-import type { AIContext } from "@/lib/tasks/types";
 import { compare } from "@/lib/money/decimal";
 import {
   buildEntriesForInsert,
@@ -33,14 +32,8 @@ import { ledgerToday } from "@/modules/ledger/server/query-period";
 import { ensureExchangeRates } from "@/modules/currency/server/exchange-rates";
 import { recordProcessingFailure } from "@/modules/source-document/server/extraction-attempts";
 import { activateAttempt } from "@/modules/source-document/server/projections/writes";
-import { createAIContext } from "@/lib/tasks/ai-context";
-import { getOpenAIClient } from "@/lib/ai/openai-client";
-import { runtimeEnv } from "@/lib/env/runtime";
+import { generateStructured, type GenerateStructured } from "@/lib/ai/structured";
 import { createDateOrganizationSuggestion } from "@/modules/source-document/date-organization";
-
-function defaultAIContext(signal: AbortSignal): AIContext {
-  return createAIContext({ signal, getClient: getOpenAIClient, model: runtimeEnv.aiModel });
-}
 
 function failureLogContext(
   request: AttemptProcessingRequestContract,
@@ -54,8 +47,8 @@ function failureLogContext(
 }
 
 export interface ProcessAttemptOptions {
-  /** Replaces the model client; tests pass a scripted generator here. */
-  createAIContext?: (signal: AbortSignal) => AIContext;
+  /** Replaces the structured model call; tests pass a scripted generator here. */
+  generate?: GenerateStructured;
 }
 
 /**
@@ -92,7 +85,6 @@ export async function processAttempt(
     );
   }
   const evidence = loadedEvidence.filter(isSuccessfulLoadImageResult);
-  const ai = (options.createAIContext ?? defaultAIContext)(signal);
   const pipeline = await runParsePipeline(
     {
       ...(attempt.inputText == null ? {} : { text: attempt.inputText }),
@@ -112,7 +104,7 @@ export async function processAttempt(
     },
     {
       signal,
-      ai,
+      generate: options.generate ?? generateStructured,
     }
   );
   throwIfProcessingCancelled(signal);

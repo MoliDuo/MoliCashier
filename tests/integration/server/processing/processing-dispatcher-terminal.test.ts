@@ -4,21 +4,20 @@ import { eq } from "drizzle-orm";
 import { getTestDb } from "tests/setup";
 import { createTestLedger, testBookId } from "tests/helpers/schema-setup";
 import { LEASE_HEARTBEAT_MS } from "@/config/tuning";
+import { setAiTransportForTests } from "@/lib/ai/client";
+import { fakeAiTransport } from "tests/helpers/fake-ai";
 import { executeProcessingJob } from "@/server/processing/execute-job";
 import { renewProcessingJobLease } from "@/server/processing/jobs";
 import type { ProcessingJobContract } from "@/server/processing/types";
 import { ledgerEntries, extractionAttempts, sourceDocuments } from "@/persistence";
 
-vi.mock("@/lib/tasks/ai-context", () => ({
-  createAIContext: vi.fn(),
-}));
 vi.mock("@/server/processing/jobs", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/server/processing/jobs")>();
   return { ...actual, renewProcessingJobLease: vi.fn(actual.renewProcessingJobLease) };
 });
-import { createAIContext } from "@/lib/tasks/ai-context";
 
 afterEach(() => {
+  setAiTransportForTests(null);
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.mocked(renewProcessingJobLease).mockReset();
@@ -63,15 +62,14 @@ describe("executeProcessingJob — standalone function with real adapter/process
     const generation = new Promise<{ content: string }>((resolve) => {
       releaseGeneration = resolve;
     });
-    const generate = vi.fn(() => {
-      markGenerationStarted();
-      return generation;
-    });
     let processingSignal: AbortSignal | undefined;
-    vi.mocked(createAIContext).mockImplementation(({ signal }) => {
-      processingSignal = signal;
-      return { generate };
-    });
+    setAiTransportForTests(
+      fakeAiTransport((request) => {
+        processingSignal = request.signal;
+        markGenerationStarted();
+        return generation;
+      })
+    );
 
     const renew = vi.mocked(renewProcessingJobLease).mockImplementation(async () => {
       if (mode === "null") return null;
@@ -122,8 +120,8 @@ describe("executeProcessingJob — standalone function with real adapter/process
     const db = getTestDb();
     const { job } = await pendingIntent("2026-07-15T00:00:00.000Z");
 
-    const generate = vi.fn(async () => ({
-      content: JSON.stringify({
+    const transport = fakeAiTransport(() =>
+      JSON.stringify({
         processingStatus: "success",
         invalid_reason: null,
         title: "Lunch",
@@ -141,9 +139,9 @@ describe("executeProcessingJob — standalone function with real adapter/process
         ],
         order_adjustments: [],
         reasoning: "single item",
-      }),
-    }));
-    vi.mocked(createAIContext).mockReturnValue({ generate });
+      })
+    );
+    setAiTransportForTests(transport);
 
     const result = await executeProcessingJob(job);
     expect(result).toBe(true);
@@ -171,8 +169,10 @@ describe("executeProcessingJob — standalone function with real adapter/process
     const db = getTestDb();
     const { job } = await pendingIntent("2026-07-15T00:00:00.000Z");
 
-    const generate = vi.fn().mockRejectedValue(new Error("AI service unavailable"));
-    vi.mocked(createAIContext).mockReturnValue({ generate });
+    const transport = fakeAiTransport(() => {
+      throw new Error("AI service unavailable");
+    });
+    setAiTransportForTests(transport);
 
     // Simulate a retry: it cancels the attempt it replaces and points the
     // document at the new one.
@@ -193,7 +193,7 @@ describe("executeProcessingJob — standalone function with real adapter/process
 
     const result = await executeProcessingJob(job);
     expect(result).toBe(false);
-    expect(generate).not.toHaveBeenCalled();
+    expect(transport.complete).not.toHaveBeenCalled();
 
     // The claim refuses the superseded attempt without counting a run.
     const attempt = await db.query.extractionAttempts.findFirst({

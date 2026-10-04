@@ -2,10 +2,8 @@ import "server-only";
 import { z } from "zod";
 import { COMMON_LUCIDE_ICONS } from "@/config/icons";
 import { buildAiOutputLocaleInstruction } from "@/config/ai-output-locales";
-import { getOpenAIClient } from "@/lib/ai/openai-client";
-import { runtimeEnv } from "@/lib/env/runtime";
-import { AppError, NotFoundError } from "@/lib/errors";
-import { extractJson } from "@/lib/tasks/json-utils";
+import { generateStructured } from "@/lib/ai/structured";
+import { NotFoundError } from "@/lib/errors";
 import { getLedgerSettings } from "./settings";
 import { getCategory, listCategories, updateMissingCategoryMetadata } from "./categories";
 
@@ -33,9 +31,11 @@ export async function generateCategoryMetadata(input: {
 ${input.customPrompt == null || input.customPrompt === "" ? "" : `\n### Additional Instructions\n${input.customPrompt}\n`}
 ${buildAiOutputLocaleInstruction(input.language)}
 Only the category description is user-visible in this response; apply the mandatory output locale to it.`;
-  const result = await getOpenAIClient().generateContent(
-    prompt,
-    [
+  return generateStructured({
+    task: "category-metadata",
+    schema: metadataSchema,
+    system: prompt,
+    messages: [
       {
         role: "user",
         content: JSON.stringify({
@@ -47,17 +47,9 @@ Only the category description is user-visible in this response; apply the mandat
         }),
       },
     ],
-    runtimeEnv.aiModel,
-    180,
-    0.2
-  );
-  try {
-    return metadataSchema.parse(JSON.parse(extractJson(result.content)));
-  } catch (error) {
-    throw new AppError("AI category metadata response was invalid", "AI_JSON_REPAIR_FAILED", 502, {
-      cause: error instanceof Error ? error.name : "UnknownError",
-    });
-  }
+    maxTokens: 180,
+    temperature: 0.2,
+  });
 }
 
 /**

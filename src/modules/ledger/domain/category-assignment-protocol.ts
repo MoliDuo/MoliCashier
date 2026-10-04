@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { AppError } from "@/lib/errors";
-import type { AIMessageContentPart } from "@/lib/tasks/types";
+import type { AiContentPart } from "@/lib/ai/client";
 
 /**
  * The wire protocol between the ledger and the model for a category assignment
@@ -165,7 +165,7 @@ function documentHeaderLines(group: CategoryAssignmentDocumentGroup): string[] {
 export function buildCategoryAssignmentDocumentMessage(input: {
   group: CategoryAssignmentDocumentGroup;
   images?: readonly { dataUrl: string }[];
-}): AIMessageContentPart[] {
+}): AiContentPart[] {
   const images = input.images ?? [];
   const text = [
     "### Source Document",
@@ -176,7 +176,7 @@ export function buildCategoryAssignmentDocumentMessage(input: {
     ...input.group.subjects.map(subjectLine),
   ].join("\n");
 
-  const content: AIMessageContentPart[] = [{ type: "text", text }];
+  const content: AiContentPart[] = [{ type: "text", text }];
   for (const image of images) {
     content.push({ type: "image_url", image_url: { url: image.dataUrl } });
   }

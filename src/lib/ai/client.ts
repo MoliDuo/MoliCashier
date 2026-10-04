@@ -8,9 +8,54 @@ import { logger } from "@/lib/logger";
 import { runtimeEnv } from "@/lib/env/runtime";
 import { AI_MAX_ATTEMPTS, AI_REQUEST_TIMEOUT_MS, AI_RETRY_DELAY_MS } from "@/config/tuning";
 
-export interface GenerateContentOptions {
+export type AiContentPart =
+  { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
+
+export interface AiMessage {
+  role: "user" | "assistant";
+  content: string | AiContentPart[];
+}
+
+export interface AiUsage {
+  promptTokens: number;
+  completionTokens: number;
+}
+
+export interface CompleteRequest {
+  system: string;
+  messages: readonly AiMessage[];
+  /** Every call site picks its own output budget. */
+  maxTokens: number;
+  temperature: number;
+  signal?: AbortSignal;
+  /** Defaults to `AI_MAX_ATTEMPTS`. */
   maxAttempts?: number;
+  /** Defaults to `AI_REQUEST_TIMEOUT_MS`. */
   timeoutMs?: number;
+}
+
+export interface AiCompletion {
+  content: string;
+  usage?: AiUsage;
+}
+
+/** The one place a request leaves for the configured model. */
+export interface AiTransport {
+  complete(request: CompleteRequest): Promise<AiCompletion>;
+}
+
+function toChatMessage(message: AiMessage): ChatCompletionMessageParam {
+  return {
+    role: message.role,
+    content:
+      typeof message.content === "string"
+        ? message.content
+        : message.content.map((part) =>
+            part.type === "text"
+              ? { type: "text" as const, text: part.text }
+              : { type: "image_url" as const, image_url: { url: part.image_url.url } }
+          ),
+  } as ChatCompletionMessageParam;
 }
 
 function isSdkError<T extends Error>(
@@ -20,7 +65,7 @@ function isSdkError<T extends Error>(
   return typeof constructor === "function" && error instanceof constructor;
 }
 
-export class OpenAIClient {
+export class OpenAiTransport implements AiTransport {
   private client: OpenAI;
   private requestTail: Promise<void> = Promise.resolve();
   private cooldownUntil = 0;
@@ -79,19 +124,15 @@ export class OpenAIClient {
     });
   }
 
-  async generateContent(
-    systemPrompt: string,
-    messages: ChatCompletionMessageParam[],
-    model: string,
-    maxTokens?: number,
-    temperature?: number,
-    signal?: AbortSignal,
-    options?: GenerateContentOptions
-  ): Promise<{ content: string; usage?: { promptTokens: number; completionTokens: number } }> {
-    const effectiveMaxTokens = maxTokens ?? 8192;
-    const effectiveTemperature = temperature ?? 1;
-    const maxAttempts = options?.maxAttempts ?? AI_MAX_ATTEMPTS;
-    const timeoutMs = options?.timeoutMs ?? AI_REQUEST_TIMEOUT_MS;
+  async complete(request: CompleteRequest): Promise<AiCompletion> {
+    const { system: systemPrompt, signal } = request;
+    const model = runtimeEnv.aiModel;
+    if (model === "") {
+      throw new AppError("AI model configuration is required", "AI_MODEL_CONFIG_REQUIRED");
+    }
+    const messages = request.messages.map(toChatMessage);
+    const maxAttempts = request.maxAttempts ?? AI_MAX_ATTEMPTS;
+    const timeoutMs = request.timeoutMs ?? AI_REQUEST_TIMEOUT_MS;
     const baseDelay = AI_RETRY_DELAY_MS;
     const correlationId = crypto.randomUUID();
     const serializedMessages = JSON.stringify(messages);
@@ -116,16 +157,16 @@ export class OpenAIClient {
           { role: "system", content: systemPrompt },
           ...messages,
         ];
-        const request: OpenAI.ChatCompletionCreateParamsNonStreaming = {
+        const body: OpenAI.ChatCompletionCreateParamsNonStreaming = {
           model,
           messages: requestMessages,
-          max_tokens: effectiveMaxTokens,
-          temperature: effectiveTemperature,
+          max_tokens: request.maxTokens,
+          temperature: request.temperature,
         };
         const requestOptions = { ...(signal !== undefined ? { signal } : {}), timeout: timeoutMs };
         const response = await this.withRequestSlot(signal, async () => {
           try {
-            return await this.client.chat.completions.create(request, requestOptions);
+            return await this.client.chat.completions.create(body, requestOptions);
           } catch (error) {
             this.cooldownUntil = Math.max(
               this.cooldownUntil,
@@ -269,15 +310,14 @@ export class OpenAIClient {
 }
 
 // Singleton instance
-let openAIClient: OpenAIClient | null = null;
+let transport: AiTransport | null = null;
 
-export function getOpenAIClient(): OpenAIClient {
-  if (!openAIClient) {
-    openAIClient = new OpenAIClient();
-  }
-  return openAIClient;
+export function getAiTransport(): AiTransport {
+  transport ??= new OpenAiTransport();
+  return transport;
 }
 
-export function resetOpenAIClient(): void {
-  openAIClient = null;
+/** Tests install a scripted transport here; `null` restores the real one. */
+export function setAiTransportForTests(replacement: AiTransport | null): void {
+  transport = replacement;
 }

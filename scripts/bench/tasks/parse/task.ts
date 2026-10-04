@@ -45,8 +45,8 @@ export const parseTask = defineTask<ParseExpect, ParsedOutput>({
     );
   },
 
-  async run({ document, images, ai, signal }) {
-    const context: StageContext = { ai, signal };
+  async run({ document, images, generate, signal }) {
+    const context: StageContext = { generate, signal };
     const result = await runParsePipeline(buildInput(document, images), context);
     if (result.kind === "cancelled") throw new Error("parse pipeline was cancelled");
     if (result.kind === "invalid") return { outcome: "invalid", entries: [] };

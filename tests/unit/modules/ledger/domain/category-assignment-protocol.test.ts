@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AIMessageContentPart } from "@/lib/tasks/types";
+import type { AiContentPart } from "@/lib/ai/client";
 import {
   buildCategoryAssignmentDocumentMessage,
   buildCategoryAssignmentPrompt,
@@ -51,7 +51,7 @@ function group(
   };
 }
 
-function textOf(parts: readonly AIMessageContentPart[]): string {
+function textOf(parts: readonly AiContentPart[]): string {
   const [first] = parts;
   return first != null && first.type === "text" ? first.text : "";
 }

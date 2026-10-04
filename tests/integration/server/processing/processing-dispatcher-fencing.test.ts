@@ -6,10 +6,7 @@ import { createTestLedger, testBookId } from "tests/helpers/schema-setup";
 import type { ProcessingJobContract } from "@/server/processing/types";
 import { ledgerEntries, extractionAttempts, sourceDocuments } from "@/persistence";
 import { processingJobs, attemptProcessor } from "tests/helpers/processing-jobs";
-
-vi.mock("@/lib/tasks/ai-context", () => ({
-  createAIContext: vi.fn(),
-}));
+import { fakeAiTransport, generateVia } from "tests/helpers/fake-ai";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -59,28 +56,30 @@ describe("leased processor fencing", () => {
     const { job } = await pendingIntent("2026-07-15T00:00:00.000Z");
     const { firstToken } = await reclaimedLease(job);
 
-    const generate = vi.fn(async () => ({
-      content: JSON.stringify({
-        processingStatus: "success",
-        invalid_reason: null,
-        title: "Lunch",
-        receipt_count: 1,
-        receipt_totals: [{ receipt_index: 0, amount: "12.50", currency: "CNY" }],
-        ledger_entries: [
-          {
-            receipt_index: 0,
-            item_name: "Lunch",
-            amount: "12.50",
-            currency: "CNY",
-            category_index: 0,
-            notes: null,
-          },
-        ],
-        order_adjustments: [],
-        reasoning: "single item",
-      }),
-    }));
-    const processor = attemptProcessor(() => ({ generate }));
+    const generate = generateVia(
+      fakeAiTransport(() =>
+        JSON.stringify({
+          processingStatus: "success",
+          invalid_reason: null,
+          title: "Lunch",
+          receipt_count: 1,
+          receipt_totals: [{ receipt_index: 0, amount: "12.50", currency: "CNY" }],
+          ledger_entries: [
+            {
+              receipt_index: 0,
+              item_name: "Lunch",
+              amount: "12.50",
+              currency: "CNY",
+              category_index: 0,
+              notes: null,
+            },
+          ],
+          order_adjustments: [],
+          reasoning: "single item",
+        })
+      )
+    );
+    const processor = attemptProcessor(generate);
 
     await expect(
       processor.process({
@@ -108,28 +107,30 @@ describe("leased processor fencing", () => {
     const { job } = await pendingIntent("2026-07-15T00:00:00.000Z");
     const { firstToken } = await reclaimedLease(job);
 
-    const generate = vi.fn(async () => ({
-      content: JSON.stringify({
-        processingStatus: "invalid",
-        invalid_reason: "Image too blurry",
-        title: "Lunch",
-        receipt_count: 1,
-        receipt_totals: [{ receipt_index: 0, amount: "12.50", currency: "CNY" }],
-        ledger_entries: [
-          {
-            receipt_index: 0,
-            item_name: "Lunch",
-            amount: "12.50",
-            currency: "CNY",
-            category_index: 0,
-            notes: null,
-          },
-        ],
-        order_adjustments: [],
-        reasoning: "blurry image",
-      }),
-    }));
-    const processor = attemptProcessor(() => ({ generate }));
+    const generate = generateVia(
+      fakeAiTransport(() =>
+        JSON.stringify({
+          processingStatus: "invalid",
+          invalid_reason: "Image too blurry",
+          title: "Lunch",
+          receipt_count: 1,
+          receipt_totals: [{ receipt_index: 0, amount: "12.50", currency: "CNY" }],
+          ledger_entries: [
+            {
+              receipt_index: 0,
+              item_name: "Lunch",
+              amount: "12.50",
+              currency: "CNY",
+              category_index: 0,
+              notes: null,
+            },
+          ],
+          order_adjustments: [],
+          reasoning: "blurry image",
+        })
+      )
+    );
+    const processor = attemptProcessor(generate);
 
     await expect(
       processor.process({

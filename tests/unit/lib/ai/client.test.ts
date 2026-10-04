@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-describe("openai-client", () => {
+describe("ai client", () => {
   const originalEnv = process.env.NODE_ENV;
   const originalApiKey = process.env.OPENAI_API_KEY;
 
@@ -16,26 +16,26 @@ describe("openai-client", () => {
 
   it("should allow client creation in test environment", async () => {
     (process.env as Record<string, string>).NODE_ENV = "test";
-    const { getOpenAIClient, resetOpenAIClient } = await import("@/lib/ai/openai-client");
-    resetOpenAIClient();
+    const { getAiTransport, setAiTransportForTests } = await import("@/lib/ai/client");
+    setAiTransportForTests(null);
     // Should not throw in test environment
-    expect(() => getOpenAIClient()).not.toThrow();
+    expect(() => getAiTransport()).not.toThrow();
   });
 
   it("should block client creation in production environment", async () => {
     (process.env as Record<string, string>).NODE_ENV = "production";
-    const { getOpenAIClient, resetOpenAIClient } = await import("@/lib/ai/openai-client");
-    resetOpenAIClient();
+    const { getAiTransport, setAiTransportForTests } = await import("@/lib/ai/client");
+    setAiTransportForTests(null);
     // Should throw error about browser environment
-    expect(() => getOpenAIClient()).toThrow("browser");
+    expect(() => getAiTransport()).toThrow("browser");
   });
 
   it("should block client creation in development environment", async () => {
     (process.env as Record<string, string>).NODE_ENV = "development";
-    const { getOpenAIClient, resetOpenAIClient } = await import("@/lib/ai/openai-client");
-    resetOpenAIClient();
+    const { getAiTransport, setAiTransportForTests } = await import("@/lib/ai/client");
+    setAiTransportForTests(null);
     // Should throw error about browser environment
-    expect(() => getOpenAIClient()).toThrow("browser");
+    expect(() => getAiTransport()).toThrow("browser");
   });
 
   describe("error classification after retry exhaustion", () => {
@@ -44,10 +44,12 @@ describe("openai-client", () => {
     });
 
     const loadClient = async () => {
-      const { getOpenAIClient, resetOpenAIClient } = await import("@/lib/ai/openai-client");
-      resetOpenAIClient();
-      return getOpenAIClient();
+      const { getAiTransport, setAiTransportForTests } = await import("@/lib/ai/client");
+      setAiTransportForTests(null);
+      return getAiTransport();
     };
+
+    const base = { maxTokens: 8192, temperature: 1 } as const;
 
     const stubSdkCreate = (client: unknown, error: unknown) => {
       const sdkClient = client as unknown as {
@@ -69,7 +71,11 @@ describe("openai-client", () => {
       };
       sdkClient.client.chat.completions.create = create;
       await expect(
-        client.generateContent("system", [{ role: "user", content: "test" }], "gpt-4o")
+        client.complete({
+          ...base,
+          system: "system",
+          messages: [{ role: "user", content: "test" }],
+        })
       ).rejects.toMatchObject({ code });
       expect(create).toHaveBeenCalledTimes(1);
     });
@@ -88,7 +94,11 @@ describe("openai-client", () => {
       );
 
       await expect(
-        client.generateContent("system", [{ role: "user", content: "Hello" }], "gpt-4o")
+        client.complete({
+          ...base,
+          system: "system",
+          messages: [{ role: "user", content: "Hello" }],
+        })
       ).rejects.toMatchObject({
         code: "ai_rate_limited",
       });
@@ -102,9 +112,7 @@ describe("openai-client", () => {
         new OpenAI.APIError(429, {}, "Rate limited", new Headers({ "retry-after": "120" }))
       );
       await expect(
-        client.generateContent("system", [], "model", undefined, undefined, undefined, {
-          maxAttempts: 1,
-        })
+        client.complete({ ...base, system: "system", messages: [], maxAttempts: 1 })
       ).rejects.toMatchObject({
         code: "ai_rate_limited",
         details: { retryAfterMs: expect.any(Number) },
@@ -130,21 +138,19 @@ describe("openai-client", () => {
       (
         client as unknown as { client: { chat: { completions: { create: unknown } } } }
       ).client.chat.completions.create = create;
-      const first = client.generateContent("first", [], "model");
+      const first = client.complete({ ...base, system: "first", messages: [] });
       await vi.waitFor(() => expect(create).toHaveBeenCalledTimes(1));
       const abort = new AbortController();
-      const cancelled = client.generateContent(
-        "cancelled",
-        [],
-        "model",
-        undefined,
-        undefined,
-        abort.signal
-      );
+      const cancelled = client.complete({
+        ...base,
+        system: "cancelled",
+        messages: [],
+        signal: abort.signal,
+      });
       const rejection = expect(cancelled).rejects.toMatchObject({ code: "REQUEST_ABORTED" });
       abort.abort();
       await rejection;
-      const third = client.generateContent("third", [], "model");
+      const third = client.complete({ ...base, system: "third", messages: [] });
       await Promise.resolve();
       expect(create).toHaveBeenCalledTimes(1);
       finish(response);
@@ -177,11 +183,11 @@ describe("openai-client", () => {
         client as unknown as { client: { chat: { completions: { create: unknown } } } }
       ).client.chat.completions.create = create;
       await expect(
-        client.generateContent("first", [], "model", undefined, undefined, undefined, {
-          maxAttempts: 1,
-        })
+        client.complete({ ...base, system: "first", messages: [], maxAttempts: 1 })
       ).rejects.toMatchObject({ code: "ai_rate_limited" });
-      await expect(client.generateContent("second", [], "model")).resolves.toMatchObject({
+      await expect(
+        client.complete({ ...base, system: "second", messages: [] })
+      ).resolves.toMatchObject({
         content: "ok",
       });
       expect(resumedAt - limitedAt).toBeGreaterThanOrEqual(75);
@@ -196,7 +202,11 @@ describe("openai-client", () => {
       );
 
       await expect(
-        client.generateContent("system", [{ role: "user", content: "Hello" }], "gpt-4o")
+        client.complete({
+          ...base,
+          system: "system",
+          messages: [{ role: "user", content: "Hello" }],
+        })
       ).rejects.toMatchObject({
         code: "ai_provider_unavailable",
       });
@@ -214,7 +224,11 @@ describe("openai-client", () => {
       stubSdkCreate(client, apiError);
 
       await expect(
-        client.generateContent("system", [{ role: "user", content: "Hello" }], "gpt-4o")
+        client.complete({
+          ...base,
+          system: "system",
+          messages: [{ role: "user", content: "Hello" }],
+        })
       ).rejects.toMatchObject({ code: "ai_configuration_invalid" });
     });
   });

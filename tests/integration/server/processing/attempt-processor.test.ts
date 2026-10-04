@@ -4,12 +4,9 @@ import { getTestDb } from "tests/setup";
 import { createTestLedger, testBookId } from "tests/helpers/schema-setup";
 import { createPendingAttempt, claimAttemptForTest } from "tests/helpers/processing-attempt";
 import { attemptProcessor } from "tests/helpers/processing-jobs";
+import { fakeAiTransport, generateVia } from "tests/helpers/fake-ai";
 import { ledgerEntries, ledgers, extractionAttempts, sourceDocuments } from "@/persistence";
 import * as exchangeRates from "@/modules/currency/server/exchange-rates";
-
-vi.mock("@/lib/tasks/ai-context", () => ({
-  createAIContext: vi.fn(),
-}));
 
 type ModelEntry = { item_name: string; amount: string; currency: string };
 
@@ -68,9 +65,9 @@ describe("processAttempt", () => {
       .set({ createdAt: new Date("2026-08-30T23:30:00Z") })
       .where(eq(sourceDocuments.id, sourceDocumentId));
     const lease = await claimAttemptForTest(attemptId);
-    const generate = vi.fn(async () => ({ content }));
+    const generate = generateVia(fakeAiTransport(() => content));
 
-    const outcome = await attemptProcessor(() => ({ generate })).process({
+    const outcome = await attemptProcessor(generate).process({
       signal: new AbortController().signal,
       sourceDocumentId,
       attemptId,

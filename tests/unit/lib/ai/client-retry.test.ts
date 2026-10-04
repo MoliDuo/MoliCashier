@@ -1,4 +1,5 @@
-import { OpenAIClient } from "@/lib/ai/openai-client";
+import { OpenAiTransport, type CompleteRequest } from "@/lib/ai/client";
+import { runtimeEnv } from "@/lib/env/runtime";
 import { vi, describe, beforeEach, afterEach, it, expect } from "vitest";
 
 const { mockCreate, mockOpenAI } = vi.hoisted(() => {
@@ -35,8 +36,15 @@ vi.mock("openai", () => {
   };
 });
 
-describe("OpenAIClient Retry Logic", () => {
-  let client: OpenAIClient;
+const baseRequest: CompleteRequest = {
+  system: "prompt",
+  messages: [],
+  maxTokens: 8192,
+  temperature: 1,
+};
+
+describe("OpenAiTransport Retry Logic", () => {
+  let client: OpenAiTransport;
 
   beforeEach(() => {
     process.env.OPENAI_API_KEY = "test-key";
@@ -44,7 +52,7 @@ describe("OpenAIClient Retry Logic", () => {
     mockCreate.mockReset();
     mockOpenAI.mockClear();
 
-    client = new OpenAIClient();
+    client = new OpenAiTransport();
   });
 
   afterEach(() => {
@@ -56,7 +64,7 @@ describe("OpenAIClient Retry Logic", () => {
       choices: [{ message: { content: "Success" } }],
     });
 
-    const result = await client.generateContent("prompt", [], "test-model");
+    const result = await client.complete(baseRequest);
     expect(result.content).toBe("Success");
     expect(mockCreate).toHaveBeenCalledTimes(1);
   });
@@ -65,7 +73,7 @@ describe("OpenAIClient Retry Logic", () => {
     process.env.OPENAI_BASE_URL = "";
     mockOpenAI.mockClear();
 
-    new OpenAIClient();
+    new OpenAiTransport();
 
     const firstConstructorCall = mockOpenAI.mock.calls[0] as unknown[] | undefined;
     expect(firstConstructorCall).toBeDefined();
@@ -82,7 +90,7 @@ describe("OpenAIClient Retry Logic", () => {
     process.env.OPENAI_BASE_URL = "https://openai-proxy.example/v1";
     mockOpenAI.mockClear();
 
-    new OpenAIClient();
+    new OpenAiTransport();
 
     const firstConstructorCall = mockOpenAI.mock.calls[0] as unknown[] | undefined;
     expect(firstConstructorCall).toBeDefined();
@@ -100,9 +108,25 @@ describe("OpenAIClient Retry Logic", () => {
       choices: [{ message: { content: "Success" } }],
     });
 
-    const result = await client.generateContent("prompt", [], "test-model");
+    const result = await client.complete(baseRequest);
 
     expect(Object.hasOwn(result, "usage")).toBe(false);
+  });
+
+  it("sends the configured model with the caller's output budget", async () => {
+    mockCreate.mockResolvedValueOnce({
+      choices: [{ message: { content: "Success" } }],
+    });
+
+    await client.complete({ ...baseRequest, maxTokens: 321, temperature: 0.3 });
+
+    const body = mockCreate.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
+    expect(runtimeEnv.aiModel).not.toBe("");
+    expect(body).toMatchObject({
+      model: runtimeEnv.aiModel,
+      max_tokens: 321,
+      temperature: 0.3,
+    });
   });
 
   it("omits response_format and signal when they are not provided", async () => {
@@ -110,7 +134,7 @@ describe("OpenAIClient Retry Logic", () => {
       choices: [{ message: { content: "Success" } }],
     });
 
-    await client.generateContent("prompt", [], "test-model");
+    await client.complete(baseRequest);
 
     const request = mockCreate.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
     const requestOptions = mockCreate.mock.calls[0]?.[1] as Record<string, unknown> | undefined;
@@ -131,7 +155,7 @@ describe("OpenAIClient Retry Logic", () => {
         choices: [{ message: { content: "Success after retry" } }],
       }); // Success 2
 
-    const result = await client.generateContent("prompt", [], "test-model");
+    const result = await client.complete(baseRequest);
     expect(result.content).toBe("Success after retry");
     expect(mockCreate).toHaveBeenCalledTimes(2);
   });
@@ -140,9 +164,7 @@ describe("OpenAIClient Retry Logic", () => {
     const error = new Error("Data parse error");
     mockCreate.mockRejectedValue(error);
 
-    await expect(client.generateContent("prompt", [], "test-model")).rejects.toThrow(
-      "Data parse error"
-    );
+    await expect(client.complete(baseRequest)).rejects.toThrow("Data parse error");
     // Initial + 2 retries = 3 calls
     expect(mockCreate).toHaveBeenCalledTimes(3);
   });
@@ -153,7 +175,7 @@ describe("OpenAIClient Retry Logic", () => {
       choices: [{ message: { content: "Recovered" } }],
     });
 
-    const result = await client.generateContent("prompt", [], "test-model");
+    const result = await client.complete(baseRequest);
     expect(result.content).toBe("Recovered");
     expect(mockCreate).toHaveBeenCalledTimes(2);
   });
@@ -165,8 +187,8 @@ describe("OpenAIClient Retry Logic", () => {
     mockCreate.mockRejectedValueOnce(error);
 
     // My client might be using the global mock if not careful,
-    // but beforeEach creates a new OpenAIClient() which should use the mocked 'openai' package.
-    await expect(client.generateContent("prompt", [], "test-model")).rejects.toThrow("Bad Request");
+    // but beforeEach creates a new OpenAiTransport() which should use the mocked 'openai' package.
+    await expect(client.complete(baseRequest)).rejects.toThrow("Bad Request");
     expect(mockCreate).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { getCurrentSession } from "@/modules/auth/server/current-session";
 import { testSession } from "tests/helpers/session";
@@ -17,13 +17,13 @@ import {
   ensureTestLedgerBooks,
 } from "tests/helpers/schema-setup";
 import { drainBackground } from "tests/helpers/background";
+import { fakeAiTransport } from "tests/helpers/fake-ai";
+import { setAiTransportForTests } from "@/lib/ai/client";
 
-const { generateContent } = vi.hoisted(() => ({ generateContent: vi.fn() }));
+/** What the model replies to each request; every test scripts it. */
+const generateContent = vi.fn();
 
 vi.mock("@/modules/auth/server/current-session", () => ({ getCurrentSession: vi.fn() }));
-vi.mock("@/lib/ai/openai-client", () => ({
-  getOpenAIClient: () => ({ generateContent }),
-}));
 
 /** Entries the model can be asked about, each on the live document. */
 async function seedEntries(input: {
@@ -81,6 +81,11 @@ describe("submitSelection", () => {
       testSession({ email: "reclassify@example.com" })
     );
     vi.clearAllMocks();
+    setAiTransportForTests(fakeAiTransport((request) => generateContent(request)));
+  });
+
+  afterEach(() => {
+    setAiTransportForTests(null);
   });
 
   it("runs the whole chain and reports what it moved", async () => {

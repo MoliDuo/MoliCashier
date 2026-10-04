@@ -8,15 +8,14 @@ import type { ProcessingJobContract } from "@/server/processing/types";
 import { ledgerEntries, ledgers, extractionAttempts, sourceDocuments } from "@/persistence";
 import { ProcessingCancelledError } from "@/modules/source-document/domain/parse/contracts";
 
-vi.mock("@/lib/tasks/ai-context", () => ({
-  createAIContext: vi.fn(),
-}));
-import { createAIContext } from "@/lib/tasks/ai-context";
+import { setAiTransportForTests } from "@/lib/ai/client";
+import { fakeAiTransport, generateVia } from "tests/helpers/fake-ai";
 import { processingJobs, attemptProcessor } from "tests/helpers/processing-jobs";
 import { executeProcessingJob } from "@/server/processing/execute-job";
 import { insertExchangeRates } from "tests/helpers/exchange-rates";
 
 afterEach(() => {
+  setAiTransportForTests(null);
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
@@ -47,8 +46,8 @@ describe("processing attempt jobs", () => {
   it("processes parser, reconciliation, exchange-rate facts, and result writes by attempt identity", async () => {
     const db = getTestDb();
     const { job } = await pendingIntent("2026-07-15T00:00:00.000Z");
-    const generate = vi.fn(async () => ({
-      content: JSON.stringify({
+    const transport = fakeAiTransport(() =>
+      JSON.stringify({
         outcome: "success",
         invalid_reason: null,
         title: "Lunch",
@@ -66,9 +65,9 @@ describe("processing attempt jobs", () => {
         ],
         order_adjustments: [],
         reasoning: "single item",
-      }),
-    }));
-    const processor = attemptProcessor(() => ({ generate }));
+      })
+    );
+    const processor = attemptProcessor(generateVia(transport));
     const lease = await claimAttemptForTest(job.attemptId);
 
     await expect(
@@ -88,7 +87,7 @@ describe("processing attempt jobs", () => {
       })
     ).rejects.toBeInstanceOf(ProcessingCancelledError);
 
-    expect(generate).toHaveBeenCalledTimes(1);
+    expect(transport.complete).toHaveBeenCalledTimes(1);
     expect(await db.select().from(ledgerEntries)).toHaveLength(1);
     await expect(
       db.query.sourceDocuments.findFirst({ where: eq(sourceDocuments.id, job.sourceDocumentId) })
@@ -107,8 +106,8 @@ describe("processing attempt jobs", () => {
       preferredCurrencies: ["CNY", "USD"],
     });
 
-    const generate = vi.fn(async () => ({
-      content: JSON.stringify({
+    const transport = fakeAiTransport(() =>
+      JSON.stringify({
         outcome: "success",
         invalid_reason: null,
         title: "Lunch",
@@ -126,10 +125,10 @@ describe("processing attempt jobs", () => {
         ],
         order_adjustments: [],
         reasoning: "single item",
-      }),
-    }));
+      })
+    );
 
-    const processor = attemptProcessor(() => ({ generate }));
+    const processor = attemptProcessor(generateVia(transport));
     const lease = await claimAttemptForTest(job.attemptId);
 
     await processor.process({
@@ -140,8 +139,8 @@ describe("processing attempt jobs", () => {
     });
 
     // Verify the custom prompt reaches the AI call
-    expect(generate).toHaveBeenCalled();
-    const callArgs = (generate.mock.calls as unknown[][]).reduce(
+    expect(transport.complete).toHaveBeenCalled();
+    const callArgs = (transport.complete.mock.calls as unknown[][]).reduce(
       (acc, call) => acc + JSON.stringify(call),
       ""
     );
@@ -154,8 +153,8 @@ describe("processing attempt jobs", () => {
     const { job } = await pendingIntent("2026-07-15T00:00:00.000Z");
 
     // Process once without custom prompt (successful first parse)
-    const generate1 = vi.fn(async () => ({
-      content: JSON.stringify({
+    const transport1 = fakeAiTransport(() =>
+      JSON.stringify({
         outcome: "success",
         invalid_reason: null,
         title: "Lunch",
@@ -173,10 +172,10 @@ describe("processing attempt jobs", () => {
         ],
         order_adjustments: [],
         reasoning: "single item",
-      }),
-    }));
+      })
+    );
 
-    const processor1 = attemptProcessor(() => ({ generate: generate1 }));
+    const processor1 = attemptProcessor(generateVia(transport1));
 
     await processor1.process({
       sourceDocumentId: job.sourceDocumentId,
@@ -200,8 +199,8 @@ describe("processing attempt jobs", () => {
       bookId,
     });
 
-    const generate2 = vi.fn(async () => ({
-      content: JSON.stringify({
+    const transport2 = fakeAiTransport(() =>
+      JSON.stringify({
         outcome: "success",
         invalid_reason: null,
         title: "Dinner",
@@ -219,10 +218,10 @@ describe("processing attempt jobs", () => {
         ],
         order_adjustments: [],
         reasoning: "single item",
-      }),
-    }));
+      })
+    );
 
-    const processor2 = attemptProcessor(() => ({ generate: generate2 }));
+    const processor2 = attemptProcessor(generateVia(transport2));
 
     await processor2.process({
       sourceDocumentId: pending2.document.id,
@@ -232,8 +231,8 @@ describe("processing attempt jobs", () => {
     });
 
     // Verify the new AI call used the updated custom prompt
-    expect(generate2).toHaveBeenCalled();
-    const callArgs = (generate2.mock.calls as unknown[][]).reduce(
+    expect(transport2.complete).toHaveBeenCalled();
+    const callArgs = (transport2.complete.mock.calls as unknown[][]).reduce(
       (acc, call) => acc + JSON.stringify(call),
       ""
     );
@@ -306,8 +305,11 @@ describe("processing attempt jobs", () => {
     const db = getTestDb();
     const { job } = await pendingIntent("2026-07-15T00:00:00.000Z");
 
-    const generate = vi.fn().mockRejectedValue(new Error("AI service unavailable"));
-    vi.mocked(createAIContext).mockReturnValue({ generate });
+    setAiTransportForTests(
+      fakeAiTransport(() => {
+        throw new Error("AI service unavailable");
+      })
+    );
 
     const result = await executeProcessingJob(job);
     expect(result).toBe(true);

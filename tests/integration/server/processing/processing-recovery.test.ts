@@ -1,5 +1,5 @@
 import { createPendingAttempt } from "tests/helpers/processing-attempt";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { getTestDb } from "tests/setup";
 import { createTestLedger, testBookId } from "tests/helpers/schema-setup";
@@ -9,13 +9,13 @@ import { submitSourceDocument } from "@/modules/source-document/server/submissio
 import { processingJobs } from "tests/helpers/processing-jobs";
 import { BACKGROUND_MAX_ATTEMPTS } from "@/config/tuning";
 import { AppError } from "@/lib/errors";
-import { ProcessingFailure } from "@/modules/source-document/domain/parse/contracts";
-
-vi.mock("@/lib/tasks/ai-context", () => ({
-  createAIContext: vi.fn(),
-}));
-import { createAIContext } from "@/lib/tasks/ai-context";
+import { setAiTransportForTests } from "@/lib/ai/client";
 import { executeProcessingJob } from "@/server/processing/execute-job";
+import { fakeAiTransport } from "tests/helpers/fake-ai";
+
+afterEach(() => {
+  setAiTransportForTests(null);
+});
 
 /**
  * Creates a processing attempt for a single source document.
@@ -188,6 +188,8 @@ describe("Processing Recovery", () => {
   it("fails an exhausted job under its lease when a run claims it", async () => {
     const { job } = await pendingIntent();
     const adapter = processingJobs();
+    const transport = fakeAiTransport(() => "{}");
+    setAiTransportForTests(transport);
     await setAttempt(job.attemptId, { attemptCount: BACKGROUND_MAX_ATTEMPTS });
     const db = getTestDb();
     const before = await db.query.sourceDocuments.findFirst({
@@ -198,7 +200,7 @@ describe("Processing Recovery", () => {
     await expect(adapter.recoverBatch(maxBatch)).resolves.toHaveLength(1);
     await expect(executeProcessingJob(job)).resolves.toBe(true);
 
-    expect(createAIContext).not.toHaveBeenCalled();
+    expect(transport.complete).not.toHaveBeenCalled();
     await expect(findAttempt(job.attemptId)).resolves.toMatchObject({
       status: "failed",
       failureCode: "request_bound_retry_exhausted",
@@ -214,9 +216,11 @@ describe("Processing Recovery", () => {
   it("gives a transiently failed attempt back to the queue with a backoff", async () => {
     const { job } = await pendingIntent();
     const rateLimited = new AppError("limited", "ai_rate_limited", 503, { retryAfterMs: 5_000 });
-    vi.mocked(createAIContext).mockReturnValue({
-      generate: vi.fn().mockRejectedValue(rateLimited),
-    } as never);
+    setAiTransportForTests(
+      fakeAiTransport(() => {
+        throw rateLimited;
+      })
+    );
 
     await expect(executeProcessingJob(job)).resolves.toBe(true);
 
@@ -235,9 +239,11 @@ describe("Processing Recovery", () => {
   it("fails a transient failure on its last attempt with the provider's code", async () => {
     const { job } = await pendingIntent();
     await setAttempt(job.attemptId, { attemptCount: BACKGROUND_MAX_ATTEMPTS - 1 });
-    vi.mocked(createAIContext).mockReturnValue({
-      generate: vi.fn().mockRejectedValue(new AppError("down", "ai_provider_unavailable", 503)),
-    } as never);
+    setAiTransportForTests(
+      fakeAiTransport(() => {
+        throw new AppError("down", "ai_provider_unavailable", 503);
+      })
+    );
 
     await executeProcessingJob(job);
 
@@ -251,13 +257,11 @@ describe("Processing Recovery", () => {
   it("fails at once when the provider configuration is invalid", async () => {
     const { job } = await pendingIntent();
     const invalid = new AppError("bad key", "ai_configuration_invalid", 500);
-    vi.mocked(createAIContext).mockReturnValue({
-      generate: vi
-        .fn()
-        .mockRejectedValue(
-          new ProcessingFailure("ai_provider_unavailable", "wrapped", { cause: invalid })
-        ),
-    } as never);
+    setAiTransportForTests(
+      fakeAiTransport(() => {
+        throw invalid;
+      })
+    );
 
     await executeProcessingJob(job);
 
