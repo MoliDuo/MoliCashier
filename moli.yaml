@@ -6,6 +6,7 @@ level: L3
 login:
   mode: P1
   client_id: moli-cashier
+  protected_api: /api/ledger-queries
 
 deploy:
   platform: docker
