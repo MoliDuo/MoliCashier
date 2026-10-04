@@ -90,15 +90,6 @@ export const forecastCopy = {
   spent: (v: { amount: string | number }) => `已花 ${v.amount}`,
   expected: (v: { amount: string | number }) => `预计 ${v.amount}`,
   range: (v: { low: string | number; high: string | number }) => `${v.low}–${v.high}`,
-  basis: (v: { halfLife: string | number }) =>
-    `按每个分类过去的花钱节奏模拟剩下的日子；${v.halfLife} 天前的一天只算昨天的一半。`,
-  largePurchases: (v: { amount: string | number }) =>
-    `单笔 ${v.amount} 以上的一次性大额不预测，记了才算。`,
-  basisEven: "按每个分类过去的花钱节奏模拟剩下的日子，每一天都算得一样重。",
-  accuracy: (v: { origins: string | number; days: string | number; error: string | number }) =>
-    `回到过去 ${v.origins} 个日子各试一次：预测之后 ${v.days} 天花多少，平均差约 ±${v.error}%。`,
-  networkShare: (v: { percent: string | number }) => `其中神经网络占 ${v.percent}%。`,
-  networkBench: "神经网络还没赢过统计模型，暂时只在后台比赛。",
   upcomingTitle: "接下来大概会有",
   upcomingItem: (v: { date: string | number; label: string | number; amount: string | number }) =>
     `${v.date} ${v.label} 约 ${v.amount}`,
@@ -120,15 +111,6 @@ export const forecastCopy = {
   trendRisingLabel: "最近在涨",
   trendFallingLabel: "最近在降",
   trendSteadyLabel: "最近平稳",
-  judgedBasis: (v: { date: string | number }) =>
-    `按 AI 在 ${v.date} 对每个分类日常花销和接下来大额的判断计算，已花随记随算。`,
-  judgedAccuracy: (v: {
-    origins: string | number;
-    days: string | number;
-    error: string | number;
-    statistical: string | number;
-  }) =>
-    `AI 过去 ${v.origins} 次预测之后 ${v.days} 天花多少，平均差约 ±${v.error}%；统计模型 ±${v.statistical}%。`,
   phasesTitle: "生活阶段",
   phaseRange: (v: { from: string | number; to: string | number }) => `${v.from}–${v.to}`,
   phaseSince: (v: { from: string | number }) => `${v.from} 起`,
