@@ -317,17 +317,6 @@ function categoryAssignmentBody(prompt: string, scenario: ScenarioName): Categor
   };
 }
 
-/** 统计's commentary: a fixed pair of sentences, enough to show the button working. */
-function forecastCommentaryBody(prompt: string): { sentences: string[] } | null {
-  if (!prompt.includes("spending forecast")) return null;
-  return {
-    sentences: [
-      "这个月照现在的节奏走，大概和上个月差不多。",
-      "餐饮是最大的一块，剩下的日子少一点外卖就能省下不少。",
-    ],
-  };
-}
-
 async function respond(
   request: http.IncomingMessage,
   response: http.ServerResponse,
@@ -344,8 +333,7 @@ async function respond(
   const payload = JSON.parse((await readBody(request)) || "{}") as ChatCompletionRequest;
   const prompt = promptOf(payload);
   const answer = answerFor(prompt, options);
-  const assignmentBody =
-    categoryAssignmentBody(prompt, answer.scenario) ?? forecastCommentaryBody(prompt);
+  const assignmentBody = categoryAssignmentBody(prompt, answer.scenario);
 
   options.log(
     `[demo-ai] scenario=${answer.scenario}` +

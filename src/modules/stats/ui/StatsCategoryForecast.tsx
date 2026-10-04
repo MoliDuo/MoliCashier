@@ -7,13 +7,7 @@ import { Button } from "@/components/ui/button";
 import { formatCurrencyAmount } from "@/lib/format/currency";
 import { cn } from "@/lib/utils";
 import { AmountText } from "@/modules/currency/ui/amount-text";
-import type {
-  ForecastCommentaryDto,
-  ForecastDto,
-  ForecastUpcomingDto,
-} from "@/modules/forecast/contracts";
-import { StatsForecastCommentary } from "./StatsForecastCommentary";
-import { StatsForecastWhatIf } from "./StatsForecastWhatIf";
+import type { ForecastDto, ForecastUpcomingDto } from "@/modules/forecast/contracts";
 import { StatsPanel } from "./StatsPanel";
 import { DISPLAY_LOCALE } from "@/lib/constants";
 import { formatCivilDate } from "@/lib/date-utils";
@@ -25,11 +19,7 @@ const COLLAPSED_LENGTH = 6;
 interface StatsCategoryForecastProps {
   forecast: ForecastDto;
   currencySymbol: string;
-  /** What the period is set against, e.g. 上月; null leaves the comparison out. */
-  periodLabel: string | null;
   onCategoryClick?: (categoryId: string) => void;
-  /** Asks the AI about the forecast; without it there is no button. */
-  requestCommentary?: () => Promise<ForecastCommentaryDto | null>;
 }
 
 /**
@@ -40,9 +30,7 @@ interface StatsCategoryForecastProps {
 export function StatsCategoryForecast({
   forecast,
   currencySymbol,
-  periodLabel,
   onCategoryClick,
-  requestCommentary,
 }: StatsCategoryForecastProps) {
   const locale = DISPLAY_LOCALE;
   const [expanded, setExpanded] = useState(false);
@@ -64,29 +52,6 @@ export function StatsCategoryForecast({
 
   return (
     <StatsPanel title={forecastCopy.title}>
-      {forecast.exceedPrevious != null && periodLabel != null ? (
-        <p className={textRoleClassName("bodyMuted")}>
-          {forecastCopy.exceedPrevious({
-            period: periodLabel,
-            amount: money(forecast.exceedPrevious.total),
-            percent: Math.round(forecast.exceedPrevious.probability * 100),
-          })}
-        </p>
-      ) : null}
-
-      {forecast.lifeChange != null ? (
-        <p className={textRoleClassName("bodyMuted")}>
-          {forecastCopy.lifeChange({
-            date: formatCivilDate(forecast.lifeChange.date, locale, {
-              month: "long",
-              day: "numeric",
-            }),
-            before: money(forecast.lifeChange.dailyBefore),
-            after: money(forecast.lifeChange.dailyAfter),
-          })}
-        </p>
-      ) : null}
-
       <div className="space-y-4">
         {visible.map((category) => {
           const name = category.name ?? statsTabCopy.uncategorized;
@@ -200,21 +165,19 @@ export function StatsCategoryForecast({
         </div>
       ) : null}
 
-      <StatsForecastWhatIf
-        forecast={forecast}
-        currencySymbol={currencySymbol}
-        periodLabel={periodLabel}
-      />
-
-      {requestCommentary != null ? (
-        <StatsForecastCommentary forecast={forecast} requestCommentary={requestCommentary} />
-      ) : null}
-
       <div className="space-y-1">
         <p className={textRoleClassName("meta")}>
           {forecast.halfLifeDays != null
             ? forecastCopy.basis({ halfLife: forecast.halfLifeDays })
             : forecastCopy.basisEven}
+          {forecast.largePurchaseFrom != null
+            ? forecastCopy.largePurchases({
+                amount: formatCurrencyAmount(forecast.largePurchaseFrom, currencySymbol, locale, {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 0,
+                }),
+              })
+            : null}
         </p>
         {forecast.model?.accuracy != null ? (
           <p className={textRoleClassName("meta")}>

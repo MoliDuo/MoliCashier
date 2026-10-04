@@ -5,7 +5,6 @@ import {
   FORECAST_HISTORY_DAYS,
   FORECAST_MIN_HISTORY_DAYS,
   FORECAST_SIMULATION_PATHS,
-  FORECAST_WHAT_IF_SAMPLES,
 } from "@/config/tuning";
 import { ValidationError } from "@/lib/errors";
 import { forecastInputSchema } from "@/modules/forecast/contract-schemas";
@@ -24,8 +23,6 @@ function money(value: number): string {
   const fixed = value.toFixed(2);
   return fixed === "-0.00" ? "0.00" : fixed;
 }
-
-const cents = (value: number) => Math.round(value * 100) / 100;
 
 function rangeDto(quantiles: Quantiles): ForecastRangeDto {
   return { p10: money(quantiles.p10), p50: money(quantiles.p50), p90: money(quantiles.p90) };
@@ -82,7 +79,6 @@ export async function getPeriodForecast(
       minHistoryDays: FORECAST_MIN_HISTORY_DAYS,
       network: trained?.network ?? null,
       networkShare: trained?.networkShare ?? 0,
-      samples: FORECAST_WHAT_IF_SAMPLES,
     },
   });
   if (forecast == null) return null;
@@ -100,7 +96,6 @@ export async function getPeriodForecast(
       ...categoryOf(category.key),
       spent: category.spent,
       forecast: rangeDto(category.forecast),
-      samples: category.samples.map(cents),
     })),
     exceedPrevious: forecast.exceedPrevious,
     lifeChange:
@@ -111,6 +106,7 @@ export async function getPeriodForecast(
             dailyBefore: money(forecast.lifeChange.dailyBefore),
             dailyAfter: money(forecast.lifeChange.dailyAfter),
           },
+    largePurchaseFrom: forecast.largeFrom == null ? null : money(forecast.largeFrom),
     upcoming: forecast.upcoming.map((bill) => ({
       date: bill.date,
       label: bill.label,

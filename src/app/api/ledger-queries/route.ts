@@ -36,7 +36,6 @@ import { getSourceDocumentInput } from "@/modules/source-document/server/reads/i
 import { convertCurrency } from "@/modules/currency/server/convert-currency";
 import { parseEnhancedStatsInput } from "@/modules/stats/contract-schemas";
 import { getPeriodForecast } from "@/modules/forecast/server/get-forecast";
-import { getForecastCommentary } from "@/modules/forecast/server/forecast-commentary";
 
 const requestSchema = z
   .object({
@@ -55,7 +54,6 @@ const requestSchema = z
       "settings",
       "stats",
       "forecast",
-      "forecast-commentary",
       "category-assignment",
       "category-assignment-results",
       "category-assignment-entry-states",
@@ -90,11 +88,6 @@ export async function POST(request: Request) {
       case "forecast": {
         const { ledger } = await requireLedgerAccess();
         result = await getPeriodForecast(input, ledger.settings.timeZone);
-        break;
-      }
-      case "forecast-commentary": {
-        const { ledger } = await requireLedgerAccess();
-        result = await getForecastCommentary(input, ledger.settings);
         break;
       }
       case "detail":

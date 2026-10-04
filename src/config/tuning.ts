@@ -109,5 +109,3 @@ export const FORECAST_NETWORK = {
 } as const;
 /** A trained forecast older than this many days is retrained before it is trusted again. */
 export const FORECAST_MODEL_MAX_AGE_DAYS = 2;
-/** How many simulated paths each category hands the page for its what-if sliders. */
-export const FORECAST_WHAT_IF_SAMPLES = 200;
