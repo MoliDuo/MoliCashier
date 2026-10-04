@@ -30,7 +30,7 @@ export function CategoryEditDialog({
 }: CategoryEditDialogProps) {
   return (
     <Dialog open={editSession != null} onOpenChange={(open) => !open && onRequestClose()}>
-      <DialogContent variant="modal">
+      <DialogContent variant="sheet">
         <DialogHeader>
           <DialogTitle>{settingsCopy.editCategoryDialog}</DialogTitle>
         </DialogHeader>
@@ -57,6 +57,7 @@ export function CategoryEditDialog({
                   )
                 }
                 aria-label={settingsCopy.categoryName}
+                className="max-md:h-11"
               />
             </div>
             <Textarea

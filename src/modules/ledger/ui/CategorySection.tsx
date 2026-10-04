@@ -95,6 +95,7 @@ export function CategorySection({
           <Button
             type="button"
             size="sm"
+            className="max-md:h-11"
             disabled={categoryAssignmentActive}
             onClick={enterManagement}
           >
@@ -155,7 +156,7 @@ export function CategorySection({
                 ) : null}
               </div>
               {category.description !== "" ? (
-                <p className={textRoleClassName("meta", "truncate")}>{category.description}</p>
+                <p className={textRoleClassName("meta", "line-clamp-2")}>{category.description}</p>
               ) : null}
             </div>
             {managing ? (
@@ -164,6 +165,7 @@ export function CategorySection({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
+                  className="max-md:size-11"
                   disabled={isSaving}
                   onClick={() => startEditing(category)}
                   aria-label={settingsCopy.editCategory({ name: category.name })}
@@ -178,6 +180,7 @@ export function CategorySection({
                       type="button"
                       variant="ghost"
                       size="icon-sm"
+                      className="max-md:size-11"
                       disabled={isSaving}
                       aria-label={settingsCopy.categoryMoreActions({ name: category.name })}
                     >
@@ -185,11 +188,16 @@ export function CategorySection({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-40">
-                    <DropdownMenuItem disabled={index === 0} onSelect={() => move(index, -1)}>
+                    <DropdownMenuItem
+                      className="max-md:min-h-11"
+                      disabled={index === 0}
+                      onSelect={() => move(index, -1)}
+                    >
                       <ArrowUp className="mr-2 h-4 w-4" />
                       {settingsCopy.moveCategoryUp}
                     </DropdownMenuItem>
                     <DropdownMenuItem
+                      className="max-md:min-h-11"
                       disabled={index === displayedCategories.length - 1}
                       onSelect={() => move(index, 1)}
                     >
@@ -198,7 +206,7 @@ export function CategorySection({
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
-                      className="text-danger focus:text-danger"
+                      className="text-danger focus:text-danger max-md:min-h-11"
                       onSelect={() => setDeleteTarget(category)}
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
@@ -251,6 +259,7 @@ export function CategorySection({
                 type="button"
                 variant="outline"
                 size="sm"
+                className="max-md:h-11"
                 disabled={isSaving}
                 onClick={() => void handleReload()}
               >
@@ -275,10 +284,12 @@ export function CategorySection({
               disabled={isSaving}
               aria-label={settingsCopy.newCategoryPlaceholder}
               placeholder={settingsCopy.newCategoryPlaceholder}
+              className="max-md:h-11"
             />
             <Button
               type="button"
               size="sm"
+              className="max-md:h-11"
               onClick={createCategory}
               disabled={newCategoryName.trim() === "" || isSaving}
             >
@@ -299,6 +310,7 @@ export function CategorySection({
               type="button"
               variant="outline"
               size="sm"
+              className="max-md:h-11"
               disabled={isSaving}
               onClick={cancelManagement}
             >
@@ -307,6 +319,7 @@ export function CategorySection({
             <Button
               type="button"
               size="sm"
+              className="max-md:h-11"
               disabled={!dirty || isSaving || revisionConflict}
               onClick={() => void handleSave()}
             >

@@ -126,7 +126,12 @@ export function ServiceCredentialSection({
   return (
     <SettingsSection
       actions={
-        <Button onClick={openCreateDialog} size="sm" disabled={isCreating || isDeleting}>
+        <Button
+          onClick={openCreateDialog}
+          size="sm"
+          className="max-md:h-11"
+          disabled={isCreating || isDeleting}
+        >
           {serviceCredentialsCopy.newCredential}
         </Button>
       }
@@ -171,7 +176,7 @@ export function ServiceCredentialSection({
                   disabled={isCreating || isDeleting}
                 >
                   <SelectTrigger
-                    className="min-w-0 flex-1 sm:max-w-40 sm:flex-none"
+                    className="min-w-0 flex-1 max-md:h-11 sm:max-w-40 sm:flex-none"
                     aria-label={serviceCredentialsCopy.changeBook({ name: credential.name })}
                   >
                     <SelectValue>{bookName(credential.bookId)}</SelectValue>
@@ -192,7 +197,7 @@ export function ServiceCredentialSection({
                   onClick={() => setCredentialToDelete(credential)}
                   aria-label={serviceCredentialsCopy.deleteButton({ name: credential.name })}
                   title={serviceCredentialsCopy.deleteButton({ name: credential.name })}
-                  className="text-muted-foreground hover:text-danger"
+                  className="text-muted-foreground hover:text-danger max-md:size-11"
                 >
                   <Trash2 className="size-4" />
                 </Button>
@@ -207,7 +212,7 @@ export function ServiceCredentialSection({
         onOpenChange={(open) => !isCreating && setIsCreateDialogOpen(open)}
       >
         <DialogContent
-          variant="modal"
+          variant="sheet"
           hideCloseButton={isCreating}
           onEscapeKeyDown={(event) => isCreating && event.preventDefault()}
           onPointerDownOutside={(event) => isCreating && event.preventDefault()}
@@ -226,11 +231,12 @@ export function ServiceCredentialSection({
               disabled={isCreating}
               onChange={(event) => setNewCredName(event.target.value)}
               onKeyDown={(event) => event.key === "Enter" && handleCreate()}
+              className="max-md:h-11"
             />
             <div className="space-y-2">
               <Label htmlFor="credential-book">{commonCopy.book}</Label>
               <Select value={newCredBookId} onValueChange={setNewCredBookId} disabled={isCreating}>
-                <SelectTrigger id="credential-book" className="w-full">
+                <SelectTrigger id="credential-book" className="w-full max-md:h-11">
                   <SelectValue placeholder={settingsBooksCopy.namePlaceholder} />
                 </SelectTrigger>
                 <SelectContent position="popper">

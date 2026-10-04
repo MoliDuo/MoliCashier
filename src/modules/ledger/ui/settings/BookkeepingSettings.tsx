@@ -113,7 +113,7 @@ export function BookkeepingSettings({
       */}
       <SettingsSection>
         <ThemeField />
-        <SettingsField title={settingsCopy.collapseEntries}>
+        <SettingsField title={settingsCopy.collapseEntries} inline>
           <Switch
             aria-label={settingsCopy.collapseEntries}
             checked={shown.collapseEntriesDefault}
@@ -129,7 +129,10 @@ export function BookkeepingSettings({
             onValueChange={(value) => void save({ timeZone: value })}
             disabled={saving}
           >
-            <SelectTrigger aria-label={settingsCopy.timeZone} className="w-full sm:w-56">
+            <SelectTrigger
+              aria-label={settingsCopy.timeZone}
+              className="w-full max-md:h-11 sm:w-56"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent position="popper">
@@ -154,7 +157,10 @@ export function BookkeepingSettings({
             onValueChange={(value) => void save({ aiLanguage: value })}
             disabled={saving}
           >
-            <SelectTrigger aria-label={settingsCopy.aiLanguage} className="w-full sm:w-44">
+            <SelectTrigger
+              aria-label={settingsCopy.aiLanguage}
+              className="w-full max-md:h-11 sm:w-44"
+            >
               <SelectValue />
             </SelectTrigger>
             <SelectContent position="popper">
@@ -179,7 +185,7 @@ export function BookkeepingSettings({
             className="min-h-[100px] w-full resize-y"
           />
         </SettingsField>
-        <SettingsField title={settingsCopy.learnPreferences}>
+        <SettingsField title={settingsCopy.learnPreferences} inline>
           <Switch
             aria-label={settingsCopy.learnPreferences}
             checked={shown.aiPreferenceLearningEnabled}
@@ -200,7 +206,7 @@ export function BookkeepingSettings({
             maxLength={2000}
             className="min-h-[100px] w-full resize-y"
           />
-          <div className="mt-2 flex items-center justify-between gap-2">
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
             <p className="text-micro">
               {settings.aiLearnedPreferencesUpdatedAt == null
                 ? ""
@@ -216,6 +222,7 @@ export function BookkeepingSettings({
               type="button"
               variant="outline"
               size="sm"
+              className="max-md:h-11"
               disabled={
                 saving ||
                 (shown.aiLearnedPreferences === "" &&
