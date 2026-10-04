@@ -9,8 +9,8 @@ function requiredEnv(name: string): string {
 }
 
 /**
- * Files one record into `book` by writing it to the database, then reloads so
- * the page shows it.
+ * Files one record into `book` by writing it to the database, then opens the
+ * current page again so it shows it.
  *
  * The AI stub answers every submission with the same bill, so a spec that
  * needs a record with a name or an amount of its own writes it here, the way
@@ -61,5 +61,8 @@ export async function seedRecord(
   } finally {
     await client.end();
   }
-  await page.reload();
+  // Not reload(): signIn() returns at `load`, while the home page may still be
+  // redirecting, and a reload that meets it loses the page ("Not attached to an
+  // active page"). goto takes over whatever navigation is in flight.
+  await page.goto(page.url());
 }
