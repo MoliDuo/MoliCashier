@@ -59,6 +59,16 @@ describe("OpenAiTransport Retry Logic", () => {
     vi.clearAllMocks();
   });
 
+  it("asks a reasoning model for the effort the caller chose, and for none otherwise", async () => {
+    mockCreate.mockResolvedValue({ choices: [{ message: { content: "Success" } }] });
+
+    await client.complete(baseRequest);
+    await client.complete({ ...baseRequest, reasoningEffort: "low" });
+
+    expect(mockCreate.mock.calls[0]![0]).not.toHaveProperty("reasoning_effort");
+    expect(mockCreate.mock.calls[1]![0]).toMatchObject({ reasoning_effort: "low" });
+  });
+
   it("should return content on success", async () => {
     mockCreate.mockResolvedValueOnce({
       choices: [{ message: { content: "Success" } }],

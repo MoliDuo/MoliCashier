@@ -32,6 +32,8 @@ export interface CompleteRequest {
   maxAttempts?: number;
   /** Defaults to `AI_REQUEST_TIMEOUT_MS`. */
   timeoutMs?: number;
+  /** How hard a reasoning model thinks before it answers; omitted, the provider decides. */
+  reasoningEffort?: "low" | "medium" | "high";
 }
 
 export interface AiCompletion {
@@ -162,6 +164,9 @@ export class OpenAiTransport implements AiTransport {
           messages: requestMessages,
           max_tokens: request.maxTokens,
           temperature: request.temperature,
+          ...(request.reasoningEffort === undefined
+            ? {}
+            : { reasoning_effort: request.reasoningEffort }),
         };
         const requestOptions = { ...(signal !== undefined ? { signal } : {}), timeout: timeoutMs };
         const response = await this.withRequestSlot(signal, async () => {

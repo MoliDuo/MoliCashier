@@ -20,6 +20,7 @@ import { logger } from "@/lib/logger";
 import {
   FORECAST_AI_MAX_ATTEMPTS,
   FORECAST_AI_MAX_TOKENS,
+  FORECAST_AI_REASONING_EFFORT,
   FORECAST_AI_TIMEOUT_MS,
 } from "@/config/tuning";
 
@@ -138,6 +139,7 @@ describe("the AI analyst's nightly judgment", () => {
       maxTokens: FORECAST_AI_MAX_TOKENS,
       timeoutMs: FORECAST_AI_TIMEOUT_MS,
       maxAttempts: FORECAST_AI_MAX_ATTEMPTS,
+      reasoningEffort: FORECAST_AI_REASONING_EFFORT,
     });
     expect(rows.at(-1)).toEqual({ asOf: "2026-10-10", backfilled: false });
     expect(rows[0]).toEqual({ asOf: "2026-07-18", backfilled: true });
