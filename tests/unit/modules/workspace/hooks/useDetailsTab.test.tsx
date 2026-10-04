@@ -34,7 +34,14 @@ const {
 }));
 
 vi.mock("sonner", () => ({
-  toast: { success: toastSuccessMock, error: toastErrorMock, warning: vi.fn() },
+  toast: {
+    success: toastSuccessMock,
+    error: toastErrorMock,
+    warning: vi.fn(),
+    loading: vi.fn(),
+    dismiss: vi.fn(),
+    info: vi.fn(),
+  },
 }));
 
 vi.mock("@/modules/ledger/server-actions/entries", () => ({
@@ -609,7 +616,8 @@ describe("useDetailsTab", () => {
     );
     await waitFor(() =>
       expect(toastSuccessMock).toHaveBeenCalledWith(
-        batchActionsCopy.aiCategoryDone({ applied: 1, confirmed: 0, issues: 0 })
+        batchActionsCopy.aiCategoryDone({ applied: 1, confirmed: 0, issues: 0 }),
+        {}
       )
     );
   });

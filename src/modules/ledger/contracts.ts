@@ -144,6 +144,16 @@ export interface CategoryAssignmentResultPageDto {
   nextCursor: number | null;
 }
 
+/**
+ * What the lists show on a run's entries: the ones still waiting for the model
+ * and the ones it failed. Everything the run settled is left out.
+ */
+export interface CategoryAssignmentEntryStatesDto {
+  jobId: string;
+  pendingIds: string[];
+  failedIds: string[];
+}
+
 export type SourceDocumentReferenceDto = {
   id: string;
   version: number;

@@ -3,7 +3,7 @@ import { ledgerNavigation, openTab } from "./navigation";
 import { seedRecord } from "./seed-record";
 import { signIn } from "./sign-in";
 
-test("AI category assignment remains visible across tabs and fits narrow screens", async ({
+test("AI category assignment reports its outcome and fits narrow screens", async ({
   page,
   isMobile,
 }, testInfo) => {
@@ -43,31 +43,18 @@ test("AI category assignment remains visible across tabs and fits narrow screens
 
   await confirm.click();
   await expect(categoryDialog).toHaveCount(0);
-  const status = page.locator("#category-assignment-status");
-  await expect(status).toBeVisible();
+
+  // The entry itself says it is being worked on, the way a document being processed does.
+  await expect(page.getByTestId("category-assignment-entry-label")).toHaveText("分类中");
+
+  // The run reports through the same toasts as everything else, not a band of its own,
+  // and the entry carries no mark of the run once it is over.
+  await expect(page.getByText(/已更新 1 条，0 条无需改动/)).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator("#category-assignment-status")).toHaveCount(0);
+  await expect(page.getByTestId("category-assignment-entry-label")).toHaveCount(0);
 
   // The list stays in selecting after an action; a phone's tab bar comes back
   // once the reader leaves it.
   await page.getByRole("button", { name: "取消", exact: true }).click();
   await expect(ledgerNavigation(page)).toBeVisible();
-  await openTab(page, "设置");
-  await expect(status).toBeVisible();
-  await openTab(page, "明细");
-  await expect(status).toBeVisible();
-  await expect(status).toContainText(/已更新 1 条，0 条无需改动/, { timeout: 20_000 });
-
-  await status.getByRole("button", { name: "查看结果", exact: true }).click();
-  const results = page.getByRole("dialog");
-  await expect(results.getByText(item, { exact: true })).toBeVisible();
-  await expect(results.getByText("已更新", { exact: true })).toBeVisible();
-  await results.getByRole("button", { name: "关闭", exact: true }).first().click();
-  await expect(results).toHaveCount(0);
-
-  // A finished run reports itself until the reader closes it, and then stays closed.
-  await status.getByRole("button", { name: "关闭", exact: true }).click();
-  await expect(status).toHaveCount(0);
-  await openTab(page, "设置");
-  await expect(status).toHaveCount(0);
-  await openTab(page, "明细");
-  await expect(status).toHaveCount(0);
 });

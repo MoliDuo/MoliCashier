@@ -1,15 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchCategoryAssignmentJob } from "@/modules/ledger/queries";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  fetchCategoryAssignmentEntryStates,
+  fetchCategoryAssignmentJob,
+} from "@/modules/ledger/queries";
 import { queryKeys } from "@/lib/query-keys";
 import { syncLedgerAfterWrite } from "@/lib/mutations/ledger-sync";
-import type { CategoryAssignmentJob } from "@/modules/ledger/contracts";
-import {
-  isCategoryAssignmentJobActive,
-  shouldShowCategoryAssignmentStatus,
-} from "@/modules/ledger/ui/category-assignment-status-visibility";
+import type {
+  CategoryAssignmentEntryStatesDto,
+  CategoryAssignmentJob,
+} from "@/modules/ledger/contracts";
+import { isCategoryAssignmentJobActive } from "@/modules/ledger/ui/category-assignment-job-state";
 
 /** An active run moves in steps of a minute or more, so this is how often the poll asks for it. */
 const ACTIVE_POLL_INTERVAL_MS = 3_000;
@@ -29,10 +32,12 @@ export interface CategoryAssignmentJobState {
   job: CategoryAssignmentJob | null;
   isActive: boolean;
   isReadError: boolean;
-  /** Whether the status band has something worth showing. */
-  isVisible: boolean;
+  /**
+   * What the lists say about the run's entries: those waiting for the model, and
+   * those it failed. Null while the run has nothing to say about any row.
+   */
+  entryStates: CategoryAssignmentEntryStatesDto | null;
   refresh: () => Promise<unknown>;
-  dismiss: () => void;
   /**
    * Adopts a run this page just started or restarted. Registering it here — and
    * not in the component that submitted it — is what keeps the completion
@@ -59,10 +64,9 @@ function jobSignature(job: CategoryAssignmentJob): string {
 }
 
 /**
- * The ledger's most recent assignment run, plus whether its status band has
- * anything worth showing. The run is followed here — above the tabs — because it
- * outlives the tab that starts it, so the band keeps reporting while the user
- * moves around the ledger.
+ * The ledger's most recent assignment run, with the state of its entries. The run
+ * is followed here — above the tabs — because it outlives the tab that starts it,
+ * so it keeps reporting while the user moves around the ledger.
  */
 export function useCategoryAssignmentJob(): CategoryAssignmentJobState {
   const queryClient = useQueryClient();
@@ -79,9 +83,6 @@ export function useCategoryAssignmentJob(): CategoryAssignmentJobState {
   // runs to settle that update from queueing the same run twice.
   const [submittedJobIds, setSubmittedJobIds] = useState<readonly string[]>([]);
   const [reportedJobIds, setReportedJobIds] = useState<readonly string[]>([]);
-  // `"none"` means "nothing dismissed yet"; `null` is a dismissal of a read
-  // failure, which has no job to key on.
-  const [dismissedJobId, setDismissedJobId] = useState<string | null | "none">("none");
   const [notices, setNotices] = useState<CategoryAssignmentNotice[]>([]);
   const query = useQuery<CategoryAssignmentJob | null>({
     queryKey: queryKeys.categoryAssignment(),
@@ -107,8 +108,8 @@ export function useCategoryAssignmentJob(): CategoryAssignmentJobState {
   const isReadError = query.isError;
   // The run this page watched: a job is news only in the render that first sees
   // it while it is still moving. Adjusting the record here rather than in an
-  // effect keeps the band in the same commit as the job it describes, so a run
-  // that finishes between two polls never flickers.
+  // effect keeps what the page shows in the same commit as the job it describes,
+  // so a run that finishes between two polls never flickers.
   const wasWatched = job != null && watched?.jobId === job.id && watched.wasActive;
   if (job != null && watched?.jobId !== job.id) {
     setWatched({ jobId: job.id, wasActive: isActive });
@@ -125,21 +126,31 @@ export function useCategoryAssignmentJob(): CategoryAssignmentJobState {
     (submittedJobIds.includes(job.id) || wasWatched)
   ) {
     setReportedJobIds((current) => [...current, job.id]);
-    // Stopping a run is the reader's own action; the band says it was cancelled,
-    // so it is not reported back as a failure.
+    // Stopping a run is the reader's own action, so it is not reported back as a
+    // failure.
     if (job.status !== "cancelled") {
       setNotices((current) => [...current, { jobId: job.id, job }]);
     }
   }
-  const dismissed = job == null ? false : dismissedJobId === job.id;
-  const readFailureDismissed = job == null && dismissedJobId === null;
-  const isVisible = shouldShowCategoryAssignmentStatus({
-    job,
-    isReadError,
-    wasActive: wasWatched,
-    dismissed,
-    readFailureDismissed,
+  // Rows speak while the run is moving, and afterwards for the entries it failed,
+  // but only on a page that saw it happen: a run that failed long ago is history.
+  const hasEntryStates =
+    job != null &&
+    (isActive || (job.failedCount > 0 && (wasWatched || submittedJobIds.includes(job.id))));
+  // Keyed by the run's progress, so every change the status poll reports reads the
+  // entries again; the previous answer stays on screen until the new one arrives.
+  const entryStatesQuery = useQuery<CategoryAssignmentEntryStatesDto>({
+    queryKey: queryKeys.categoryAssignmentEntryStates(
+      job?.id ?? "none",
+      job == null ? "" : jobSignature(job)
+    ),
+    queryFn: () => fetchCategoryAssignmentEntryStates(job!.id),
+    enabled: hasEntryStates,
+    placeholderData: keepPreviousData,
+    retry: false,
   });
+  const entryStates =
+    hasEntryStates && entryStatesQuery.data?.jobId === job.id ? entryStatesQuery.data : null;
   const clearTrailingRefresh = useCallback(() => {
     if (trailingRefreshRef.current != null) {
       clearTimeout(trailingRefreshRef.current);
@@ -182,7 +193,6 @@ export function useCategoryAssignmentJob(): CategoryAssignmentJobState {
 
   useEffect(() => clearTrailingRefresh, [clearTrailingRefresh]);
 
-  const dismiss = useCallback(() => setDismissedJobId(job?.id ?? null), [job?.id]);
   const registerSubmittedJob = useCallback(
     (submitted: CategoryAssignmentJob) => {
       setSubmittedJobIds((current) =>
@@ -200,9 +210,8 @@ export function useCategoryAssignmentJob(): CategoryAssignmentJobState {
     job,
     isActive,
     isReadError,
-    isVisible,
+    entryStates,
     refresh: query.refetch,
-    dismiss,
     registerSubmittedJob,
     notices,
     consumeNotice,

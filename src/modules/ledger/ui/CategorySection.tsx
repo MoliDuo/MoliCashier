@@ -113,9 +113,6 @@ export function CategorySection({
           role="status"
         >
           <p>{settingsCopy.categoryAssignmentActive}</p>
-          <Button asChild size="sm" variant="outline" className="mt-2">
-            <a href="#category-assignment-status">{settingsCopy.categoryAssignmentViewTask}</a>
-          </Button>
         </div>
       ) : null}
 
