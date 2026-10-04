@@ -1,12 +1,13 @@
 import { add, compare } from "@/lib/money/decimal";
 import { addCivilDays, civilDaysBetween } from "@/modules/ledger/domain/period";
-import { fitBaselineModel } from "./baseline";
-import type { DayModel } from "./day-model";
-import { dailySignals, detectLifeChange } from "./life-change";
+import { findAnomalies, type Anomaly } from "./anomalies";
+import { dayWeights, prepareHistory } from "./history";
+import type { NetworkModel } from "./nn/network";
+import { simulateOutlook } from "./outlook";
 import { seededRandom } from "./random";
-import { buildDailySeries, categoryKeyOf, weekdayOf, type HistoryRow } from "./series";
-import { quantilesOf, simulate, type Quantiles } from "./simulate";
-import { recencyWeights } from "./weights";
+import { upcomingDates, type Cadence } from "./recurring";
+import { categoryKeyOf, type HistoryRow } from "./series";
+import { quantilesOf, type Quantiles } from "./simulate";
 
 export interface ForecastOptions {
   /** How fast the past fades; null counts every day the same. */
@@ -23,6 +24,11 @@ export interface ForecastOptions {
   seed: number;
   /** Fewer recorded days than this before today are too few to forecast from. */
   minHistoryDays: number;
+  /** The trained network, and the share of the paths it plays; null leaves it out. */
+  network: NetworkModel | null;
+  networkShare: number;
+  /** How many paths each category hands the browser for its what-if. */
+  samples: number;
 }
 
 export interface CategoryForecast {
@@ -31,6 +37,22 @@ export interface CategoryForecast {
   spent: string;
   /** Where the whole period ends up for this category, spent days included. */
   forecast: Quantiles;
+  /**
+   * What the rest of the period costs in the category on a sample of the
+   * paths, the same paths in every category, so the browser can scale one
+   * category and add the paths back up.
+   */
+  samples: number[];
+}
+
+/** A recurring bill expected before the period ends. */
+export interface UpcomingBill {
+  date: string;
+  label: string;
+  key: string;
+  amount: number;
+  cadence: Cadence;
+  streak: number;
 }
 
 export interface PeriodForecast {
@@ -47,6 +69,10 @@ export interface PeriodForecast {
   exceedPrevious: { total: string; probability: number } | null;
   /** When the current way of spending began, if the history shows it begin. */
   lifeChange: LifeChangeSummary | null;
+  /** The recurring bills expected after today through the period's end, soonest first. */
+  upcoming: UpcomingBill[];
+  /** The days so far that cost a category far more than usual. */
+  anomalies: Anomaly[];
 }
 
 export interface LifeChangeSummary {
@@ -83,37 +109,21 @@ export function forecastPeriod(input: {
   const { rows, today, period, previous, options } = input;
   const remaining = civilDaysBetween(today, period.end);
   if (remaining <= 0) return null;
+  const history = prepareHistory(rows, today, options.minHistoryDays);
+  if (history == null) return null;
 
-  const earliest = rows.reduce<string | null>(
-    (first, row) => (row.date <= today && (first == null || row.date < first) ? row.date : first),
-    null
-  );
-  if (earliest == null || civilDaysBetween(earliest, today) < options.minHistoryDays) return null;
-
-  const series = buildDailySeries(rows, earliest, addCivilDays(today, -1));
-  const weights = recencyWeights(series.length, options.halfLifeDays);
-  const change = detectLifeChange(dailySignals(rows, earliest, series.length));
-  if (change != null) {
-    for (let day = 0; day < change.day; day++)
-      weights[day] = weights[day]! * options.changeDiscount;
-  }
-  const models = new Map<string, DayModel>();
-  for (const [key, values] of series.byCategory) {
-    const model = fitBaselineModel({
-      values,
-      weights,
-      length: series.length,
-      firstWeekday: weekdayOf(earliest),
-      todayWeekday: weekdayOf(today),
-    });
-    if (model != null) models.set(key, model);
-  }
-
-  const simulation = simulate(models, {
-    days: remaining,
+  const simulation = simulateOutlook(history, {
+    weights: dayWeights(history, options.halfLifeDays, options.changeDiscount),
+    network: options.network,
+    networkShare: options.networkShare,
+    end: period.end,
     paths: options.paths,
     random: seededRandom(options.seed),
   });
+  const pathCount = simulation.running[0]!.length;
+  const sampled = Array.from({ length: Math.min(options.samples, pathCount) }, (_, index) =>
+    Math.floor((index * pathCount) / Math.min(options.samples, pathCount))
+  );
 
   const spentByKey = new Map<string, string>();
   let spent = "0";
@@ -144,7 +154,12 @@ export function forecastPeriod(input: {
     ) {
       continue;
     }
-    categories.push({ key, spent: categorySpent, forecast });
+    categories.push({
+      key,
+      spent: categorySpent,
+      forecast,
+      samples: sums == null ? [] : sampled.map((path) => sums[path]!),
+    });
   }
   categories.sort((a, b) => b.forecast.p50 - a.forecast.p50 || a.key.localeCompare(b.key));
 
@@ -162,19 +177,37 @@ export function forecastPeriod(input: {
         };
 
   return {
-    historyFrom: earliest,
+    historyFrom: history.earliest,
     spent,
     total: quantilesOf(totals, spentNumber),
     running: simulation.running.map((column) => quantilesOf(column, spentNumber)),
     categories,
     exceedPrevious,
     lifeChange:
-      change == null
+      history.change == null
         ? null
         : {
-            date: addCivilDays(earliest, change.day),
-            dailyBefore: change.dailyBefore,
-            dailyAfter: change.dailyAfter,
+            date: addCivilDays(history.earliest, history.change.day),
+            dailyBefore: history.change.dailyBefore,
+            dailyAfter: history.change.dailyAfter,
           },
+    upcoming: history.bills
+      .flatMap((bill) =>
+        upcomingDates(bill, today, period.end).map((date) => ({
+          date,
+          label: bill.label,
+          key: bill.categoryKey,
+          amount: bill.amount,
+          cadence: bill.cadence,
+          streak: bill.streak,
+        }))
+      )
+      .sort((a, b) => a.date.localeCompare(b.date) || b.amount - a.amount),
+    anomalies: findAnomalies({
+      rows,
+      history,
+      from: period.from,
+      halfLifeDays: options.halfLifeDays,
+    }),
   };
 }

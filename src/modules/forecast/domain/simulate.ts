@@ -16,20 +16,22 @@ export interface Simulation {
 }
 
 /**
- * Plays the remaining days out `paths` times. On each day, each category
- * spends with its model's chance, and a day that spends costs one of its
- * model's amounts. Totals are summed per path, so the spread of the whole
- * period is the spread of whole paths, not the categories' spreads added up.
+ * Plays the remaining days out `paths` times. On each day, each model
+ * spends with its chance, and a day that spends costs one of its amounts.
+ * Totals are summed per path, so the spread of the whole period is the spread
+ * of whole paths, not the categories' spreads added up. A category may have
+ * more than one model — its everyday spending and a bill that falls due — and
+ * their amounts add up under its key.
  */
 export function simulate(
-  models: ReadonlyMap<string, DayModel>,
+  models: Iterable<readonly [string, DayModel]>,
   options: { days: number; paths: number; random: Random }
 ): Simulation {
   const { days, paths, random } = options;
   const byCategory = new Map<string, Float64Array>();
   const running = Array.from({ length: days }, () => new Float64Array(paths));
   for (const [key, model] of models) {
-    const sums = new Float64Array(paths);
+    const sums = byCategory.get(key) ?? new Float64Array(paths);
     for (let day = 1; day <= days; day++) {
       const chance = model.chance(day);
       const column = running[day - 1]!;

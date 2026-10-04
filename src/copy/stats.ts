@@ -99,4 +99,37 @@ export const forecastCopy = {
     `${v.date}起花钱的样子变了（日均 ${v.before} → ${v.after}），之前的日子只作参考。`,
   basis: (v: { halfLife: string | number }) =>
     `按每个分类过去的花钱节奏模拟剩下的日子；${v.halfLife} 天前的一天只算昨天的一半。`,
+  basisEven: "按每个分类过去的花钱节奏模拟剩下的日子，每一天都算得一样重。",
+  accuracy: (v: { origins: string | number; days: string | number; error: string | number }) =>
+    `回到过去 ${v.origins} 个日子各试一次：预测之后 ${v.days} 天花多少，平均差约 ±${v.error}%。`,
+  networkShare: (v: { percent: string | number }) => `其中神经网络占 ${v.percent}%。`,
+  networkBench: "神经网络还没赢过统计模型，暂时只在后台比赛。",
+  upcomingTitle: "接下来大概会有",
+  upcomingItem: (v: { date: string | number; label: string | number; amount: string | number }) =>
+    `${v.date} ${v.label} 约 ${v.amount}`,
+  weeklyStreak: (v: { count: string | number }) => `每周 · 已连续 ${v.count} 次`,
+  biweeklyStreak: (v: { count: string | number }) => `每两周 · 已连续 ${v.count} 次`,
+  monthlyStreak: (v: { count: string | number }) => `每月 · 已连续 ${v.count} 次`,
+  whatIfTitle: "如果剩下的日子……",
+  whatIfCategory: (v: { category: string | number; percent: string | number }) =>
+    `${v.category} ${v.percent}`,
+  whatIfUnchanged: "不变",
+  whatIfMore: (v: { percent: string | number }) => `多 ${v.percent}%`,
+  whatIfLess: (v: { percent: string | number }) => `少 ${v.percent}%`,
+  whatIfOutcome: (v: { amount: string | number; low: string | number; high: string | number }) =>
+    `本期预计 ${v.amount}，八成在 ${v.low}–${v.high}`,
+  whatIfExceed: (v: { period: string | number; percent: string | number }) =>
+    `超过${v.period}的可能约 ${v.percent}%`,
+  whatIfReset: "还原",
+  commentary: "让 AI 说说",
+  commentaryLoading: "AI 正在看……",
+  commentaryFailed: "AI 暂时没能回答，请稍后再试。",
+  commentaryHint: "只把上面这些汇总数字交给 AI，不含任何明细。",
+  anomaly: (v: {
+    date: string | number;
+    category: string | number;
+    amount: string | number;
+    typical: string | number;
+  }) => `${v.date} ${v.category} ${v.amount}，平时一天约 ${v.typical}`,
+  anomalies: "不寻常的日子",
 };

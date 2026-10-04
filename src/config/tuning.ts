@@ -89,3 +89,25 @@ export const FORECAST_SIMULATION_PATHS = 1000;
 export const FORECAST_MIN_HISTORY_DAYS = 7;
 /** What a day from before the current way of spending began counts for in the forecast, against a day since. */
 export const FORECAST_CHANGE_DISCOUNT = 0.2;
+/** The half-lives the nightly contest tries for the forecast; null counts every day the same. */
+export const FORECAST_HALF_LIFE_CANDIDATES: readonly (number | null)[] = [14, 30, 60, 120, null];
+/** How many past days the contest stands on, how far apart, and how far ahead each one forecasts. */
+export const FORECAST_BACKTEST_ORIGINS = 6;
+export const FORECAST_BACKTEST_SPACING_DAYS = 7;
+export const FORECAST_BACKTEST_HORIZON_DAYS = 14;
+/** Fewer paths than the page's forecast: the contest compares models, it does not draw fans. */
+export const FORECAST_BACKTEST_PATHS = 300;
+/** The forecast network's shape and training: small, strongly regularized, stopped early. */
+export const FORECAST_NETWORK = {
+  hidden: [16, 8],
+  maxEpochs: 40,
+  patience: 6,
+  batchSize: 64,
+  learningRate: 0.01,
+  l2: 1e-4,
+  validationDays: 21,
+} as const;
+/** A trained forecast older than this many days is retrained before it is trusted again. */
+export const FORECAST_MODEL_MAX_AGE_DAYS = 2;
+/** How many simulated paths each category hands the page for its what-if sliders. */
+export const FORECAST_WHAT_IF_SAMPLES = 200;

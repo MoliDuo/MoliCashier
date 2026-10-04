@@ -5,7 +5,13 @@ import type { DayModel } from "./day-model";
  * with. A weekday seen only a few times in recent weeks says little on its own;
  * this pulls it towards the category's rate until it has been seen more often.
  */
-const WEEKDAY_PRIOR_DAYS = 3;
+const WEEKDAY_PRIOR_DAYS = 7;
+/**
+ * How many days of the category's long-run rate its recent rate is blended
+ * with. Right after a change of life the recent days are few, and two gifts
+ * in a fortnight would otherwise read as a gift every week.
+ */
+const LONG_RUN_PRIOR_DAYS = 14;
 
 /** Weights this small are a rounding of zero, not a day worth drawing from. */
 const NEGLIGIBLE_WEIGHT = 1e-9;
@@ -21,7 +27,9 @@ const NEGLIGIBLE_WEIGHT = 1e-9;
  *
  * `values` holds the category's daily totals; only its first `length` days are
  * read. `firstWeekday` is the weekday of day 0, and `todayWeekday` the weekday
- * of today, the day after the last one read.
+ * of today, the day after the last one read. `longRunChance` is the share of
+ * days the category spends on over a much longer stretch, which the recent
+ * rate leans on while it rests on few days.
  */
 export function fitBaselineModel(input: {
   values: Float64Array;
@@ -29,6 +37,7 @@ export function fitBaselineModel(input: {
   length: number;
   firstWeekday: number;
   todayWeekday: number;
+  longRunChance?: number;
 }): DayModel | null {
   const { values, weights, length, firstWeekday, todayWeekday } = input;
   const weekdayWeight = new Float64Array(7);
@@ -51,7 +60,11 @@ export function fitBaselineModel(input: {
   }
   if (amounts.length === 0 || spentWeight <= NEGLIGIBLE_WEIGHT) return null;
 
-  const overall = spentWeight / totalWeight;
+  const overall =
+    input.longRunChance == null
+      ? spentWeight / totalWeight
+      : (spentWeight + LONG_RUN_PRIOR_DAYS * input.longRunChance) /
+        (totalWeight + LONG_RUN_PRIOR_DAYS);
   const chanceByWeekday = new Float64Array(7);
   for (let weekday = 0; weekday < 7; weekday++) {
     chanceByWeekday[weekday] =

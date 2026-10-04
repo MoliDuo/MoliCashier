@@ -22,12 +22,35 @@ describe("fitBaselineModel", () => {
 
     const saturday = model.chance(5);
     const sunday = model.chance(6);
-    // Four Saturdays out of four, blended with the overall one day in seven.
-    expect(saturday).toBeCloseTo((4 + 3 / 7) / 7);
-    expect(sunday).toBeCloseTo(3 / 7 / 7);
+    // Four Saturdays out of four, blended with a week of the overall one day in seven.
+    expect(saturday).toBeCloseTo((4 + 7 / 7) / (4 + 7));
+    expect(sunday).toBeCloseTo(7 / 7 / (4 + 7));
     expect(model.chance(12)).toBe(saturday);
     expect(model.amount(5, 0)).toBe(80);
     expect(model.amount(5, 0.999)).toBe(80);
+  });
+
+  it("leans a rate resting on few days towards the category's long-run rate", () => {
+    // Two gifts in the fortnight since life changed, where a gift used to come once a month.
+    const values = new Float64Array(14);
+    values[3] = 200;
+    values[10] = 150;
+    const input = {
+      values,
+      weights: recencyWeights(14, null),
+      length: 14,
+      firstWeekday: 0,
+      todayWeekday: 0,
+    };
+
+    const alone = fitBaselineModel(input)!;
+    const leaning = fitBaselineModel({ ...input, longRunChance: 1 / 30 })!;
+
+    // Overall: 2 in 14 alone; (2 + 14 / 30) / (14 + 14) leaning on the long run.
+    const average = (model: typeof alone) =>
+      [1, 2, 3, 4, 5, 6, 7].reduce((sum, day) => sum + model.chance(day), 0) / 7;
+    expect(average(alone)).toBeCloseTo(2 / 14);
+    expect(average(leaning)).toBeCloseTo((2 + 14 / 30) / 28, 1);
   });
 
   it("draws amounts in proportion to how recent their days are", () => {

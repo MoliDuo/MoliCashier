@@ -68,4 +68,27 @@ describe("StatsHighlights", () => {
 
     expect(screen.getByText("Education 比上月少花了 ¥2,072")).toBeVisible();
   });
+
+  it("names the days that cost a category far more than usual", () => {
+    render(
+      <StatsHighlights
+        insights={insights()}
+        anomalies={[
+          {
+            id: "food",
+            name: "餐饮",
+            icon: null,
+            date: "2026-10-02",
+            amount: "180.00",
+            typical: "25.00",
+          },
+        ]}
+        currencySymbol="CNY"
+        periodLabel="上月"
+      />
+    );
+
+    expect(screen.getByText("不寻常的日子")).toBeVisible();
+    expect(screen.getByText("10/2 餐饮 ¥180，平时一天约 ¥25")).toBeVisible();
+  });
 });

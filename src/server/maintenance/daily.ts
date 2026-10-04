@@ -14,6 +14,7 @@ import { runWithConcurrency } from "@/lib/concurrency";
 import { AI_CORRECTIONS_RETENTION_DAYS } from "@/config/tuning";
 import { runPreferenceLearning } from "@/modules/ledger/server/preference-learning";
 import { refreshExchangeRates } from "@/modules/currency/server/exchange-rates";
+import { trainForecasts } from "@/modules/forecast/server/train-forecasts";
 
 const BATCH = 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -21,7 +22,12 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const UNUSED_FILE_GRACE_DAYS = 7;
 
 export type DailyStep =
-  "expired_records" | "exchange_rates" | "unused_files" | "orphan_objects" | "preference_learning";
+  | "expired_records"
+  | "exchange_rates"
+  | "unused_files"
+  | "orphan_objects"
+  | "preference_learning"
+  | "forecast_models";
 
 export type DailyStepOutcome = "done" | "failed";
 
@@ -59,6 +65,8 @@ export async function runDailyMaintenance(
   await step("preference_learning", async () => {
     await runPreferenceLearning({ now });
   });
+  // After the exchange rates, so the history it trains on is converted at today's rates.
+  await step("forecast_models", trainForecasts);
   return outcomes;
 }
 
