@@ -133,6 +133,8 @@ export function CalculatorInput({
   };
 
   const handleOpenCalculator = () => {
+    // The input unmounts here; its blur must not commit the half-edited draft.
+    committedRef.current = true;
     calculator.reset();
     setMode("calculator");
   };
@@ -229,6 +231,8 @@ export function CalculatorInput({
           />
           <button
             type="button"
+            // Keep focus on the input so pressing the button does not blur (and commit) it.
+            onMouseDown={(e) => e.preventDefault()}
             onClick={handleOpenCalculator}
             className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-primary transition-colors"
             title={calculatorCopy.openCalculator}

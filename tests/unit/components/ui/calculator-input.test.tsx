@@ -120,6 +120,23 @@ describe("CalculatorInput", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("does not commit the draft when the calculator button is pressed", () => {
+    const onChange = vi.fn();
+    render(<CalculatorInput value={12.5} onChange={onChange} ariaLabel="amount" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "amount" }));
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "19.75" } });
+
+    const opener = screen.getByRole("button", { name: "打开计算器" });
+    // preventDefault on mousedown stops the browser from moving focus off the input.
+    expect(fireEvent.mouseDown(opener)).toBe(false);
+    fireEvent.click(opener);
+    fireEvent.blur(screen.getByRole("dialog"));
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
   it("submits a complete calculator expression with Enter", () => {
     const onChange = vi.fn();
     render(<CalculatorInput value={12} onChange={onChange} ariaLabel="amount" />);
