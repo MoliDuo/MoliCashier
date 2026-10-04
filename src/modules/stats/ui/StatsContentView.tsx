@@ -214,6 +214,7 @@ export function StatsContentView({
                 periodEnd={stats.periodEnd}
                 forecast={insights?.forecast ?? null}
                 forecastBand={forecast?.running ?? null}
+                changeDate={forecast?.lifeChange?.date ?? null}
                 previous={
                   comparisonLabel == null
                     ? null

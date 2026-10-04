@@ -85,6 +85,36 @@ describe("StatsCumulativeChart", () => {
     expect(within(tooltip).getByText("¥3,040.00–¥3,060.00")).toBeVisible();
   });
 
+  it("marks the day the way of spending changed when it falls among the days recorded", () => {
+    const { rerender } = render(
+      <StatsCumulativeChart
+        {...september}
+        forecast={null}
+        changeDate="2026-09-03"
+        previous={null}
+      />
+    );
+    expect(screen.getByTestId("cumulative-change-marker")).toBeInTheDocument();
+    const plot = screen.getByRole("img");
+    plot.focus();
+    for (let day = 0; day < 7; day++) fireEvent.keyDown(plot, { key: "ArrowLeft" });
+    expect(within(screen.getByRole("tooltip")).getByText("9/3")).toBeVisible();
+    expect(within(screen.getByRole("tooltip")).getByText("花钱的样子从这天起变了")).toBeVisible();
+
+    // Before the period, on its first day, or after today, there is nothing to mark.
+    for (const changeDate of ["2026-08-20", "2026-09-01", "2026-09-20"]) {
+      rerender(
+        <StatsCumulativeChart
+          {...september}
+          forecast={null}
+          changeDate={changeDate}
+          previous={null}
+        />
+      );
+      expect(screen.queryByTestId("cumulative-change-marker")).not.toBeInTheDocument();
+    }
+  });
+
   it("ignores a band that does not cover the days left", () => {
     render(
       <StatsCumulativeChart

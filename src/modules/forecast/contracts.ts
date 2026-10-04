@@ -39,4 +39,10 @@ export interface ForecastDto {
   categories: ForecastCategoryDto[];
   /** The previous period's whole total, and how likely this one ends above it; null with nothing to compare. */
   exceedPrevious: { total: string; probability: number } | null;
+  /**
+   * The day the current way of spending began, with the average spending a
+   * day over the four weeks before it and since; null when the history shows
+   * no change. Days before it counted for less.
+   */
+  lifeChange: { date: string; dailyBefore: string; dailyAfter: string } | null;
 }

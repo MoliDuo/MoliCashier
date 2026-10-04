@@ -10,6 +10,7 @@ import { AmountText } from "@/modules/currency/ui/amount-text";
 import type { ForecastDto } from "@/modules/forecast/contracts";
 import { StatsPanel } from "./StatsPanel";
 import { DISPLAY_LOCALE } from "@/lib/constants";
+import { formatCivilDate } from "@/lib/date-utils";
 import { forecastCopy, statsTabCopy } from "@/copy/stats";
 
 /** Past this many, the tail is folded away, as the ranking folds its own. */
@@ -58,6 +59,19 @@ export function StatsCategoryForecast({
             period: periodLabel,
             amount: money(forecast.exceedPrevious.total),
             percent: Math.round(forecast.exceedPrevious.probability * 100),
+          })}
+        </p>
+      ) : null}
+
+      {forecast.lifeChange != null ? (
+        <p className={textRoleClassName("bodyMuted")}>
+          {forecastCopy.lifeChange({
+            date: formatCivilDate(forecast.lifeChange.date, locale, {
+              month: "long",
+              day: "numeric",
+            }),
+            before: money(forecast.lifeChange.dailyBefore),
+            after: money(forecast.lifeChange.dailyAfter),
           })}
         </p>
       ) : null}

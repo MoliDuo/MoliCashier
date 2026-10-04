@@ -2,6 +2,7 @@ import { add, compare } from "@/lib/money/decimal";
 import { addCivilDays, civilDaysBetween } from "@/modules/ledger/domain/period";
 import { fitBaselineModel } from "./baseline";
 import type { DayModel } from "./day-model";
+import { dailySignals, detectLifeChange } from "./life-change";
 import { seededRandom } from "./random";
 import { buildDailySeries, categoryKeyOf, weekdayOf, type HistoryRow } from "./series";
 import { quantilesOf, simulate, type Quantiles } from "./simulate";
@@ -10,6 +11,13 @@ import { recencyWeights } from "./weights";
 export interface ForecastOptions {
   /** How fast the past fades; null counts every day the same. */
   halfLifeDays: number | null;
+  /**
+   * What a day from before the current way of spending began still counts
+   * for, against a day since: enough to lend its weekly rhythm and its mix of
+   * categories while the new way has few days of its own, too little to set
+   * the level.
+   */
+  changeDiscount: number;
   /** How many times the remaining days are played out. */
   paths: number;
   seed: number;
@@ -37,6 +45,15 @@ export interface PeriodForecast {
   categories: CategoryForecast[];
   /** The previous period's whole total, and the share of outcomes that end above it. */
   exceedPrevious: { total: string; probability: number } | null;
+  /** When the current way of spending began, if the history shows it begin. */
+  lifeChange: LifeChangeSummary | null;
+}
+
+export interface LifeChangeSummary {
+  date: string;
+  /** Average spending a day over the four weeks before it, and since. */
+  dailyBefore: number;
+  dailyAfter: number;
 }
 
 /** A category expected to cost less than this, with nothing spent yet, is left off the list. */
@@ -47,6 +64,11 @@ const NEGLIGIBLE_AMOUNT = 0.005;
  * recorded before today teaches the models, recent days most; today counts as
  * spent but not as a day to learn from, since it is not over. The remaining
  * days, tomorrow through `period.end`, are simulated.
+ *
+ * When the history shows the way of spending change — a move, a new
+ * household — the days before the change count for less, so the forecast
+ * follows the life being lived now rather than the average of every life the
+ * ledger has seen.
  *
  * Returns null for a period with no days left, or a ledger with too little
  * history to say anything.
@@ -70,6 +92,11 @@ export function forecastPeriod(input: {
 
   const series = buildDailySeries(rows, earliest, addCivilDays(today, -1));
   const weights = recencyWeights(series.length, options.halfLifeDays);
+  const change = detectLifeChange(dailySignals(rows, earliest, series.length));
+  if (change != null) {
+    for (let day = 0; day < change.day; day++)
+      weights[day] = weights[day]! * options.changeDiscount;
+  }
   const models = new Map<string, DayModel>();
   for (const [key, values] of series.byCategory) {
     const model = fitBaselineModel({
@@ -141,5 +168,13 @@ export function forecastPeriod(input: {
     running: simulation.running.map((column) => quantilesOf(column, spentNumber)),
     categories,
     exceedPrevious,
+    lifeChange:
+      change == null
+        ? null
+        : {
+            date: addCivilDays(earliest, change.day),
+            dailyBefore: change.dailyBefore,
+            dailyAfter: change.dailyAfter,
+          },
   };
 }

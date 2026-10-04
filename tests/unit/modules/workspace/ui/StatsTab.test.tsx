@@ -92,6 +92,7 @@ describe("StatsTab", () => {
         },
       ],
       exceedPrevious: null,
+      lifeChange: null,
     };
     vi.mocked(fetchEnhancedStats).mockResolvedValue(running);
     vi.mocked(fetchForecast).mockResolvedValue(forecast);
@@ -122,6 +123,7 @@ describe("StatsTab", () => {
         },
       ],
       exceedPrevious: null,
+      lifeChange: null,
     });
     renderStatsTab();
 

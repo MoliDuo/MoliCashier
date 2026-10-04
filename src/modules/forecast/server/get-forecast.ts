@@ -1,5 +1,6 @@
 import "server-only";
 import {
+  FORECAST_CHANGE_DISCOUNT,
   FORECAST_HALF_LIFE_DAYS,
   FORECAST_HISTORY_DAYS,
   FORECAST_MIN_HISTORY_DAYS,
@@ -56,6 +57,7 @@ export async function getPeriodForecast(
     previous,
     options: {
       halfLifeDays: FORECAST_HALF_LIFE_DAYS,
+      changeDiscount: FORECAST_CHANGE_DISCOUNT,
       paths: FORECAST_SIMULATION_PATHS,
       seed: seedOf(`${today}:${bookId ?? "all"}:${periodKey(period)}`),
       minHistoryDays: FORECAST_MIN_HISTORY_DAYS,
@@ -84,5 +86,13 @@ export async function getPeriodForecast(
       };
     }),
     exceedPrevious: forecast.exceedPrevious,
+    lifeChange:
+      forecast.lifeChange == null
+        ? null
+        : {
+            date: forecast.lifeChange.date,
+            dailyBefore: money(forecast.lifeChange.dailyBefore),
+            dailyAfter: money(forecast.lifeChange.dailyAfter),
+          },
   };
 }

@@ -30,6 +30,7 @@ function forecastFixture(overrides: Partial<ForecastDto> = {}): ForecastDto {
       },
     ],
     exceedPrevious: { total: "2200", probability: 0.684 },
+    lifeChange: null,
     ...overrides,
   };
 }
@@ -56,6 +57,22 @@ describe("StatsCategoryForecast", () => {
 
     fireEvent.click(food);
     expect(open).toHaveBeenCalledWith("food");
+  });
+
+  it("says when the way of spending changed and how much a day it went from and to", () => {
+    render(
+      <StatsCategoryForecast
+        forecast={forecastFixture({
+          lifeChange: { date: "2026-09-01", dailyBefore: "210.00", dailyAfter: "65.50" },
+        })}
+        currencySymbol="CNY"
+        periodLabel="上月"
+      />
+    );
+
+    expect(
+      screen.getByText("9月1日起花钱的样子变了（日均 ¥210.00 → ¥65.50），之前的日子只作参考。")
+    ).toBeInTheDocument();
   });
 
   it("leaves the comparison out without one, and renders nothing with no categories", () => {

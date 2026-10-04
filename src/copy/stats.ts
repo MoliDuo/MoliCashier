@@ -50,6 +50,7 @@ export const statsTabCopy = {
   previousPeriod: "上期",
   forecastLine: "预计",
   forecastRange: (v: { low: string | number; high: string | number }) => `${v.low}–${v.high}`,
+  changeMarker: "花钱的样子从这天起变了",
   forecastModelHint: (v: { low: string | number; high: string | number }) =>
     `八成可能落在 ${v.low}–${v.high}`,
   forecastEnd: (v: { amount: string | number }) => `预计 ${v.amount}`,
@@ -94,6 +95,8 @@ export const forecastCopy = {
     amount: string | number;
     percent: string | number;
   }) => `超过${v.period}（${v.amount}）的可能约 ${v.percent}%`,
+  lifeChange: (v: { date: string | number; before: string | number; after: string | number }) =>
+    `${v.date}起花钱的样子变了（日均 ${v.before} → ${v.after}），之前的日子只作参考。`,
   basis: (v: { halfLife: string | number }) =>
     `按每个分类过去的花钱节奏模拟剩下的日子；${v.halfLife} 天前的一天只算昨天的一半。`,
 };

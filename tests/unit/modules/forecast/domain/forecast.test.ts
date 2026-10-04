@@ -3,7 +3,13 @@ import { forecastPeriod, type ForecastOptions } from "@/modules/forecast/domain/
 import type { HistoryRow } from "@/modules/forecast/domain/series";
 import { addCivilDays } from "@/modules/ledger/domain/period";
 
-const OPTIONS: ForecastOptions = { halfLifeDays: 30, paths: 400, seed: 7, minHistoryDays: 7 };
+const OPTIONS: ForecastOptions = {
+  halfLifeDays: 30,
+  changeDiscount: 0.2,
+  paths: 400,
+  seed: 7,
+  minHistoryDays: 7,
+};
 
 /** `amount` in `category` every `every` days from `from`, `count` times. */
 function spending(
@@ -62,13 +68,50 @@ describe("forecastPeriod", () => {
       options: OPTIONS,
     })!;
 
-    // Twenty-eight days to go. Every day counted the same, a day would cost
-    // about 88 (the average of all of it); with the past faded, the new 20
-    // already outweighs the half year before it.
+    // The move is found, and the half year before it counts for little:
+    // every day counted the same, a day would cost about 88; faded by time
+    // alone, about 58.
+    expect(forecast.lifeChange).toEqual({ date: "2026-09-01", dailyBefore: 100, dailyAfter: 20 });
     const perDay = (forecast.total.p50 - Number(forecast.spent)) / 28;
-    expect(perDay).toBeLessThan(70);
-    expect(perDay).toBeGreaterThan(20);
+    expect(perDay).toBeLessThan(40);
+    expect(perDay).toBeGreaterThanOrEqual(20);
     expect(forecast.exceedPrevious).toBeNull();
+  });
+
+  it("lets the time before a change still count for something, as asked", () => {
+    const rows = [
+      ...spending("2026-03-01", 184, "daily", "100"),
+      ...spending("2026-09-01", 33, "daily", "20"),
+    ];
+    const input = {
+      rows,
+      today: "2026-10-03",
+      period: { from: "2026-10-01", end: "2026-10-31" },
+      previous: null,
+    };
+
+    const discounted = forecastPeriod({ ...input, options: OPTIONS })!;
+    const undiscounted = forecastPeriod({ ...input, options: { ...OPTIONS, changeDiscount: 1 } })!;
+
+    expect(undiscounted.lifeChange).not.toBeNull();
+    expect(discounted.total.p50).toBeLessThan(undiscounted.total.p50);
+  });
+
+  it("finds no change in a ledger that has gone on the same way", () => {
+    const rows = [
+      ...spending("2026-06-01", 40, "coffee", "15", 3),
+      ...spending("2026-06-02", 40, "coffee", "45", 3),
+    ];
+
+    const forecast = forecastPeriod({
+      rows,
+      today: "2026-10-01",
+      period: { from: "2026-10-01", end: "2026-10-31" },
+      previous: null,
+      options: OPTIONS,
+    })!;
+
+    expect(forecast.lifeChange).toBeNull();
   });
 
   it("spreads a category that spends some days and not others", () => {

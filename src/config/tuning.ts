@@ -87,3 +87,5 @@ export const FORECAST_HALF_LIFE_DAYS = 30;
 export const FORECAST_SIMULATION_PATHS = 1000;
 /** Fewer recorded days than this before today are too few for the forecast to learn from. */
 export const FORECAST_MIN_HISTORY_DAYS = 7;
+/** What a day from before the current way of spending began counts for in the forecast, against a day since. */
+export const FORECAST_CHANGE_DISCOUNT = 0.2;

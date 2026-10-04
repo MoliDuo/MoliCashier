@@ -76,6 +76,8 @@ describe("getPeriodForecast", () => {
       // Nine days of ¥30 and the ¥16 in ringgit.
       spent: "286",
       exceedPrevious: { total: "900" },
+      // Five weeks of the same ¥30 a day: too few, and too even, to show a change.
+      lifeChange: null,
     });
     expect(forecast!.running).toHaveLength(21);
     expect(forecast!.categories).toEqual([
