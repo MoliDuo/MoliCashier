@@ -195,8 +195,6 @@ export function BookSettings({ initialBooks }: BookSettingsProps) {
 
   return (
     <SettingsSection
-      title={settingsBooksCopy.title}
-      description={settingsBooksCopy.description}
       actions={
         <Button
           type="button"

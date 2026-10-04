@@ -57,7 +57,7 @@ export function AccountSettings({
         onCredentialDialogClose={onCredentialDialogClose}
       />
       {/* 账户 shows who is signed in; signing out closes the session and the page. */}
-      <SettingsSection title={settingsCopy.account}>
+      <SettingsSection>
         {userEmail != null && userEmail !== "" && (
           <SettingsField title={settingsCopy.signedInAs} stacked>
             <p className={textRoleClassName("body", "break-all")}>{userEmail}</p>
