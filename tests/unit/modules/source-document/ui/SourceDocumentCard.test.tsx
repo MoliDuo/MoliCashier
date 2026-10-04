@@ -59,6 +59,32 @@ describe("SourceDocumentCard interactions", () => {
     expect(screen.getByText(/12\.00/)).toBeInTheDocument();
   });
 
+  it("tells the list a suggestion is waiting inside the record", () => {
+    const item = { ...sourceDocument, text: null, pendingSuggestions: [] as string[] };
+    const { rerender } = render(
+      <SourceDocumentCard
+        sourceDocument={item as never}
+        ledgerEntries={[ledgerEntry]}
+        defaultExpanded={false}
+      />
+    );
+    expect(screen.queryByText("可能重复")).not.toBeInTheDocument();
+    expect(screen.queryByText("日期待整理")).not.toBeInTheDocument();
+
+    rerender(
+      <SourceDocumentCard
+        sourceDocument={
+          { ...item, pendingSuggestions: ["duplicate", "date_organization"] } as never
+        }
+        ledgerEntries={[ledgerEntry]}
+        defaultExpanded={false}
+      />
+    );
+
+    expect(screen.getByText("可能重复")).toBeInTheDocument();
+    expect(screen.getByText("日期待整理")).toBeInTheDocument();
+  });
+
   it("labels an unparsable document without echoing its AI reason in the badge", () => {
     render(
       <SourceDocumentCard

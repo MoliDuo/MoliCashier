@@ -59,3 +59,22 @@ export const SESSION_MAX_AGE_DAYS = 14;
 
 /** How many due extraction attempts the worker looks at per pass. */
 export const PROCESSING_BATCH_SIZE = 5;
+
+/** How far back a parse looks for entries the new evidence may repeat. */
+export const RECENT_ENTRIES_WINDOW_DAYS = 14;
+/** The most recent entries handed to one parse, newest first. */
+export const RECENT_ENTRIES_MAX = 200;
+
+/** Fewer unread corrections than this are too thin to learn a preference from. */
+export const PREFERENCE_LEARNING_MIN_CORRECTIONS = 3;
+/** The most unread corrections one learning run reads. */
+export const PREFERENCE_LEARNING_MAX_NEW = 60;
+/** The most already-read corrections shown to a run as background. */
+export const PREFERENCE_LEARNING_MAX_BACKGROUND = 40;
+/** How far back the background corrections reach. */
+export const PREFERENCE_LEARNING_BACKGROUND_DAYS = 90;
+/** How many preferences the learned text holds, and the longest one. */
+export const PREFERENCE_LEARNING_MAX_RULES = 15;
+export const PREFERENCE_LEARNING_RULE_MAX_CHARS = 160;
+/** How long a corrections row that a run already read is kept. */
+export const AI_CORRECTIONS_RETENTION_DAYS = 180;

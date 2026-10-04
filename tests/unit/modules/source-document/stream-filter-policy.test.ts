@@ -15,6 +15,7 @@ function makeItem(overrides: Partial<SourceDocumentListItemDto> = {}): SourceDoc
     createdAt: "2026-08-06T00:00:00.000Z",
     updatedAt: "2026-08-06T00:00:00.000Z",
     hasImages: false,
+    pendingSuggestions: [],
     supportedActions: [],
     canEdit: false,
     errorCode: null,

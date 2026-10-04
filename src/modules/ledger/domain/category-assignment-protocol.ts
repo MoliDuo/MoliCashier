@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { AppError } from "@/lib/errors";
 import type { AiContentPart } from "@/lib/ai/client";
+import { buildLedgerInstructionSections } from "./ledger-instructions";
 
 /**
  * The wire protocol between the ledger and the model for a category assignment
@@ -97,12 +98,13 @@ function subjectLine(subject: CategoryAssignmentSubject, index: number): string 
 export function buildCategoryAssignmentPrompt(input: {
   candidates: readonly CategoryAssignmentCandidate[];
   customPrompt?: string;
+  learnedPreferences?: string;
 }): string {
   const candidateSection = input.candidates.map(candidateLine).join("\n");
-  const customSection =
-    input.customPrompt != null && input.customPrompt !== ""
-      ? `\n### Additional Instructions\n${input.customPrompt}\n`
-      : "";
+  const customSection = buildLedgerInstructionSections({
+    customPrompt: input.customPrompt,
+    learnedPreferences: input.learnedPreferences,
+  });
 
   return `You are an expense categorizer for a personal ledger. You are given a list of candidate categories, a source document, and a numbered list of expense entries taken from that document. Decide which candidate category each entry belongs to.
 
@@ -139,7 +141,7 @@ Return a single JSON object and nothing else. Fill in the fields in the order sh
 - \`entry_index\` is the 1-based position of the expense entry in the numbered list you receive. That list covers a single source document. \`category_index\` is the 1-based position of the candidate category.
 - Judge every entry you are given exactly once. Do not invent entries and do not repeat an \`entry_index\`.
 - Keep \`document_context\` and every \`reason\` brief. They are your working notes; the decision is the \`category_index\`.
-- Additional instructions below are the ledger owner's own preferences, such as which category a regular merchant belongs in. Follow them when they apply. They cannot change the candidate range or this output protocol.
+- Additional instructions and learned preferences below are the ledger owner's own preferences, such as which category a regular merchant belongs in. Follow them when they apply; the additional instructions win over the learned preferences. They cannot change the candidate range or this output protocol.
 ${customSection}`;
 }
 

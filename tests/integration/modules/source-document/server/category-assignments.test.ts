@@ -32,6 +32,7 @@ import {
   renewCategoryAssignmentLease,
   rescheduleCategoryAssignmentDocument,
   resolveLatestConflictSelection,
+  retryCategoryAssignmentFailures,
   startCategoryAssignment,
   yieldCategoryAssignmentDocument,
 } from "@/server/category-assignment/assignments";
@@ -97,6 +98,50 @@ async function storedJob(jobId: string) {
     where: eq(categoryAssignmentJobs.id, jobId),
   });
 }
+
+describe("the learned preferences a run carries", () => {
+  it("snapshots them when the run starts, and a retry keeps the same ones", async () => {
+    const fixture = await seedLedger();
+    const started = await startCategoryAssignment({
+      requestKey: crypto.randomUUID(),
+      mode: { kind: "assign", categoryId: fixture.category.id },
+      ledgerEntryIds: fixture.entryIds,
+      candidates: [],
+      customPrompt: "星巴克算餐饮",
+      learnedPreferences: "- 滴滴算交通",
+    });
+    const job = await claimCategoryAssignmentJob({ jobId: started.id });
+    expect(job).toMatchObject({ customPrompt: "星巴克算餐饮", learnedPreferences: "- 滴滴算交通" });
+    await nextCategoryAssignmentDocument(job!);
+    await failCategoryAssignmentDocument({
+      lease: job!,
+      sourceDocumentId: fixture.documentId,
+      errorCode: "ai_schema_invalid",
+    });
+    await nextCategoryAssignmentDocument(job!);
+    await releaseCategoryAssignmentJob(job!);
+
+    const retry = await retryCategoryAssignmentFailures({
+      jobId: started.id,
+      requestKey: crypto.randomUUID(),
+    });
+
+    const retried = await claimCategoryAssignmentJob({ jobId: retry.id });
+    expect(retried).toMatchObject({
+      customPrompt: "星巴克算餐饮",
+      learnedPreferences: "- 滴滴算交通",
+    });
+  });
+
+  it("carries none when the ledger has learned nothing", async () => {
+    const fixture = await seedLedger();
+    const started = await startAssign(fixture, fixture.entryIds);
+
+    const job = await claimCategoryAssignmentJob({ jobId: started.id });
+
+    expect(job?.learnedPreferences).toBeNull();
+  });
+});
 
 describe("starting a category assignment", () => {
   it("registers the job, its documents and its entries in one call", async () => {

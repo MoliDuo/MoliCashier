@@ -8,6 +8,7 @@ import { SourceDocumentEntriesHeader } from "./SourceDocumentViewDetails/compone
 import { SourceDocumentEntriesList } from "./SourceDocumentViewDetails/components/SourceDocumentEntriesList";
 import { SourceDocumentRawEvidence } from "./SourceDocumentViewDetails/components/SourceDocumentRawEvidence";
 import { SourceDocumentDateOrganization } from "./SourceDocumentDateOrganization";
+import { SourceDocumentDuplicateSuggestion } from "./SourceDocumentDuplicateSuggestion";
 import type { ApplyDateOrganizationInput } from "../contracts";
 
 interface SourceDocumentViewDetailsProps {
@@ -43,6 +44,9 @@ interface SourceDocumentViewDetailsProps {
   onDismissDateOrganization?: (suggestionId: string) => Promise<unknown>;
   isOrganizingDates?: boolean;
   dateOrganizationDisabled?: boolean;
+  onApplyDuplicateSuggestion?: (suggestionId: string) => Promise<unknown>;
+  onDismissDuplicateSuggestion?: (suggestionId: string) => Promise<unknown>;
+  isResolvingDuplicates?: boolean;
   onDateAdjustmentStateChange?: (active: boolean, dirty: boolean) => void;
   /** Which pane the narrow-viewport layout shows; desktop always shows both. */
   mobileView: "details" | "evidence";
@@ -77,6 +81,9 @@ export const SourceDocumentViewDetails = memo(function SourceDocumentViewDetails
   onDismissDateOrganization,
   isOrganizingDates = false,
   dateOrganizationDisabled = false,
+  onApplyDuplicateSuggestion,
+  onDismissDuplicateSuggestion,
+  isResolvingDuplicates = false,
   onDateAdjustmentStateChange,
   mobileView,
   timeZone,
@@ -95,6 +102,20 @@ export const SourceDocumentViewDetails = memo(function SourceDocumentViewDetails
           hasEvidence && mobileView === "evidence" && "hidden lg:block"
         )}
       >
+        {/* Repeats come first: removing them settles which entries are left
+            before any of them is moved to another day. */}
+        {sourceDocument.duplicateSuggestion != null &&
+        onApplyDuplicateSuggestion != null &&
+        onDismissDuplicateSuggestion != null ? (
+          <SourceDocumentDuplicateSuggestion
+            key={sourceDocument.duplicateSuggestion.id}
+            suggestion={sourceDocument.duplicateSuggestion}
+            disabled={readOnly || isResolvingDuplicates || dateOrganizationDisabled}
+            onApply={onApplyDuplicateSuggestion}
+            onDismiss={onDismissDuplicateSuggestion}
+          />
+        ) : null}
+
         {/* The suggestion leads: it is about to change the dates of the
             entries below, so it sits above them. */}
         {sourceDocument.dateOrganizationSuggestion != null &&

@@ -26,6 +26,7 @@ const SOURCE_LIST_KEYS = [
   "hasImages",
   "id",
   "ledgerEntries",
+  "pendingSuggestions",
   "processingStatus",
   "supportedActions",
   "text",

@@ -14,6 +14,7 @@ describe("mapLedgerEntryDto", () => {
       currency: "USD",
       itemName: "Coffee",
       description: null,
+      extracted: false,
       convertedAmount: "12.50",
       exchangeRate: "1",
       createdAt: new Date("2026-03-19T12:00:00.000Z"),

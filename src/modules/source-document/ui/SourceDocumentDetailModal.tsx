@@ -361,6 +361,9 @@ function SourceDocumentDetailSheet({
                   onDeleteEntry={actions.requestDeleteEntry}
                   onApplyDateOrganization={detail.applyDateOrganization}
                   onDismissDateOrganization={detail.dismissDateOrganization}
+                  onApplyDuplicateSuggestion={detail.applyDuplicateSuggestion}
+                  onDismissDuplicateSuggestion={detail.dismissDuplicateSuggestion}
+                  isResolvingDuplicates={detail.isResolvingDuplicates}
                   isOrganizingDates={detail.isOrganizingDates}
                   dateOrganizationDisabled={selection.isSelectionMode}
                   {...(timeZone != null ? { timeZone } : {})}

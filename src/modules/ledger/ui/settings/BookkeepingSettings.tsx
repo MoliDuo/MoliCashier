@@ -25,12 +25,17 @@ import { AI_LANGUAGES } from "@/config/languages";
 import { LEDGER_TIME_ZONES } from "@/config/time-zones";
 import { useEffect, useRef, useState } from "react";
 import { settingsCopy } from "@/copy/settings";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { formatInstantDateLabel } from "@/lib/date-utils";
+import { DISPLAY_LOCALE } from "@/lib/constants";
 
 interface BookkeepingSettingsProps {
   settings: Settings;
   categories: EntryCategoryWithCount[];
   uncategorizedCount: number;
   onUpdateSettings: (data: Partial<Settings>) => Promise<Ledger>;
+  onClearLearnedPreferences: () => Promise<Ledger>;
   onSaveCategories: (input: SaveEntryCategoriesInput) => Promise<EntryCategory[]>;
   onReloadCategories?: () => Promise<EntryCategory[]>;
   generatingCategoryIds: Set<string>;
@@ -44,6 +49,7 @@ export function BookkeepingSettings({
   categories,
   uncategorizedCount,
   onUpdateSettings,
+  onClearLearnedPreferences,
   onSaveCategories,
   onReloadCategories,
   generatingCategoryIds,
@@ -81,6 +87,17 @@ export function BookkeepingSettings({
     if (prompt !== settings.aiCustomPrompt) void save({ aiCustomPrompt: prompt });
   };
   useEffect(() => () => flushPrompt.current(), []);
+
+  // The learned text is edited the same way as the prompt above.
+  const [learned, setLearned] = useState<string | null>(null);
+  const flushLearned = useRef<() => void>(() => {});
+  flushLearned.current = () => {
+    if (learned == null) return;
+    setLearned(null);
+    if (learned !== settings.aiLearnedPreferences) void save({ aiLearnedPreferences: learned });
+  };
+  useEffect(() => () => flushLearned.current(), []);
+  const [confirmingClear, setConfirmingClear] = useState(false);
 
   const timeZones = (LEDGER_TIME_ZONES as readonly string[]).includes(shown.timeZone)
     ? LEDGER_TIME_ZONES
@@ -162,7 +179,71 @@ export function BookkeepingSettings({
             className="min-h-[100px] w-full resize-y"
           />
         </SettingsField>
+        <SettingsField title={settingsCopy.learnPreferences}>
+          <Switch
+            aria-label={settingsCopy.learnPreferences}
+            checked={shown.aiPreferenceLearningEnabled}
+            onCheckedChange={(checked) => void save({ aiPreferenceLearningEnabled: checked })}
+            disabled={saving}
+          />
+        </SettingsField>
+        <SettingsField title={settingsCopy.learnedPreferences} stacked>
+          <Textarea
+            value={learned ?? shown.aiLearnedPreferences}
+            name="aiLearnedPreferences"
+            autoComplete="off"
+            placeholder={settingsCopy.learnedPreferencesEmpty}
+            onChange={(event) => setLearned(event.target.value)}
+            onBlur={() => flushLearned.current()}
+            readOnly={saving}
+            aria-label={settingsCopy.learnedPreferences}
+            maxLength={2000}
+            className="min-h-[100px] w-full resize-y"
+          />
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <p className="text-micro">
+              {settings.aiLearnedPreferencesUpdatedAt == null
+                ? ""
+                : settingsCopy.learnedPreferencesUpdatedAt({
+                    date: formatInstantDateLabel(
+                      settings.aiLearnedPreferencesUpdatedAt,
+                      DISPLAY_LOCALE,
+                      settings.timeZone
+                    ),
+                  })}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={
+                saving ||
+                (shown.aiLearnedPreferences === "" &&
+                  settings.aiLearnedPreferencesUpdatedAt == null)
+              }
+              onClick={() => setConfirmingClear(true)}
+            >
+              {settingsCopy.clearLearnedPreferences}
+            </Button>
+          </div>
+        </SettingsField>
       </SettingsSection>
+      <ConfirmDialog
+        open={confirmingClear}
+        onOpenChange={setConfirmingClear}
+        title={settingsCopy.clearLearnedPreferencesTitle}
+        description={settingsCopy.clearLearnedPreferencesDescription}
+        confirmLabel={settingsCopy.clearLearnedPreferences}
+        variant="destructive"
+        onConfirm={async () => {
+          try {
+            await onClearLearnedPreferences();
+          } catch {
+            // The mutation already reported the failure.
+            return false;
+          }
+        }}
+      />
       {/* 分类 saves through a draft of its own — 管理分类 holds the edit session
           and its 保存 — so it is a card of its own, next to the prompt that
           steers how entries land in it. */}

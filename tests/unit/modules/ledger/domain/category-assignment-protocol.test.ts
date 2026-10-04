@@ -102,6 +102,20 @@ describe("buildCategoryAssignmentPrompt", () => {
     expect(buildCategoryAssignmentPrompt({ candidates })).not.toContain("Additional Instructions");
   });
 
+  it("carries the learned preferences after the ledger's own instructions", () => {
+    const prompt = buildCategoryAssignmentPrompt({
+      candidates,
+      customPrompt: "只按商家判断",
+      learnedPreferences: "- 滴滴算交通",
+    });
+
+    expect(prompt.indexOf("只按商家判断")).toBeLessThan(prompt.indexOf("- 滴滴算交通"));
+    expect(prompt).toContain("### Learned Preferences");
+    expect(buildCategoryAssignmentPrompt({ candidates, learnedPreferences: "" })).not.toContain(
+      "Learned Preferences"
+    );
+  });
+
   it("opens as an expense categorizer, which is how the demo AI server recognizes the request", () => {
     expect(buildCategoryAssignmentPrompt({ candidates })).toContain(
       "You are an expense categorizer"

@@ -5,6 +5,7 @@ import { ledgerEntries, ledgers, books, sourceDocuments } from "@/persistence";
 import type { BatchUpdateSourceDocumentsResultDto } from "@/modules/source-document/contracts";
 import type { BatchUpdateSourceDocumentsInput as BatchUpdateSourceDocumentsPayload } from "@/modules/source-document/contract-schemas";
 import { ensureExchangeRates } from "@/modules/currency/server/exchange-rates";
+import { recordAiCorrectionsInTransaction } from "@/modules/ledger/server/ai-corrections";
 import { replaceDocumentEntriesInTransaction } from "./projections/manual-entries";
 import {
   lockLedgerForUpdate,
@@ -232,6 +233,13 @@ export async function updateSourceDocuments({
         .returning({ id: sourceDocuments.id });
       if (updated.length !== changedDocuments.length) {
         throw new ConflictError("Source documents changed during the batch edit");
+      }
+      for (const document of changedDocuments) {
+        await recordAiCorrectionsInTransaction(tx, {
+          sourceDocumentId: document.id,
+          previousTitle: document.title,
+          nextTitle: data.title,
+        });
       }
     }
     return { changedIds: new Set(changedDocuments.map((document) => document.id)), impact };

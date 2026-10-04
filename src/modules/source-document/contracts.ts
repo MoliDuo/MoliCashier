@@ -5,6 +5,8 @@ import type { SourceDocumentProcessingStatus } from "./types";
 
 export type { SourceDocumentProcessingStatus };
 export type {
+  DuplicateSuggestionDto,
+  PendingSuggestionKind,
   SourceDocumentActiveResultSummary,
   SourceDocumentDetailDto,
   SourceDocumentInputDto,
@@ -51,6 +53,20 @@ export type ApplyDateOrganizationInput = z.infer<
 export type DismissDateOrganizationInput = z.infer<
   typeof import("./contract-schemas").dismissDateOrganizationInputSchema
 >;
+
+export type ApplyDuplicateSuggestionInput = z.infer<
+  typeof import("./contract-schemas").applyDuplicateSuggestionInputSchema
+>;
+export type DismissDuplicateSuggestionInput = z.infer<
+  typeof import("./contract-schemas").dismissDuplicateSuggestionInputSchema
+>;
+
+export interface ApplyDuplicateSuggestionResultDto {
+  removedCount: number;
+  /** The record held only flagged entries, so it was deleted. */
+  deleted: boolean;
+  sourceDocument: import("./document-contracts").SourceDocumentDetailDto | null;
+}
 
 export interface ApplyDateOrganizationResultDto {
   sourceDocument: import("./document-contracts").SourceDocumentDetailDto;

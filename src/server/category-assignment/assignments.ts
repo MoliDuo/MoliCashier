@@ -84,6 +84,7 @@ export interface ClaimedCategoryAssignmentJob extends CategoryAssignmentLease {
   mode: CategoryAssignmentMode;
   candidates: CategoryAssignmentCandidateSnapshot[];
   customPrompt: string | null;
+  learnedPreferences: string | null;
 }
 
 /** A document the run picked up; `runNumber` already counts this one. */
@@ -139,6 +140,7 @@ export async function startCategoryAssignment(input: {
   ledgerEntryIds: readonly string[];
   candidates: CategoryAssignmentCandidateSnapshot[];
   customPrompt: string | null;
+  learnedPreferences?: string | null;
   retryOfJobId?: string;
   now?: Date;
 }): Promise<{ id: string }> {
@@ -202,6 +204,7 @@ export async function startCategoryAssignment(input: {
           requestKey: input.requestKey,
           candidateSnapshot: input.candidates,
           customPromptSnapshot: input.customPrompt,
+          learnedPreferencesSnapshot: input.learnedPreferences ?? null,
           retryOfJobId: input.retryOfJobId ?? null,
           ...modeColumns(input.mode),
           createdAt: now,
@@ -316,6 +319,7 @@ export async function claimCategoryAssignmentJob(
     assign_category_id: string | null;
     candidate_snapshot: CategoryAssignmentCandidateSnapshot[];
     custom_prompt_snapshot: string | null;
+    learned_preferences_snapshot: string | null;
   }>(sql`
     WITH candidate AS (
       SELECT job.id FROM ${categoryAssignmentJobs} AS job
@@ -342,7 +346,8 @@ export async function claimCategoryAssignmentJob(
         updated_at = ${new Date()}
     FROM candidate WHERE job.id = candidate.id
     RETURNING job.id, job.mode, job.assign_category_id,
-      job.candidate_snapshot, job.custom_prompt_snapshot
+      job.candidate_snapshot, job.custom_prompt_snapshot,
+      job.learned_preferences_snapshot
   `);
   const row = claimed.rows[0];
   if (row == null) return null;
@@ -356,6 +361,7 @@ export async function claimCategoryAssignmentJob(
     }),
     candidates: row.candidate_snapshot,
     customPrompt: row.custom_prompt_snapshot,
+    learnedPreferences: row.learned_preferences_snapshot,
   };
 }
 
@@ -753,6 +759,7 @@ export async function retryCategoryAssignmentFailures(input: {
         assignCategoryId: original.assignCategoryId,
         candidateSnapshot: original.candidateSnapshot,
         customPromptSnapshot: original.customPromptSnapshot,
+        learnedPreferencesSnapshot: original.learnedPreferencesSnapshot,
         requestKey: input.requestKey,
         retryOfJobId: original.id,
         createdAt: now,

@@ -1,6 +1,6 @@
 {
-  "id": "757627b7-70bf-444b-b0a2-87c4b59f0147",
-  "prevId": "cc3400b3-2bbb-42a1-85a5-f7d63829dddc",
+  "id": "ceacb4f2-8012-4f8e-b21e-e78ad823cb9d",
+  "prevId": "b5af04b0-ebb9-4f4d-9f5b-55b6cee8bbca",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -139,6 +139,172 @@
         "ck_exchange_rates_per_eur_positive": {
           "name": "ck_exchange_rates_per_eur_positive",
           "value": "\"exchange_rates\".\"per_eur\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.ai_corrections": {
+      "name": "ai_corrections",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "source_document_id": {
+          "name": "source_document_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject_id": {
+          "name": "subject_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "field": {
+          "name": "field",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "document_title": {
+          "name": "document_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "item_name": {
+          "name": "item_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "amount": {
+          "name": "amount",
+          "type": "numeric(21, 3)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "varchar(3)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "before_value": {
+          "name": "before_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "after_value": {
+          "name": "after_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "consumed_at": {
+          "name": "consumed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "uq_ai_corrections_subject_field": {
+          "name": "uq_ai_corrections_subject_field",
+          "columns": [
+            {
+              "expression": "subject_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "field",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_ai_corrections_unconsumed": {
+          "name": "idx_ai_corrections_unconsumed",
+          "columns": [
+            {
+              "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"ai_corrections\".\"consumed_at\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_ai_corrections_source_document": {
+          "name": "idx_ai_corrections_source_document",
+          "columns": [
+            {
+              "expression": "source_document_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "fk_ai_corrections_source_document": {
+          "name": "fk_ai_corrections_source_document",
+          "tableFrom": "ai_corrections",
+          "tableTo": "source_documents",
+          "columnsFrom": [
+            "source_document_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "ck_ai_corrections_field": {
+          "name": "ck_ai_corrections_field",
+          "value": "\"ai_corrections\".\"field\" IN ('category', 'item_name', 'title')"
         }
       },
       "isRLSEnabled": false
@@ -395,6 +561,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "extracted": {
+          "name": "extracted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -558,6 +731,26 @@
           "notNull": true,
           "default": "''"
         },
+        "ai_learned_preferences": {
+          "name": "ai_learned_preferences",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "ai_learned_preferences_updated_at": {
+          "name": "ai_learned_preferences_updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ai_preference_learning_enabled": {
+          "name": "ai_preference_learning_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
         "time_zone": {
           "name": "time_zone",
           "type": "text",
@@ -617,6 +810,10 @@
         "ck_ledgers_ai_custom_prompt_length": {
           "name": "ck_ledgers_ai_custom_prompt_length",
           "value": "length(\"ledgers\".\"ai_custom_prompt\") <= 4000"
+        },
+        "ck_ledgers_ai_learned_preferences_length": {
+          "name": "ck_ledgers_ai_learned_preferences_length",
+          "value": "length(\"ledgers\".\"ai_learned_preferences\") <= 2000"
         },
         "ck_ledgers_time_zone_length": {
           "name": "ck_ledgers_time_zone_length",
@@ -817,6 +1014,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "duplicate_suggestion": {
+          "name": "duplicate_suggestion",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -967,6 +1170,10 @@
         "ck_source_documents_version": {
           "name": "ck_source_documents_version",
           "value": "\"source_documents\".\"version\" > 0"
+        },
+        "ck_source_documents_duplicate_suggestion": {
+          "name": "ck_source_documents_duplicate_suggestion",
+          "value": "\"source_documents\".\"duplicate_suggestion\" IS NULL OR jsonb_typeof(\"source_documents\".\"duplicate_suggestion\") = 'object'"
         },
         "ck_source_documents_idempotency": {
           "name": "ck_source_documents_idempotency",
@@ -1296,6 +1503,12 @@
         },
         "custom_prompt_snapshot": {
           "name": "custom_prompt_snapshot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "learned_preferences_snapshot": {
+          "name": "learned_preferences_snapshot",
           "type": "text",
           "primaryKey": false,
           "notNull": false

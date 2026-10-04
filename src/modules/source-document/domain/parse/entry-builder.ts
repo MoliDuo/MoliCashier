@@ -12,6 +12,7 @@ export interface EntryToInsert {
   description: string | null;
   entryDate: string;
   dateHint?: import("@/lib/ai/date-organization").DateHint;
+  alreadyRecorded?: string;
 }
 
 export interface BuildEntriesParams {
@@ -50,6 +51,7 @@ export function buildEntriesForInsert({
       description: entry.notes ?? null,
       entryDate: fallbackDate,
       ...(entry.dateHint == null ? {} : { dateHint: entry.dateHint }),
+      ...(entry.alreadyRecorded == null ? {} : { alreadyRecorded: entry.alreadyRecorded }),
     };
   });
 }

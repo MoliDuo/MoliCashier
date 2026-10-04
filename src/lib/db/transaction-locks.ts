@@ -64,6 +64,7 @@ const lockedSourceDocumentColumns = {
   documentDate: sourceDocuments.documentDate,
   latestAttemptId: sourceDocuments.latestAttemptId,
   dateOrganizationSuggestion: sourceDocuments.dateOrganizationSuggestion,
+  duplicateSuggestion: sourceDocuments.duplicateSuggestion,
 };
 
 export type LockedSourceDocument = Pick<

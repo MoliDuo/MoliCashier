@@ -4,6 +4,12 @@ export interface LedgerSettings {
   mainCurrency: string;
   collapseEntriesDefault: boolean;
   aiCustomPrompt: string;
+  /** What maintenance learned from the owner's corrections; editable, never the prompt above. */
+  aiLearnedPreferences: string;
+  /** When maintenance last wrote the learned text; null before the first run. */
+  aiLearnedPreferencesUpdatedAt: string | null;
+  /** Off, corrections are not recorded and nothing new is learned. */
+  aiPreferenceLearningEnabled: boolean;
   /** The IANA zone every day in the ledger is read in. */
   timeZone: string;
 }

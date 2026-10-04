@@ -18,14 +18,14 @@ import {
 } from "@/lib/db/transaction-locks";
 import { assertCategoryOwnership } from "./projections/shared";
 
-async function listProjectionEntries(tx: PostgresTransaction, sourceDocumentId: string) {
+export async function listProjectionEntries(tx: PostgresTransaction, sourceDocumentId: string) {
   return tx.query.ledgerEntries.findMany({
     where: eq(ledgerEntries.sourceDocumentId, sourceDocumentId),
     orderBy: (entries, { asc }) => [asc(entries.position), asc(entries.id)],
   });
 }
 
-function toProjectionEntry(
+export function toProjectionEntry(
   entry: typeof ledgerEntries.$inferSelect
 ): LedgerProjectionEntryContract {
   return {

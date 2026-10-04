@@ -31,6 +31,9 @@ const supportedCurrencySchema = z
 
 // ===== Raw Zod schema (AI response shape) =====
 
+/** The reference of a recently recorded entry the row repeats; a malformed one reads as none. */
+const alreadyRecordedSchema = z.string().trim().min(1).max(16).nullable().optional().catch(null);
+
 const receiptTotalSchema = z.object({
   receipt_index: z.number().int().min(0),
   amount: decimalStringSchema,
@@ -45,6 +48,7 @@ const ledgerEntrySchema = z.object({
   category_index: z.number().int().min(0),
   notes: z.string().nullish(),
   date_hint: dateHintSchema,
+  already_recorded: alreadyRecordedSchema,
 });
 
 const orderAdjustmentSchema = z.object({
@@ -53,6 +57,7 @@ const orderAdjustmentSchema = z.object({
   item_name: z.string(),
   amount: decimalStringSchema,
   currency: supportedCurrencySchema,
+  already_recorded: alreadyRecordedSchema,
 });
 
 export const parserOutputSchema = z
@@ -204,6 +209,7 @@ export function normalizeResult(
       category_index: e.category_index,
       notes: e.notes ?? null,
       date_hint: e.date_hint ?? null,
+      already_recorded: e.already_recorded ?? null,
     })),
     order_adjustments: output.order_adjustments,
     reasoning: output.reasoning,

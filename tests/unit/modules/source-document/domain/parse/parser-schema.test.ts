@@ -133,4 +133,52 @@ describe("parser-schema", () => {
     const result = parserOutputSchema.safeParse(exponentEntry);
     expect(result.success).toBe(false);
   });
+
+  describe("already_recorded", () => {
+    it("defaults to null for an entry and an adjustment that do not carry it", () => {
+      const parsed = normalizeResult(
+        parserOutputSchema.parse({
+          ...simpleSuccess,
+          order_adjustments: [
+            { receipt_index: 0, item_name: "Shipping", amount: "2.00", currency: "USD" },
+          ],
+        })
+      );
+
+      expect(parsed.ledger_entries[0]?.already_recorded).toBeNull();
+      expect(parsed.order_adjustments[0]?.already_recorded ?? null).toBeNull();
+    });
+
+    it("keeps the handle on an entry and an adjustment", () => {
+      const parsed = normalizeResult(
+        parserOutputSchema.parse({
+          ...simpleSuccess,
+          ledger_entries: [{ ...simpleSuccess.ledger_entries[0], already_recorded: " R3 " }],
+          order_adjustments: [
+            {
+              receipt_index: 0,
+              item_name: "Shipping",
+              amount: "2.00",
+              currency: "USD",
+              already_recorded: "R4",
+            },
+          ],
+        })
+      );
+
+      expect(parsed.ledger_entries[0]?.already_recorded).toBe("R3");
+      expect(parsed.order_adjustments[0]?.already_recorded).toBe("R4");
+    });
+
+    it("reads a malformed handle as none instead of failing the parse", () => {
+      const parsed = normalizeResult(
+        parserOutputSchema.parse({
+          ...simpleSuccess,
+          ledger_entries: [{ ...simpleSuccess.ledger_entries[0], already_recorded: 3 }],
+        })
+      );
+
+      expect(parsed.ledger_entries[0]?.already_recorded).toBeNull();
+    });
+  });
 });

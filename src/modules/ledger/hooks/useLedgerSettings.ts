@@ -26,6 +26,7 @@ import {
   deleteServiceCredentialAction,
   updateServiceCredentialAction,
 } from "@/modules/ledger/server-actions/credentials";
+import { clearLearnedPreferencesAction } from "@/modules/ledger/server-actions/learned-preferences";
 import { updateLedgerSettingsAction } from "@/modules/ledger/server-actions/update";
 import { serviceCredentialsCopy, settingsCopy } from "@/copy/settings";
 
@@ -119,6 +120,15 @@ export function useLedgerSettings({
       queryClient.setQueryData(queryKeys.ledger(), savedLedger);
     },
     onError: (error) => toast.error(error.message || settingsCopy.updateFailed),
+  });
+
+  const clearLearnedPreferences = useLedgerMutation<Ledger, void>({
+    mutationFn: () => clearLearnedPreferencesAction(),
+    successMessage: settingsCopy.clearLearnedPreferencesSuccess,
+    errorMessage: settingsCopy.clearLearnedPreferencesFailed,
+    onSuccess: (savedLedger) => {
+      queryClient.setQueryData(queryKeys.ledger(), savedLedger);
+    },
   });
 
   const [generatingCategoryIds, setGeneratingCategoryIds] = useState<Set<string>>(new Set());
@@ -223,6 +233,7 @@ export function useLedgerSettings({
     credentials: settingsQuery.data?.credentials ?? [],
     settingsQueryStatus,
     updateLedgerMutation,
+    clearLearnedPreferences,
     saveCategories,
     generatingCategoryIds,
     failedCategoryIds,

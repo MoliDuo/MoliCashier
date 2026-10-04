@@ -34,6 +34,8 @@ import { recordProcessingFailure } from "@/modules/source-document/server/extrac
 import { activateAttempt } from "@/modules/source-document/server/projections/writes";
 import { generateStructured, type GenerateStructured } from "@/lib/ai/structured";
 import { createDateOrganizationSuggestion } from "@/modules/source-document/date-organization";
+import { createDuplicateSuggestion } from "@/modules/source-document/duplicate-suggestion";
+import { loadRecentEntriesForParse } from "@/modules/source-document/server/recent-entries";
 
 function failureLogContext(
   request: AttemptProcessingRequestContract,
@@ -85,6 +87,8 @@ export async function processAttempt(
     );
   }
   const evidence = loadedEvidence.filter(isSuccessfulLoadImageResult);
+  const recent = await loadRecentEntriesForParse(request.sourceDocumentId);
+  throwIfProcessingCancelled(signal);
   const pipeline = await runParsePipeline(
     {
       ...(attempt.inputText == null ? {} : { text: attempt.inputText }),
@@ -92,9 +96,15 @@ export async function processAttempt(
         ? {}
         : { evidence: { images: evidence.map((item) => ({ dataUrl: item.dataUrl })) } }),
       categories,
-      ...(ledgerSettings?.aiCustomPrompt !== undefined
-        ? { settings: { aiCustomPrompt: ledgerSettings.aiCustomPrompt } }
-        : { settings: {} }),
+      ...(recent.entries.length === 0 ? {} : { recentEntries: recent.entries }),
+      settings: {
+        ...(ledgerSettings?.aiCustomPrompt === undefined
+          ? {}
+          : { aiCustomPrompt: ledgerSettings.aiCustomPrompt }),
+        ...(ledgerSettings?.aiLearnedPreferences === undefined
+          ? {}
+          : { aiLearnedPreferences: ledgerSettings.aiLearnedPreferences }),
+      },
       ...(ledgerSettings?.aiLanguage !== undefined
         ? { aiLanguage: ledgerSettings.aiLanguage }
         : {}),
@@ -172,10 +182,14 @@ export async function processAttempt(
     ...(entry.dateHint == null ? {} : { dateHint: entry.dateHint }),
   }));
 
+  const duplicateSuggestion = createDuplicateSuggestion({ entries, targets: recent.targets });
+  // A row already flagged as recorded is for the owner to remove, not to move
+  // to another day first.
+  const flaggedIds = new Set(duplicateSuggestion?.items.map((item) => item.ledgerEntryId));
   const dateOrganizationSuggestion = createDateOrganizationSuggestion({
     referenceDate: attempt.referenceDate,
     sourceDocumentDate: fallbackDate,
-    entries,
+    entries: entries.filter((entry) => !flaggedIds.has(entry.id)),
   });
 
   // Cache the rates for the day the entries will be read on, so they show
@@ -188,6 +202,7 @@ export async function processAttempt(
     ...(output.title == null ? {} : { title: output.title }),
     entries: entryInputs,
     dateOrganizationSuggestion,
+    duplicateSuggestion,
   });
   if (!activated) {
     throw new ProcessingCancelledError();

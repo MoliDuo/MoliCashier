@@ -167,6 +167,8 @@ export const categoryAssignmentJobs = pgTable(
       .notNull()
       .default([]),
     customPromptSnapshot: text("custom_prompt_snapshot"),
+    /** The learned preferences as they were when the run started, like the prompt snapshot. */
+    learnedPreferencesSnapshot: text("learned_preferences_snapshot"),
     requestKey: uuid("request_key"),
     /** The run whose failures this run retries. */
     retryOfJobId: uuid("retry_of_job_id"),

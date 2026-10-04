@@ -101,6 +101,8 @@ const updateLedgerInputSchema = nonEmptyStrictObjectSchema({
     mainCurrency: optionalCurrencyCodeSchema,
     collapseEntriesDefault: z.boolean().optional(),
     aiCustomPrompt: z.string().max(4000).optional(),
+    aiLearnedPreferences: z.string().max(2000).optional(),
+    aiPreferenceLearningEnabled: z.boolean().optional(),
     timeZone: timeZoneSchema.optional(),
   }),
 });

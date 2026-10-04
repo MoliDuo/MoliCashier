@@ -3,7 +3,9 @@ import type { LedgerProjectionEntryContract } from "@/modules/source-document/se
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { compare } from "@/lib/money/decimal";
 import type { DateOrganizationSuggestion } from "@/lib/ai/date-organization";
+import type { DuplicateSuggestion } from "@/lib/ai/duplicate-suggestion";
 import { ledgerEntries, sourceDocuments } from "@/persistence";
+import { recordAiCorrectionsInTransaction } from "@/modules/ledger/server/ai-corrections";
 import type { LockedSourceDocument, PostgresTransaction } from "@/lib/db/transaction-locks";
 import { assertSourceDocumentsNotProcessing } from "../write-guards";
 
@@ -22,6 +24,27 @@ function nextDateOrganizationSuggestion(
   if (suggestion == null) return undefined;
   if (dateChanged) return null;
 
+  const entriesById = new Map(
+    entries.flatMap((entry) => (entry.id == null ? [] : [[entry.id, entry] as const]))
+  );
+  const remainingItems = suggestion.items.filter((item) => {
+    const entry = entriesById.get(item.ledgerEntryId);
+    return (
+      entry != null &&
+      entry.itemName === item.snapshot.itemName &&
+      compare(entry.amount, item.snapshot.amount) === 0 &&
+      (entry.currency ?? "CNY") === item.snapshot.currency
+    );
+  });
+  return remainingItems.length === 0 ? null : { ...suggestion, items: remainingItems };
+}
+
+/** The suggestion without the entries the owner has since changed or removed. */
+function nextDuplicateSuggestion(
+  suggestion: DuplicateSuggestion | null,
+  entries: readonly LedgerProjectionEntryContract[]
+): DuplicateSuggestion | null | undefined {
+  if (suggestion == null) return undefined;
   const entriesById = new Map(
     entries.flatMap((entry) => (entry.id == null ? [] : [[entry.id, entry] as const]))
   );
@@ -169,6 +192,15 @@ export async function replaceDocumentEntriesInTransaction(
     sourceDocumentId: input.sourceDocumentId,
     entries: input.entries,
   });
+  await recordAiCorrectionsInTransaction(tx, {
+    sourceDocumentId: input.sourceDocumentId,
+    previousEntries: input.previousEntries,
+    nextEntries: input.entries.flatMap((entry) =>
+      entry.id == null ? [] : [{ ...entry, id: entry.id }]
+    ),
+    previousTitle: document.title,
+    nextTitle: input.title,
+  });
   const updated = await tx
     .update(sourceDocuments)
     .set({
@@ -186,6 +218,14 @@ export async function replaceDocumentEntriesInTransaction(
               input.document.dateOrganizationSuggestion,
               input.entries,
               dateChanged
+            ),
+          }
+        : {}),
+      ...(input.document.duplicateSuggestion != null
+        ? {
+            duplicateSuggestion: nextDuplicateSuggestion(
+              input.document.duplicateSuggestion,
+              input.entries
             ),
           }
         : {}),

@@ -37,8 +37,12 @@ export function buildParserInput(input: ParseSourceDocumentInput): ParserInput {
     ...(input.preferredCurrencies !== undefined
       ? { preferredCurrencies: input.preferredCurrencies }
       : {}),
+    ...(input.recentEntries !== undefined ? { recentEntries: input.recentEntries } : {}),
     ...(input.settings.aiCustomPrompt !== undefined
       ? { aiCustomPrompt: input.settings.aiCustomPrompt }
+      : {}),
+    ...(input.settings.aiLearnedPreferences !== undefined
+      ? { aiLearnedPreferences: input.settings.aiLearnedPreferences }
       : {}),
   };
 }

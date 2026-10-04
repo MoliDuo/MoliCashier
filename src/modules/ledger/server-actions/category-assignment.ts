@@ -64,6 +64,7 @@ async function start(
     ledgerEntryIds: input.ledgerEntryIds,
     candidates,
     customPrompt: settings?.aiCustomPrompt || null,
+    learnedPreferences: settings?.aiLearnedPreferences || null,
     ...(retryOfJobId == null ? {} : { retryOfJobId }),
   });
   // The reply describes the job as it was submitted; the worker starts it after.
