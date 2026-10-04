@@ -46,12 +46,12 @@ services:
     env_file: .env # POSTGRES_PASSWORD
     environment:
       TZ: Asia/Singapore
-      POSTGRES_DB: cashier
+      POSTGRES_DB: moli-cashier-db
       POSTGRES_USER: cashier
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cashier -d cashier"]
+      test: ["CMD-SHELL", "pg_isready -U cashier -d moli-cashier-db"]
       interval: 5s
       timeout: 5s
       retries: 20
