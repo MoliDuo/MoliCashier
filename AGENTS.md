@@ -10,12 +10,13 @@ These rules apply to every Moli repository. The full standards live in the priva
 - Product name `MoliFoo` (repo, package, file and identifier names, no spaces). User-facing name is `Moli Foo` (one space): window titles, app name, UI text, README title, Release titles.
 
 **Deploy and CI**
-- Deploy only after CI passes. Pushing to `main` deploys to production (server apps), so run the check entry (`npm run check` or the stack's equivalent) locally before pushing, and watch CI after.
-- Keep the CI names fixed: workflows `ci` / `deploy` / `release`; jobs `check`, `gitleaks`, `build`, `integration`, `ci-gate`.
+- Deploy only after CI passes. Merging to `main` deploys to production (server apps), so run the check entry (`npm run check` or the stack's equivalent) locally before opening the PR, and watch CI and the deploy after it merges.
+- Keep the CI names fixed: workflows `ci` / `deploy` / `release` / `codeql`; jobs `check`, `gitleaks`, `build`, `integration`, `ci-gate`.
 - Never delete or skip tests, or loosen lint rules, to make a check pass.
 
 **Git**
-- Conventional Commits (`feat(scope): subject`). Small changes may be pushed straight to `main`. Use a branch and PR for large changes, database migrations, auth or permission code, and deploy, CI or Dockerfile changes.
+- Conventional Commits (`feat(scope): subject`).
+- Never push to `main` directly. Every change, however small, goes on a new branch and is merged through a PR with auto-merge on. Before starting, update local `main` (`git switch main && git pull`) and branch from it; if a push is rejected or the branch is behind, pull the latest `main` and merge or rebase it in.
 - Never force-push `main`. Roll back with `git revert`.
 
 **Secrets and private information**
