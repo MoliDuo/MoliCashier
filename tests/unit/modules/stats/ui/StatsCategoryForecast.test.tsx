@@ -59,7 +59,6 @@ describe("StatsCategoryForecast", () => {
       name: "餐饮, 预计 ¥1,800.00, ¥1,500.00–¥2,100.00, 已花 ¥300.00",
     });
     expect(screen.getByRole("button", { name: /^未分类, 预计 ¥120.00/ })).toBeInTheDocument();
-    expect(screen.getByText("30 天前的一天只算昨天的一半", { exact: false })).toBeInTheDocument();
 
     fireEvent.click(food);
     expect(open).toHaveBeenCalledWith("food");

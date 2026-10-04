@@ -14,7 +14,6 @@ import type {
 } from "@/modules/forecast/contracts";
 import { StatsPanel } from "./StatsPanel";
 import { DISPLAY_LOCALE } from "@/lib/constants";
-import { formatCivilDate } from "@/lib/date-utils";
 import { forecastCopy, statsTabCopy } from "@/copy/stats";
 
 /** Past this many, the tail is folded away, as the ranking folds its own. */
@@ -42,8 +41,6 @@ export function StatsCategoryForecast({
   if (forecast.categories.length === 0) return null;
 
   const money = (amount: string) => formatCurrencyAmount(amount, currencySymbol, locale);
-  const shortDate = (date: string) =>
-    formatCivilDate(date, locale, { month: "numeric", day: "numeric" });
   const visible = expanded ? forecast.categories : forecast.categories.slice(0, COLLAPSED_LENGTH);
   const hidden = forecast.categories.length - visible.length;
   const scaleMax = Math.max(
