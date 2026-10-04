@@ -27,8 +27,6 @@ export interface ForecastOptions {
   /** The trained network, and the share of the paths it plays; null leaves it out. */
   network: NetworkModel | null;
   networkShare: number;
-  /** How many paths each category hands the browser for its what-if. */
-  samples: number;
 }
 
 export interface CategoryForecast {
@@ -37,12 +35,6 @@ export interface CategoryForecast {
   spent: string;
   /** Where the whole period ends up for this category, spent days included. */
   forecast: Quantiles;
-  /**
-   * What the rest of the period costs in the category on a sample of the
-   * paths, the same paths in every category, so the browser can scale one
-   * category and add the paths back up.
-   */
-  samples: number[];
 }
 
 /** A recurring bill expected before the period ends. */
@@ -73,6 +65,8 @@ export interface PeriodForecast {
   upcoming: UpcomingBill[];
   /** The days so far that cost a category far more than usual. */
   anomalies: Anomaly[];
+  /** A single purchase of at least this much is left out of the forecast; null with no history to read it from. */
+  largeFrom: number | null;
 }
 
 export interface LifeChangeSummary {
@@ -120,10 +114,6 @@ export function forecastPeriod(input: {
     paths: options.paths,
     random: seededRandom(options.seed),
   });
-  const pathCount = simulation.running[0]!.length;
-  const sampled = Array.from({ length: Math.min(options.samples, pathCount) }, (_, index) =>
-    Math.floor((index * pathCount) / Math.min(options.samples, pathCount))
-  );
 
   const spentByKey = new Map<string, string>();
   let spent = "0";
@@ -158,7 +148,6 @@ export function forecastPeriod(input: {
       key,
       spent: categorySpent,
       forecast,
-      samples: sums == null ? [] : sampled.map((path) => sums[path]!),
     });
   }
   categories.sort((a, b) => b.forecast.p50 - a.forecast.p50 || a.key.localeCompare(b.key));
@@ -203,6 +192,7 @@ export function forecastPeriod(input: {
         }))
       )
       .sort((a, b) => a.date.localeCompare(b.date) || b.amount - a.amount),
+    largeFrom: history.largeFrom,
     anomalies: findAnomalies({
       rows,
       history,

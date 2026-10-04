@@ -11,7 +11,6 @@ const OPTIONS: ForecastOptions = {
   minHistoryDays: 7,
   network: null,
   networkShare: 0,
-  samples: 50,
 };
 
 /** `amount` in `category` every `every` days from `from`, `count` times. */
@@ -54,8 +53,6 @@ describe("forecastPeriod", () => {
         key: "food",
         spent: "300",
         forecast: { p10: 930, p50: 930, p90: 930 },
-        // Every sampled path spends the same 630 over the 21 days left.
-        samples: Array.from({ length: 50 }, () => 630),
       },
     ]);
     // September came to 900, and every outcome ends above it.
@@ -244,5 +241,32 @@ describe("forecastPeriod", () => {
     expect(forecast.anomalies).toEqual([
       { date: "2026-10-03", key: "food", amount: 300, typical: 30 },
     ]);
+  });
+
+  it("leaves large one-off purchases out of the days ahead, counting them once recorded", () => {
+    // A month of ¥30 food and ¥40 shopping every third day, then tuition and a sofa in September.
+    const rows: HistoryRow[] = [
+      ...spending("2026-08-01", 70, "food", "30"),
+      ...spending("2026-08-01", 24, "shop", "40", 3),
+      { date: "2026-09-08", categoryId: "edu", currency: "CNY", amount: "4000", documentId: "t" },
+      { date: "2026-09-12", categoryId: "shop", currency: "CNY", amount: "3000", documentId: "s" },
+      { date: "2026-10-02", categoryId: "edu", currency: "CNY", amount: "500", documentId: "b" },
+    ];
+
+    const forecast = forecastPeriod({
+      rows,
+      today: "2026-10-10",
+      period: { from: "2026-10-01", end: "2026-10-31" },
+      previous: null,
+      options: OPTIONS,
+    })!;
+
+    // The usual day with spending is ¥30, so ¥150 and up is a one-off.
+    expect(forecast.largeFrom).toBe(150);
+    const byKey = new Map(forecast.categories.map((category) => [category.key, category]));
+    // The books bought this month count, but no more tuition is expected.
+    expect(byKey.get("edu")!.forecast).toEqual({ p10: 500, p50: 500, p90: 500 });
+    // Shopping goes on at ¥40 every third day, the sofa left out.
+    expect(byKey.get("shop")!.forecast.p90).toBeLessThan(600);
   });
 });

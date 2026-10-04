@@ -6,7 +6,7 @@ import { textRoleClassName } from "@/components/typography";
 import { Button } from "@/components/ui/button";
 import type { DateRangeType } from "@/lib/date-utils";
 import { openLedgerEntrySourceDocument } from "@/lib/navigation/ledger-detail-navigation";
-import type { ForecastCommentaryDto, ForecastDto } from "@/modules/forecast/contracts";
+import type { ForecastDto } from "@/modules/forecast/contracts";
 import type { EnhancedStatsDto } from "@/modules/stats/contracts";
 import { deriveStatsInsights, type StatsInsights } from "@/modules/stats/lib/derived-insights";
 import { CalendarHeatmapSection } from "./CalendarHeatmapSection";
@@ -63,8 +63,6 @@ interface StatsContentViewProps {
    * to the typical-day projection the figures carry.
    */
   forecast?: ForecastDto | null;
-  /** Asks the AI about the forecast shown; without it there is no button. */
-  requestCommentary?: () => Promise<ForecastCommentaryDto | null>;
   isLoading?: boolean;
   isError?: boolean;
   onRetry?: () => void;
@@ -82,7 +80,6 @@ export function StatsContentView({
   comparisonLabel,
   stats,
   forecast = null,
-  requestCommentary,
   isLoading = false,
   isError = false,
   onRetry,
@@ -266,8 +263,6 @@ export function StatsContentView({
             <StatsCategoryForecast
               forecast={forecast}
               currencySymbol={currencySymbol}
-              periodLabel={comparisonLabel}
-              {...(requestCommentary !== undefined ? { requestCommentary } : {})}
               {...(onCategoryDrilldown !== undefined
                 ? {
                     onCategoryClick: (categoryId: string) =>

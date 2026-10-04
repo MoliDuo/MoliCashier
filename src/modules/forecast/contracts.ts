@@ -9,12 +9,6 @@ export interface ForecastCategoryDto extends ForecastCategoryRef {
   spent: string;
   /** Where the whole period ends up for the category, spent days included. */
   forecast: ForecastRangeDto;
-  /**
-   * What the rest of the period costs in the category on a sample of the
-   * simulated paths, the same paths in every category: the what-if scales a
-   * category's and adds the paths back up.
-   */
-  samples: number[];
 }
 
 /** Who a recurring bill, an unusual day and a category row belong to. */
@@ -94,14 +88,14 @@ export interface ForecastDto {
   lifeChange: { date: string; dailyBefore: string; dailyAfter: string } | null;
   /** The recurring bills expected after today through `periodEnd`, soonest first. */
   upcoming: ForecastUpcomingDto[];
+  /**
+   * A single purchase of at least this much counts as a large one-off: it is
+   * left out of the days ahead and counts only once recorded. Null with no
+   * history to read it from.
+   */
+  largePurchaseFrom: string | null;
   /** The days so far that cost a category far more than usual, the most unusual first. */
   anomalies: ForecastAnomalyDto[];
   /** Null until the nightly training (or the first read's) has finished. */
   model: ForecastModelDto | null;
-}
-
-/** The model's few sentences on a forecast, for the day they were written. */
-export interface ForecastCommentaryDto {
-  asOf: string;
-  sentences: string[];
 }

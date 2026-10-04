@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { usePathname, useSearchParams } from "next/navigation";
-import { fetchForecast, fetchForecastCommentary } from "@/modules/forecast/queries";
+import { fetchForecast } from "@/modules/forecast/queries";
 import { fetchEnhancedStats } from "@/modules/stats/queries";
 import { StatsContentView, type StatsScale } from "@/modules/stats/ui/StatsContentView";
 import type { Ledger } from "@/modules/ledger/contracts";
@@ -190,7 +190,6 @@ export function StatsTab({
         comparisonLabel={comparisonLabelOf(contentPeriod)}
         stats={stats}
         forecast={forecast}
-        requestCommentary={() => fetchForecastCommentary(scopeDescriptor.input)}
         isLoading={statsQuery.isFetching}
         isError={statsQuery.isError}
         onRetry={() => void statsQuery.refetch()}

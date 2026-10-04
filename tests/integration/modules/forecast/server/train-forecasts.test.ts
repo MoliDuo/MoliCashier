@@ -2,10 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getTestDb } from "tests/setup";
 import { createTestBooks } from "tests/helpers/schema-setup";
 import { createLedgerData } from "tests/helpers/factories";
-import { fakeAiTransport } from "tests/helpers/fake-ai";
-import { setAiTransportForTests } from "@/lib/ai/client";
 import { entryCategories, ledgerEntries, ledgers, sourceDocuments } from "@/persistence";
-import { getForecastCommentary } from "@/modules/forecast/server/forecast-commentary";
 import { getPeriodForecast } from "@/modules/forecast/server/get-forecast";
 import { addCivilDays } from "@/modules/ledger/domain/period";
 import { MemoryObjectStore } from "tests/helpers/memory-object-store";
@@ -16,7 +13,6 @@ vi.mock("@/lib/storage/s3", () => ({ getS3Storage: () => new MemoryObjectStore()
 import { runDailyMaintenance } from "@/server/maintenance/daily";
 
 const THIS_MONTH = { range: "month", offset: 0 } as const;
-const SETTINGS = { timeZone: "Asia/Shanghai", aiLanguage: "zh-CN" };
 
 describe("the nightly forecast training", () => {
   beforeEach(async () => {
@@ -58,7 +54,6 @@ describe("the nightly forecast training", () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    setAiTransportForTests(null);
   });
 
   it("trains every scope as a daily step, and the forecast then says how it was chosen", async () => {
@@ -85,41 +80,6 @@ describe("the nightly forecast training", () => {
         streak: 4,
       }),
     ]);
-    // Every category carries the same sample of paths, for the what-if.
-    const [first, second] = forecast!.categories;
-    expect(first!.samples.length).toBeGreaterThan(0);
-    expect(second!.samples).toHaveLength(first!.samples.length);
     expect(forecast!.anomalies).toEqual([]);
-  });
-
-  it("asks the model about the totals only, in the ledger's AI language", async () => {
-    const transport = fakeAiTransport(() =>
-      JSON.stringify({ sentences: ["这个月大概和上个月差不多。", "房租还没付。"] })
-    );
-    setAiTransportForTests(transport);
-
-    const commentary = await getForecastCommentary({ period: THIS_MONTH }, SETTINGS);
-
-    expect(commentary).toEqual({
-      asOf: "2026-10-10",
-      sentences: ["这个月大概和上个月差不多。", "房租还没付。"],
-    });
-    const request = transport.complete.mock.calls[0]![0];
-    expect(request.system).toContain("zh-CN");
-    const sent = String(request.messages[0]!.content);
-    expect(sent).toContain("餐饮");
-    // No entry, document title or bill name leaves the server.
-    expect(sent).not.toContain("楼下的面馆");
-    expect(sent).not.toContain("房租");
-  });
-
-  it("has no commentary for a period that is not running", async () => {
-    const transport = fakeAiTransport(() => JSON.stringify({ sentences: ["不该被问到。"] }));
-    setAiTransportForTests(transport);
-
-    expect(
-      await getForecastCommentary({ period: { range: "month", offset: -1 } }, SETTINGS)
-    ).toBeNull();
-    expect(transport.complete).not.toHaveBeenCalled();
   });
 });
