@@ -115,6 +115,11 @@ export const FORECAST_AI_INPUT_MAX_CHARS = 120_000;
 export const FORECAST_AI_INPUT_TEXT_CHARS = 160;
 /** How far ahead the AI lists what it expects to come. */
 export const FORECAST_AI_EXPECTED_DAYS = 90;
+/**
+ * Part of what a judgment is stored against. Raise it whenever the analyst's prompt or what it is asked for
+ * changes, so today's judgment, made the old way, is redone on the next read or night instead of tomorrow.
+ */
+export const FORECAST_AI_JUDGMENT_VERSION = 2;
 /** A judgment is not asked again sooner than this after the last attempt, new entries or not. */
 export const FORECAST_AI_REFRESH_MINUTES = 30;
 /** A judgment older than this many days is not used for the page's forecast. */

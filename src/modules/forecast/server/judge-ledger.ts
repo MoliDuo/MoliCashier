@@ -38,6 +38,7 @@ import {
   resolveJudgment,
   type Judgment,
 } from "@/modules/forecast/domain/judgment/schema";
+import { historyFingerprint } from "@/modules/forecast/domain/judgment/fingerprint";
 import { seedOf } from "@/modules/forecast/domain/random";
 import type { HistoryRow } from "@/modules/forecast/domain/series";
 import { addCivilDays, calendarRangeOf } from "@/modules/ledger/domain/period";
@@ -45,13 +46,7 @@ import { ledgerToday } from "@/modules/ledger/server/query-period";
 import { getLedgerSettings } from "@/modules/ledger/server/settings";
 import { readForecastHistory, type ForecastHistory } from "./forecast-history";
 import { readJudgmentLedger } from "./judgment-history";
-import {
-  historyFingerprint,
-  judgedDays,
-  judgmentsSince,
-  saveJudgment,
-  type StoredJudgment,
-} from "./judgments";
+import { judgedDays, judgmentsSince, saveJudgment, type StoredJudgment } from "./judgments";
 
 const TEMPERATURE = 0.2;
 const MINUTE_MS = 60_000;
