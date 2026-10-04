@@ -23,7 +23,7 @@ jobs:
     timeout-minutes: 20
     steps:
       # The build, the temporary tailnet node and the SSH push live in MoliKit.
-      - uses: MoliDuo/MoliKit/actions/deploy@52bbc8ec5c0e34f0bb97fa95dbcca5ffe298d07a # v1.2.0
+      - uses: MoliDuo/MoliKit/actions/deploy@9b799ce70581440f1598ece62c068dd0b881b955 # v1.2.1
         with:
           app: cashier
           sha: ${{ github.event.workflow_run.head_sha }}
