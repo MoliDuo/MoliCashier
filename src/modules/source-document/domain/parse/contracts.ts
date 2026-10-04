@@ -16,7 +16,7 @@ export interface ParseSourceDocumentInput {
   evidence?: ParseEvidence;
   categories: CategoryInfo[];
   aiLanguage?: string;
-  settings: { aiCustomPrompt?: string };
+  settings: { aiCustomPrompt?: string; aiLearnedPreferences?: string };
   preferredCurrencies?: string[];
   recentEntries?: readonly RecentEntryForParse[];
 }

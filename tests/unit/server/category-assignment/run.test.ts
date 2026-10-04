@@ -46,7 +46,8 @@ const adapters = vi.hoisted(() => ({
             { id: "category-1", name: "One", description: null },
             { id: "category-2", name: "Two", description: null },
           ],
-          customPrompt: null,
+          customPrompt: null as string | null,
+          learnedPreferences: null as string | null,
         }
       : null;
   }),
@@ -171,6 +172,30 @@ describe("category assignment run", () => {
       expect.objectContaining({ sourceDocumentId: "document-2" }),
     ]);
     expect(adapters.release).toHaveBeenCalledTimes(1);
+  });
+
+  it("hands the job's prompt and learned preferences to every decision", async () => {
+    state.queue = [document(1)];
+    adapters.claimJob.mockImplementationOnce(async () => ({
+      jobId: "job-1",
+      claimToken: "token-1",
+      mode: { kind: "ai" as const, candidateCategoryIds: ["category-1", "category-2"] },
+      candidates: [
+        { id: "category-1", name: "One", description: null },
+        { id: "category-2", name: "Two", description: null },
+      ],
+      customPrompt: "星巴克算餐饮",
+      learnedPreferences: "- 滴滴算交通",
+    }));
+
+    await run();
+
+    expect(adapters.decide).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customPrompt: "星巴克算餐饮",
+        learnedPreferences: "- 滴滴算交通",
+      })
+    );
   });
 
   it("returns without work when no job can be claimed", async () => {

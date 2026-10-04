@@ -29,4 +29,4 @@ export function normalizeTitle(raw: string | null | undefined, fallback: string)
  */
 export const TITLE_POLICY_PROMPT = `### Title
 Concise merchant/service-first title (e.g. "Starbucks", "Didi ride"). Add a qualifier only if needed to disambiguate from other documents. No amounts, dates, or payment status. Non-empty, at most 200 Unicode characters.
-Priority (highest first): 1) facts/structure of the source document (title still non-empty, ≤200 chars) 2) the mandatory output locale below 3) ledger owner's Additional Instructions 4) the default style above.`;
+Priority (highest first): 1) facts/structure of the source document (title still non-empty, ≤200 chars) 2) the mandatory output locale below 3) ledger owner's Additional Instructions 4) Learned Preferences 5) the default style above.`;

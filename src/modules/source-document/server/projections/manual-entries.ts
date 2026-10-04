@@ -5,6 +5,7 @@ import { compare } from "@/lib/money/decimal";
 import type { DateOrganizationSuggestion } from "@/lib/ai/date-organization";
 import type { DuplicateSuggestion } from "@/lib/ai/duplicate-suggestion";
 import { ledgerEntries, sourceDocuments } from "@/persistence";
+import { recordAiCorrectionsInTransaction } from "@/modules/ledger/server/ai-corrections";
 import type { LockedSourceDocument, PostgresTransaction } from "@/lib/db/transaction-locks";
 import { assertSourceDocumentsNotProcessing } from "../write-guards";
 
@@ -190,6 +191,15 @@ export async function replaceDocumentEntriesInTransaction(
     previousEntries: input.previousEntries,
     sourceDocumentId: input.sourceDocumentId,
     entries: input.entries,
+  });
+  await recordAiCorrectionsInTransaction(tx, {
+    sourceDocumentId: input.sourceDocumentId,
+    previousEntries: input.previousEntries,
+    nextEntries: input.entries.flatMap((entry) =>
+      entry.id == null ? [] : [{ ...entry, id: entry.id }]
+    ),
+    previousTitle: document.title,
+    nextTitle: input.title,
   });
   const updated = await tx
     .update(sourceDocuments)

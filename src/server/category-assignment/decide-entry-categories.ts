@@ -28,6 +28,7 @@ export async function decideEntryCategories(input: {
   /** Encoded evidence for this document; empty for a text-only submission. */
   images: readonly { dataUrl: string }[];
   customPrompt?: string;
+  learnedPreferences?: string;
   signal?: AbortSignal;
 }): Promise<{
   decisions: readonly { ledgerEntryId: string; categoryId: string }[];
@@ -36,6 +37,7 @@ export async function decideEntryCategories(input: {
   const prompt = buildCategoryAssignmentPrompt({
     candidates: input.candidates,
     ...(input.customPrompt == null ? {} : { customPrompt: input.customPrompt }),
+    ...(input.learnedPreferences == null ? {} : { learnedPreferences: input.learnedPreferences }),
   });
   const response = await generateStructured({
     task: "category-assignment",

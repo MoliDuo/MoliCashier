@@ -16,6 +16,9 @@ export function mapLedgerSettings(
     | "mainCurrency"
     | "collapseEntriesDefault"
     | "aiCustomPrompt"
+    | "aiLearnedPreferences"
+    | "aiLearnedPreferencesUpdatedAt"
+    | "aiPreferenceLearningEnabled"
     | "timeZone"
   >
 ): LedgerSettings {
@@ -25,6 +28,9 @@ export function mapLedgerSettings(
     mainCurrency: row.mainCurrency,
     collapseEntriesDefault: row.collapseEntriesDefault,
     aiCustomPrompt: row.aiCustomPrompt,
+    aiLearnedPreferences: row.aiLearnedPreferences,
+    aiLearnedPreferencesUpdatedAt: row.aiLearnedPreferencesUpdatedAt?.toISOString() ?? null,
+    aiPreferenceLearningEnabled: row.aiPreferenceLearningEnabled,
     timeZone: row.timeZone,
   };
 }
@@ -38,6 +44,12 @@ function settingsColumns(settings: Partial<LedgerSettings>) {
       ? {}
       : { collapseEntriesDefault: settings.collapseEntriesDefault }),
     ...(settings.aiCustomPrompt === undefined ? {} : { aiCustomPrompt: settings.aiCustomPrompt }),
+    ...(settings.aiLearnedPreferences === undefined
+      ? {}
+      : { aiLearnedPreferences: settings.aiLearnedPreferences }),
+    ...(settings.aiPreferenceLearningEnabled === undefined
+      ? {}
+      : { aiPreferenceLearningEnabled: settings.aiPreferenceLearningEnabled }),
     ...(settings.timeZone === undefined ? {} : { timeZone: settings.timeZone }),
   };
 }
@@ -50,6 +62,9 @@ export async function getLedgerSettings(): Promise<LedgerSettings | null> {
       mainCurrency: true,
       collapseEntriesDefault: true,
       aiCustomPrompt: true,
+      aiLearnedPreferences: true,
+      aiLearnedPreferencesUpdatedAt: true,
+      aiPreferenceLearningEnabled: true,
       timeZone: true,
     },
   });

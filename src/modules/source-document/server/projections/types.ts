@@ -11,6 +11,8 @@ export interface LedgerProjectionEntryContract {
   description: string | null;
   createdAt?: string;
   dateHint?: DateHint;
+  /** True for an entry the AI wrote; set when an attempt is activated. */
+  extracted?: boolean;
 }
 
 export interface ActivateAttemptInput {

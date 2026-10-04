@@ -11,6 +11,9 @@ const defaultLedger = {
     mainCurrency: "CNY",
     collapseEntriesDefault: false,
     aiCustomPrompt: "",
+    aiLearnedPreferences: "",
+    aiLearnedPreferencesUpdatedAt: null,
+    aiPreferenceLearningEnabled: true,
     timeZone: "Asia/Shanghai",
   },
   categories: DEFAULT_CATEGORIES.map(({ name, description, icon }, sortOrder) => ({

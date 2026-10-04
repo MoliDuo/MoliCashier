@@ -105,6 +105,7 @@ src/copy/                 全部界面文案，按界面区域分文件
 | 汇率：`exchange_rates(rate_date, currency, per_eur, …)`                                              | 每个自然日、每个币种一行，`source_date` 记录服务商的真实日期，`fetched_at` 记录抓取时间                                                       |
 | `stored_files`                                                                                       | 对象存储里文件的登记；先登记行、再写对象，没有任何票据引用的行由每日维护清掉                                                                  |
 | 批量分类：`category_assignment_jobs`、`category_assignment_documents`、`category_assignment_entries` | 租约放在 job 行上，进度在读取时统计；`ai` 任务的候选分类就是 `candidate_snapshot`                                                             |
+| 修改记录：`ai_corrections`                                                                           | 用户对 AI 所写分类、商品名、标题的修改：AI 的值、用户的值、读过与否；随票据删除。每日维护据此整理 `ledgers.ai_learned_preferences`            |
 | 认证                                                                                                 | `sessions`（已登录的浏览器，只记提供方验证过的邮箱）                                                                                          |
 | API 密钥：`service_credentials`                                                                      | 吊销时写 `revoked_at`，行留作审计                                                                                                             |
 | `ledger_sync_state`（单行）                                                                          | 客户端刷新用的水位线，由行级触发器 `record_ledger_change` 维护：每改一行一条 UPDATE，同一事务复用一个版本号                                   |
@@ -128,6 +129,13 @@ src/copy/                 全部界面文案，按界面区域分文件
   改主币种只是改一个设置。
 - **重新提取成功时，在同一个事务里替换全部条目。** 失败或取消时旧条目原样保留，同时展示新的输入和失败原因。
 - **拆分和日期整理产生的票据没有提取记录。** 它的状态就是空闲。手动编辑就地改条目，不创建提取尝试，不复制条目历史。
+- **从修改中学偏好。** AI 写的分类、商品名和标题被用户改掉时，在同一个事务里记下差异（`ai_corrections`，每个
+  条目或票据加字段一行）：第一次修改插入，再改只更新 `after_value` 并重新算作未读，改回 AI 原来的值就删掉这行。
+  只有 AI 写入的条目（`ledger_entries.extracted`，激活提取尝试时置为真）和 AI 起的标题才记；金额、币种、备注和
+  删除不记；学习开关关着时一律不记。写入点是 `replaceDocumentEntriesInTransaction` 和只改标题的批量路径。
+  学到的文字单独存放，从不改动手写的账本提示词；所有读取账本提示词的 AI 调用都经
+  `buildLedgerInstructionSections` 拼出两节，手写提示词优先，票据上的事实永远优先。批量分类在开始时把学到的文字
+  和提示词一起存进 job 快照，重试沿用同一份。
 - **"已经记过"是建议，不是动作。** 解析时，服务端取最近 `RECENT_ENTRIES_WINDOW_DAYS` 天内其他票据的条目
   （最多 `RECENT_ENTRIES_MAX` 条）交给模型，每条只带短编号 `R1…Rn`，不暴露 id；模型在每一行上用
   `already_recorded` 标出同一笔交易，行本身照常输出。服务端把编号换回条目 id，存成
@@ -280,6 +288,10 @@ UTC 18:00（ECB 已发布当天汇率）运行一次 `runDailyMaintenance`（`sr
 2. 刷新汇率，补齐缺失的日期并替换临时值；
 3. 7 天没有被任何票据使用的文件（先删行，再删对象）；
 4. `stored/` 下超过 1 天、没有任何行指向的孤儿对象。
+5. 偏好学习（`runPreferenceLearning`，`src/modules/ledger/server/preference-learning.ts`）：把还没读过的修改记录整理进
+   `ledgers.ai_learned_preferences`。至少 `PREFERENCE_LEARNING_MIN_CORRECTIONS` 条才调用模型；模型调用在事务外，
+   写回只在学到的文字仍是读取时的那份、且开关仍开着时生效，成功后才把这次读过的记录标为已读。读过的记录保留
+   `AI_CORRECTIONS_RETENTION_DAYS` 天，由第 1 步一起清理。
 
 提取和分类的恢复不再是维护的一步，worker 的轮询已经覆盖。
 

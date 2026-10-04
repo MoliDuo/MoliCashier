@@ -125,6 +125,9 @@ async function processDocument(
             ...(job.customPrompt == null || job.customPrompt === ""
               ? {}
               : { customPrompt: job.customPrompt }),
+            ...(job.learnedPreferences == null || job.learnedPreferences === ""
+              ? {}
+              : { learnedPreferences: job.learnedPreferences }),
           });
           const persisted = await persistCategoryAssignmentDecisions({
             lease: job,

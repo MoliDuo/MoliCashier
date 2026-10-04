@@ -38,6 +38,7 @@ export function SettingsTab({
     credentials,
     settingsQueryStatus,
     updateLedgerMutation,
+    clearLearnedPreferences,
     saveCategories,
     generatingCategoryIds,
     failedCategoryIds,
@@ -103,6 +104,7 @@ export function SettingsTab({
         categories={categories}
         uncategorizedCount={uncategorizedCount}
         onUpdateSettings={(data) => updateLedgerMutation.mutateAsync(data)}
+        onClearLearnedPreferences={() => clearLearnedPreferences.mutateAsync()}
         onSaveCategories={(input) => saveCategories.mutateAsync(input)}
         onReloadCategories={reloadCategories}
         generatingCategoryIds={generatingCategoryIds}

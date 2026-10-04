@@ -1,3 +1,4 @@
+import { forgetTitleCorrectionInTransaction } from "@/modules/ledger/server/ai-corrections";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import "server-only";
 import type { ActivateAttemptInput } from "@/modules/source-document/server/projections/types";
@@ -69,8 +70,12 @@ export async function activateAttempt(input: ActivateAttemptInput): Promise<bool
 
     await replaceProjection(tx, {
       sourceDocumentId: input.sourceDocumentId,
-      entries: input.entries,
+      entries: input.entries.map((entry) => ({ ...entry, extracted: true })),
     });
+    // The title the AI writes now replaces the one a correction was about.
+    if (input.title != null && input.title !== "") {
+      await forgetTitleCorrectionInTransaction(tx, input.sourceDocumentId);
+    }
     const duplicateSuggestion = await stillMatchedSuggestion(tx, input.duplicateSuggestion);
     const now = new Date();
     await tx

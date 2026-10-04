@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BookkeepingSettings } from "@/modules/ledger/ui/settings/BookkeepingSettings";
 import type { ComponentProps } from "react";
@@ -25,6 +25,7 @@ const bookkeepingProps = (overrides: Partial<BookkeepingProps>): BookkeepingProp
   categories: [],
   uncategorizedCount: 0,
   onUpdateSettings: () => Promise.reject(new Error("unexpected save")),
+  onClearLearnedPreferences: () => Promise.reject(new Error("unexpected clear")),
   onSaveCategories: () => Promise.resolve([]),
   generatingCategoryIds: new Set(),
   failedCategoryIds: new Set(),
@@ -144,6 +145,67 @@ describe("instant bookkeeping settings", () => {
     unmount();
 
     expect(onUpdateSettings).toHaveBeenCalledWith({ aiCustomPrompt: "Typed then left" });
+  });
+
+  describe("learned preferences", () => {
+    it("saves the learned text when the reader leaves the field", async () => {
+      const onUpdateSettings = vi.fn().mockResolvedValue(savedLedger({}));
+      render(
+        <BookkeepingSettings
+          {...bookkeepingProps({
+            settings: { ...getDefaultLedger().settings, aiLearnedPreferences: "- 星巴克算餐饮" },
+            onUpdateSettings,
+          })}
+        />
+      );
+
+      const field = screen.getByRole("textbox", { name: settingsCopy.learnedPreferences });
+      fireEvent.change(field, { target: { value: "- 星巴克算饮品" } });
+      expect(onUpdateSettings).not.toHaveBeenCalled();
+      fireEvent.blur(field);
+
+      await waitFor(() =>
+        expect(onUpdateSettings).toHaveBeenCalledWith({ aiLearnedPreferences: "- 星巴克算饮品" })
+      );
+    });
+
+    it("saves the learning switch the moment it changes", () => {
+      const onUpdateSettings = vi.fn().mockResolvedValue(savedLedger({}));
+      render(<BookkeepingSettings {...bookkeepingProps({ onUpdateSettings })} />);
+
+      fireEvent.click(screen.getByRole("switch", { name: settingsCopy.learnPreferences }));
+
+      expect(onUpdateSettings).toHaveBeenCalledWith({ aiPreferenceLearningEnabled: false });
+    });
+
+    it("clears only after the reader confirms", async () => {
+      const onClearLearnedPreferences = vi.fn().mockResolvedValue(savedLedger({}));
+      render(
+        <BookkeepingSettings
+          {...bookkeepingProps({
+            settings: { ...getDefaultLedger().settings, aiLearnedPreferences: "- 星巴克算餐饮" },
+            onClearLearnedPreferences,
+          })}
+        />
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: settingsCopy.clearLearnedPreferences }));
+      expect(onClearLearnedPreferences).not.toHaveBeenCalled();
+      const dialog = await screen.findByRole("dialog");
+      fireEvent.click(
+        within(dialog).getByRole("button", { name: settingsCopy.clearLearnedPreferences })
+      );
+
+      await waitFor(() => expect(onClearLearnedPreferences).toHaveBeenCalledTimes(1));
+    });
+
+    it("has nothing to clear before anything was learned", () => {
+      render(<BookkeepingSettings {...bookkeepingProps({})} />);
+
+      expect(
+        screen.getByRole("button", { name: settingsCopy.clearLearnedPreferences })
+      ).toBeDisabled();
+    });
   });
 
   it("offers the ledger's own zone even when it is not one of the listed ones", () => {

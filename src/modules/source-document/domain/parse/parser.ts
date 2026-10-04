@@ -11,6 +11,7 @@ import type { z } from "zod";
 import { logger } from "@/lib/logger";
 import { buildAiOutputLocaleInstruction } from "@/config/ai-output-locales";
 import { AppError } from "@/lib/errors";
+import { buildLedgerInstructionSections } from "@/modules/ledger/domain/ledger-instructions";
 import type { AiContentPart } from "@/lib/ai/client";
 import type { GenerateStructured } from "@/lib/ai/structured";
 import { ProcessingCancelledError, ProcessingFailure, type RecentEntryForParse } from "./contracts";
@@ -28,6 +29,7 @@ export interface ParserInput {
   originalCategories: { name: string; description?: string | null }[];
   aiLanguage?: string;
   aiCustomPrompt?: string;
+  aiLearnedPreferences?: string;
   preferredCurrencies?: string[];
   /** Entries the ledger already holds, so a row seen again can be flagged. */
   recentEntries?: readonly RecentEntryForParse[];
@@ -71,10 +73,10 @@ function buildPrompt(input: ParserInput, aiLanguage: string): string {
       ? `\n### Preferred Currencies\nWhen currency is ambiguous, prefer: ${input.preferredCurrencies!.join(", ")}\n`
       : "";
 
-  const customSection =
-    input.aiCustomPrompt != null && input.aiCustomPrompt !== ""
-      ? `\n### Additional Instructions\n${input.aiCustomPrompt}\n`
-      : "";
+  const customSection = buildLedgerInstructionSections({
+    customPrompt: input.aiCustomPrompt,
+    learnedPreferences: input.aiLearnedPreferences,
+  });
 
   const recentSection =
     input.recentEntries != null && input.recentEntries.length > 0

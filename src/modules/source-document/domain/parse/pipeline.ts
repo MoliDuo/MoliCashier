@@ -41,6 +41,9 @@ export function buildParserInput(input: ParseSourceDocumentInput): ParserInput {
     ...(input.settings.aiCustomPrompt !== undefined
       ? { aiCustomPrompt: input.settings.aiCustomPrompt }
       : {}),
+    ...(input.settings.aiLearnedPreferences !== undefined
+      ? { aiLearnedPreferences: input.settings.aiLearnedPreferences }
+      : {}),
   };
 }
 

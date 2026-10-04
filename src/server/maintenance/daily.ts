@@ -1,10 +1,18 @@
 import "server-only";
 import { inArray, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { categoryAssignmentJobs, sessions, sourceDocumentFiles, storedFiles } from "@/persistence";
+import {
+  aiCorrections,
+  categoryAssignmentJobs,
+  sessions,
+  sourceDocumentFiles,
+  storedFiles,
+} from "@/persistence";
 import { getS3Storage } from "@/lib/storage/s3";
 import { logger } from "@/lib/logger";
 import { runWithConcurrency } from "@/lib/concurrency";
+import { AI_CORRECTIONS_RETENTION_DAYS } from "@/config/tuning";
+import { runPreferenceLearning } from "@/modules/ledger/server/preference-learning";
 import { refreshExchangeRates } from "@/modules/currency/server/exchange-rates";
 
 const BATCH = 1000;
@@ -12,7 +20,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** How long a ready file may go unused before it is deleted. */
 const UNUSED_FILE_GRACE_DAYS = 7;
 
-export type DailyStep = "expired_records" | "exchange_rates" | "unused_files" | "orphan_objects";
+export type DailyStep =
+  "expired_records" | "exchange_rates" | "unused_files" | "orphan_objects" | "preference_learning";
 
 export type DailyStepOutcome = "done" | "failed";
 
@@ -47,6 +56,9 @@ export async function runDailyMaintenance(
   await step("exchange_rates", () => refreshExchangeRates(now));
   await step("unused_files", () => deleteUnusedFiles(now));
   await step("orphan_objects", () => deleteOrphanObjects(now));
+  await step("preference_learning", async () => {
+    await runPreferenceLearning({ now });
+  });
   return outcomes;
 }
 
@@ -60,6 +72,7 @@ async function deleteInBatches(statement: SQL): Promise<void> {
 
 async function deleteExpiredRecords(now: Date): Promise<void> {
   const sevenDaysAgo = new Date(now.getTime() - 7 * DAY_MS);
+  const corrections = new Date(now.getTime() - AI_CORRECTIONS_RETENTION_DAYS * DAY_MS);
   const statements = [
     sql`DELETE FROM ${sessions} WHERE id IN (
       SELECT id FROM ${sessions} WHERE expires_at < ${now} LIMIT ${BATCH}
@@ -69,6 +82,12 @@ async function deleteExpiredRecords(now: Date): Promise<void> {
       SELECT id FROM ${categoryAssignmentJobs}
       WHERE status IN ('succeeded', 'partial', 'failed', 'cancelled')
         AND updated_at < ${sevenDaysAgo}
+      LIMIT ${BATCH}
+    )`,
+    // A correction a learning run already read is kept as background for a while.
+    sql`DELETE FROM ${aiCorrections} WHERE id IN (
+      SELECT id FROM ${aiCorrections}
+      WHERE consumed_at IS NOT NULL AND consumed_at < ${corrections}
       LIMIT ${BATCH}
     )`,
   ];

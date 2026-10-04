@@ -290,6 +290,39 @@ describe("executeParser — single-pass receipt parser", () => {
     expect(prompt.indexOf("### Mandatory Output Locale")).toBeGreaterThan(fixedRuleIndex);
   });
 
+  it("places learned preferences after the ledger prompt, below the fixed rules", async () => {
+    await executeParser(
+      {
+        text: "Coffee 10 USD",
+        originalCategories: [],
+        aiLanguage: "zh-CN",
+        aiCustomPrompt: "Use my preferred wording.",
+        aiLearnedPreferences: "- Starbucks is always Food.",
+      },
+      mockAI.generate
+    );
+
+    const prompt = getFirstCompleteCall(mockAI.transport).system;
+    expect(prompt.indexOf("### Learned Preferences")).toBeGreaterThan(
+      prompt.indexOf("### Additional Instructions")
+    );
+    expect(prompt.indexOf("- Starbucks is always Food.")).toBeGreaterThan(
+      prompt.indexOf("skip the refund card entirely")
+    );
+    expect(prompt.indexOf("Mandatory Output Locale")).toBeGreaterThan(
+      prompt.indexOf("- Starbucks is always Food.")
+    );
+  });
+
+  it("leaves the learned section out when nothing was learned", async () => {
+    await executeParser(
+      { text: "Coffee 10 USD", originalCategories: [], aiLearnedPreferences: "" },
+      mockAI.generate
+    );
+
+    expect(getFirstCompleteCall(mockAI.transport).system).not.toContain("### Learned Preferences");
+  });
+
   it("makes the native-user locale override a conflicting custom prompt", async () => {
     await executeParser(
       {

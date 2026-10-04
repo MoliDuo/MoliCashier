@@ -97,9 +97,14 @@ export async function processAttempt(
         : { evidence: { images: evidence.map((item) => ({ dataUrl: item.dataUrl })) } }),
       categories,
       ...(recent.entries.length === 0 ? {} : { recentEntries: recent.entries }),
-      ...(ledgerSettings?.aiCustomPrompt !== undefined
-        ? { settings: { aiCustomPrompt: ledgerSettings.aiCustomPrompt } }
-        : { settings: {} }),
+      settings: {
+        ...(ledgerSettings?.aiCustomPrompt === undefined
+          ? {}
+          : { aiCustomPrompt: ledgerSettings.aiCustomPrompt }),
+        ...(ledgerSettings?.aiLearnedPreferences === undefined
+          ? {}
+          : { aiLearnedPreferences: ledgerSettings.aiLearnedPreferences }),
+      },
       ...(ledgerSettings?.aiLanguage !== undefined
         ? { aiLanguage: ledgerSettings.aiLanguage }
         : {}),

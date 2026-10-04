@@ -8,6 +8,8 @@ export function createLedgerData(
     mainCurrency: string;
     collapseEntriesDefault: boolean;
     aiCustomPrompt: string;
+    aiLearnedPreferences: string;
+    aiPreferenceLearningEnabled: boolean;
     timeZone: string;
     createdAt: Date;
     updatedAt: Date;
@@ -20,6 +22,8 @@ export function createLedgerData(
     mainCurrency: "CNY",
     collapseEntriesDefault: false,
     aiCustomPrompt: "",
+    aiLearnedPreferences: "",
+    aiPreferenceLearningEnabled: true,
     timeZone: "Asia/Shanghai",
     createdAt: new Date(),
     updatedAt: new Date(),

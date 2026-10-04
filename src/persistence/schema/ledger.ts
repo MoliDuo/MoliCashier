@@ -39,6 +39,13 @@ export const ledgers = pgTable(
     mainCurrency: varchar("main_currency", { length: 3 }).notNull().default("CNY"),
     collapseEntriesDefault: boolean("collapse_entries_default").notNull().default(false),
     aiCustomPrompt: text("ai_custom_prompt").notNull().default(""),
+    /** What the daily maintenance learned from the owner's corrections; never the hand-written prompt. */
+    aiLearnedPreferences: text("ai_learned_preferences").notNull().default(""),
+    aiLearnedPreferencesUpdatedAt: timestamp("ai_learned_preferences_updated_at", {
+      withTimezone: true,
+    }),
+    /** Off, corrections are not recorded and nothing new is learned. */
+    aiPreferenceLearningEnabled: boolean("ai_preference_learning_enabled").notNull().default(true),
     /** The zone every day in the ledger is read in: "today", periods, record dates. */
     timeZone: text("time_zone").notNull().default("Asia/Shanghai"),
     createdAt: rowTimestamp("created_at"),
@@ -55,6 +62,10 @@ export const ledgers = pgTable(
     ),
     check("ck_ledgers_ai_language_length", sql`length(${table.aiLanguage}) BETWEEN 2 AND 35`),
     check("ck_ledgers_ai_custom_prompt_length", sql`length(${table.aiCustomPrompt}) <= 4000`),
+    check(
+      "ck_ledgers_ai_learned_preferences_length",
+      sql`length(${table.aiLearnedPreferences}) <= 2000`
+    ),
     check("ck_ledgers_time_zone_length", sql`length(${table.timeZone}) BETWEEN 1 AND 50`),
     // The ledger is a singleton: a second row cannot exist.
     uniqueIndex("uq_ledgers_singleton").on(sql`(true)`),
@@ -125,6 +136,8 @@ export const ledgerEntries = pgTable(
     currency: varchar("currency", { length: 3 }).notNull(),
     itemName: text("item_name").notNull(),
     description: text("description"),
+    /** True for an entry the AI wrote when it activated an attempt; false for one the owner added. */
+    extracted: boolean("extracted").notNull().default(false),
     createdAt: rowTimestamp("created_at"),
     updatedAt: rowTimestamp("updated_at"),
   },
@@ -188,3 +201,44 @@ export const serviceCredentials = pgTable(
 );
 
 export type ServiceCredential = InferSelectModel<typeof serviceCredentials>;
+
+/**
+ * One difference between what the AI wrote and what the owner changed it to,
+ * per subject (an entry or a document) and field. A later edit updates the row,
+ * and changing the value back to the AI's own removes it. `consumed_at` marks
+ * the corrections a learning run already read.
+ */
+export const aiCorrections = pgTable(
+  "ai_corrections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sourceDocumentId: uuid("source_document_id").notNull(),
+    /** The entry id for category and item name corrections, the document id for a title. */
+    subjectId: uuid("subject_id").notNull(),
+    field: text("field").$type<"category" | "item_name" | "title">().notNull(),
+    documentTitle: text("document_title"),
+    itemName: text("item_name"),
+    amount: numeric("amount", { precision: 21, scale: 3, mode: "string" }),
+    currency: varchar("currency", { length: 3 }),
+    beforeValue: text("before_value").notNull(),
+    afterValue: text("after_value").notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: rowTimestamp("created_at"),
+    updatedAt: rowTimestamp("updated_at"),
+  },
+  (table) => [
+    uniqueIndex("uq_ai_corrections_subject_field").on(table.subjectId, table.field),
+    index("idx_ai_corrections_unconsumed")
+      .on(table.updatedAt)
+      .where(sql`${table.consumedAt} IS NULL`),
+    index("idx_ai_corrections_source_document").on(table.sourceDocumentId),
+    foreignKey({
+      columns: [table.sourceDocumentId],
+      foreignColumns: [sourceDocumentsReference.id],
+      name: "fk_ai_corrections_source_document",
+    }).onDelete("cascade"),
+    check("ck_ai_corrections_field", sql`${table.field} IN ('category', 'item_name', 'title')`),
+  ]
+);
+
+export type AiCorrection = InferSelectModel<typeof aiCorrections>;

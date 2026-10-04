@@ -59,6 +59,7 @@ export async function insertDocumentEntries(
       currency: requireCurrency(entry.currency),
       itemName: entry.itemName,
       description: entry.description,
+      extracted: entry.extracted ?? false,
       ...(entry.createdAt == null ? {} : { createdAt: new Date(entry.createdAt) }),
     }))
   );

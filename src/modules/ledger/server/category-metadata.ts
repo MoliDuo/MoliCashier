@@ -4,6 +4,7 @@ import { COMMON_LUCIDE_ICONS } from "@/config/icons";
 import { buildAiOutputLocaleInstruction } from "@/config/ai-output-locales";
 import { generateStructured } from "@/lib/ai/structured";
 import { NotFoundError } from "@/lib/errors";
+import { buildLedgerInstructionSections } from "@/modules/ledger/domain/ledger-instructions";
 import { getLedgerSettings } from "./settings";
 import { getCategory, listCategories, updateMissingCategoryMetadata } from "./categories";
 
@@ -26,9 +27,10 @@ export async function generateCategoryMetadata(input: {
   existingCategoryNames: readonly string[];
   language?: string;
   customPrompt?: string;
+  learnedPreferences?: string;
 }): Promise<{ icon: string; description: string }> {
   const prompt = `Generate bookkeeping category metadata. Return JSON only. The icon must be selected from the provided Lucide icon names. Keep the description short and concrete.
-${input.customPrompt == null || input.customPrompt === "" ? "" : `\n### Additional Instructions\n${input.customPrompt}\n`}
+${buildLedgerInstructionSections({ customPrompt: input.customPrompt, learnedPreferences: input.learnedPreferences })}
 ${buildAiOutputLocaleInstruction(input.language)}
 Only the category description is user-visible in this response; apply the mandatory output locale to it.`;
   return generateStructured({
@@ -85,6 +87,7 @@ export async function generateEntryCategoryMetadata(input: {
     existingCategoryNames: existingCategories.map((existing) => existing.name),
     language: settings.aiLanguage,
     customPrompt: settings.aiCustomPrompt,
+    learnedPreferences: settings.aiLearnedPreferences,
   });
   const written = await updateMissingCategoryMetadata(input.categoryId, {
     ...metadata,

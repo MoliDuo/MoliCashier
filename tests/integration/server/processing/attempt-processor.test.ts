@@ -5,7 +5,13 @@ import { createTestLedger, createTestRecord, testBookId } from "tests/helpers/sc
 import { createPendingAttempt, claimAttemptForTest } from "tests/helpers/processing-attempt";
 import { attemptProcessor } from "tests/helpers/processing-jobs";
 import { fakeAiTransport, generateVia } from "tests/helpers/fake-ai";
-import { ledgerEntries, ledgers, extractionAttempts, sourceDocuments } from "@/persistence";
+import {
+  aiCorrections,
+  ledgerEntries,
+  ledgers,
+  extractionAttempts,
+  sourceDocuments,
+} from "@/persistence";
 import * as exchangeRates from "@/modules/currency/server/exchange-rates";
 
 type ModelEntry = {
@@ -56,7 +62,11 @@ describe("processAttempt", () => {
     vi.restoreAllMocks();
   });
 
-  async function process(content: string, documentDate: string | null = "2026-09-01") {
+  async function process(
+    content: string,
+    documentDate: string | null = "2026-09-01",
+    beforeProcess?: (sourceDocumentId: string) => Promise<void>
+  ) {
     const db = getTestDb();
     const pending = await createPendingAttempt({
       input: { text: "receipt", storedFileIds: [], documentDate },
@@ -70,6 +80,7 @@ describe("processAttempt", () => {
       .set({ createdAt: new Date("2026-08-30T23:30:00Z") })
       .where(eq(sourceDocuments.id, sourceDocumentId));
     const lease = await claimAttemptForTest(attemptId);
+    await beforeProcess?.(sourceDocumentId);
     const transport = fakeAiTransport(() => content);
     const generate = generateVia(transport);
 
@@ -269,6 +280,53 @@ describe("processAttempt", () => {
         where: eq(sourceDocuments.id, sourceDocumentId),
       });
       expect(document?.duplicateSuggestion).toBeNull();
+    });
+  });
+
+  describe("what the owner's corrections teach", () => {
+    const reply = () =>
+      modelReply({
+        outcome: "success",
+        entries: [{ item_name: "Latte", amount: "28.00", currency: "CNY" }],
+      });
+
+    it("marks the entries the AI wrote, so a later edit of them counts as a correction", async () => {
+      const { entries } = await process(reply());
+
+      expect(entries).toHaveLength(1);
+      expect(entries.every((entry) => entry.extracted)).toBe(true);
+    });
+
+    it("shows the model the learned preferences after the ledger's own prompt", async () => {
+      await getTestDb()
+        .update(ledgers)
+        .set({ aiCustomPrompt: "星巴克算餐饮", aiLearnedPreferences: "- 滴滴算交通" });
+
+      const { transport } = await process(reply());
+
+      const system = transport.complete.mock.calls[0]![0].system as string;
+      expect(system.indexOf("星巴克算餐饮")).toBeGreaterThan(-1);
+      expect(system.indexOf("- 滴滴算交通")).toBeGreaterThan(system.indexOf("星巴克算餐饮"));
+    });
+
+    it("forgets a correction of the title the new parse replaces", async () => {
+      const db = getTestDb();
+
+      const { sourceDocumentId } = await process(reply(), "2026-09-01", async (documentId) => {
+        await db.insert(aiCorrections).values({
+          sourceDocumentId: documentId,
+          subjectId: documentId,
+          field: "title",
+          beforeValue: "OLD TITLE",
+          afterValue: "My title",
+        });
+      });
+
+      expect(
+        await db.query.aiCorrections.findMany({
+          where: eq(aiCorrections.subjectId, sourceDocumentId),
+        })
+      ).toEqual([]);
     });
   });
 });
