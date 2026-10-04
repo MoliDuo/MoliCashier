@@ -109,3 +109,19 @@ export const FORECAST_NETWORK = {
 } as const;
 /** A trained forecast older than this many days is retrained before it is trusted again. */
 export const FORECAST_MODEL_MAX_AGE_DAYS = 2;
+/** The most characters of ledger the forecast judgment sends the AI; older documents are summarized first beyond it. */
+export const FORECAST_AI_INPUT_MAX_CHARS = 120_000;
+/** How much of a document's original input the judgment shows the AI. */
+export const FORECAST_AI_INPUT_TEXT_CHARS = 160;
+/** How far ahead the AI lists what it expects to come. */
+export const FORECAST_AI_EXPECTED_DAYS = 90;
+/** A judgment is not asked again sooner than this after the last attempt, new entries or not. */
+export const FORECAST_AI_REFRESH_MINUTES = 30;
+/** A judgment older than this many days is not used for the page's forecast. */
+export const FORECAST_AI_MAX_AGE_DAYS = 2;
+/** The past days judged once the AI analyst starts: this many, a week apart, so its record is known from the first day. */
+export const FORECAST_AI_BACKFILL_WEEKS = 12;
+/** How far ahead a past judgment is scored against what was then spent. */
+export const FORECAST_AI_ACCURACY_HORIZON_DAYS = 14;
+/** How long judgments are kept for scoring. */
+export const FORECAST_AI_RETENTION_DAYS = 400;

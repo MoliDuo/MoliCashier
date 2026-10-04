@@ -15,12 +15,14 @@ import { StatsChart } from "./StatsChart";
 import { StatsCumulativeChart } from "./StatsCumulativeChart";
 import { StatsHighlights } from "./StatsHighlights";
 import { StatsLargestEntries } from "./StatsLargestEntries";
+import { StatsLifePhases } from "./StatsLifePhases";
 import { StatsPanel } from "./StatsPanel";
 import { StatsRanking } from "./StatsRanking";
 import { StatsSummary } from "./StatsSummary";
 import { DISPLAY_LOCALE } from "@/lib/constants";
 import { IncompleteConversionNotice } from "@/components/IncompleteConversionNotice";
-import { statsTabCopy } from "@/copy/stats";
+import { forecastCopy, statsTabCopy } from "@/copy/stats";
+import { cadenceName } from "./StatsCategoryForecast";
 
 /** How finely the charts read the days: by day for a week or a month, by month beyond. */
 export type StatsScale = DateRangeType;
@@ -97,6 +99,18 @@ export function StatsContentView({
 
   // Derived once here rather than in each panel: they are all reading the same
   // payload, and several copies of the walk would be several chances to disagree.
+  const documentKinds = useMemo(
+    () =>
+      new Map(
+        (forecast?.judgment?.documents ?? []).map((document) => [
+          document.documentId,
+          document.kind === "one_off" || document.cadence == null
+            ? forecastCopy.oneOff
+            : cadenceName(document.cadence),
+        ])
+      ),
+    [forecast]
+  );
   const insights = useMemo(
     () =>
       stats == null ? null : withoutComparison(deriveStatsInsights(stats), comparisonLabel == null),
@@ -272,11 +286,16 @@ export function StatsContentView({
             />
           ) : null}
 
+          {forecast?.judgment != null ? (
+            <StatsLifePhases phases={forecast.judgment.phases} currencySymbol={currencySymbol} />
+          ) : null}
+
           {stats != null ? (
             <StatsLargestEntries
               entries={stats.largestEntries}
               currencySymbol={currencySymbol}
               onOpen={openLedgerEntrySourceDocument}
+              kinds={documentKinds}
             />
           ) : null}
 

@@ -1,5 +1,5 @@
 "use client";
-import { ChevronRight } from "lucide-react";
+import { ArrowDownRight, ArrowRight, ArrowUpRight, ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { textRoleClassName } from "@/components/typography";
@@ -7,7 +7,11 @@ import { Button } from "@/components/ui/button";
 import { formatCurrencyAmount } from "@/lib/format/currency";
 import { cn } from "@/lib/utils";
 import { AmountText } from "@/modules/currency/ui/amount-text";
-import type { ForecastDto, ForecastUpcomingDto } from "@/modules/forecast/contracts";
+import type {
+  ForecastCategoryDto,
+  ForecastDto,
+  ForecastUpcomingDto,
+} from "@/modules/forecast/contracts";
 import { StatsPanel } from "./StatsPanel";
 import { DISPLAY_LOCALE } from "@/lib/constants";
 import { formatCivilDate } from "@/lib/date-utils";
@@ -25,7 +29,8 @@ interface StatsCategoryForecastProps {
 /**
  * Where each category is heading by the end of the period: what it has cost
  * so far, the middle outcome, and the spread that four in five outcomes fall
- * in. All rows share one scale, so a long bar is a big category.
+ * in. All rows share one scale, so a long bar is a big category. With the
+ * AI's judgment, each category also shows which way it is heading.
  */
 export function StatsCategoryForecast({
   forecast,
@@ -61,6 +66,7 @@ export function StatsCategoryForecast({
             high: money(category.forecast.p90),
           });
           const spent = forecastCopy.spent({ amount: money(category.spent) });
+          const trend = trendOf(category);
           const low = share(category.forecast.p10);
           const high = share(category.forecast.p90);
           return (
@@ -68,7 +74,9 @@ export function StatsCategoryForecast({
               type="button"
               key={category.id ?? "__uncategorized__"}
               disabled={onCategoryClick == null}
-              aria-label={[name, expected, range, spent].join(", ")}
+              aria-label={[name, trend?.label, expected, range, spent]
+                .filter((part) => part != null)
+                .join(", ")}
               className={cn(
                 "group grid w-full items-center gap-3 text-left",
                 onCategoryClick != null
@@ -88,7 +96,25 @@ export function StatsCategoryForecast({
 
               <span className="min-w-0 space-y-1.5">
                 <span className="flex items-baseline justify-between gap-2">
-                  <span className={textRoleClassName("bodyStrong", "truncate")}>{name}</span>
+                  <span className="flex min-w-0 items-baseline gap-1.5">
+                    <span className={textRoleClassName("bodyStrong", "truncate")}>{name}</span>
+                    {trend != null ? (
+                      <span
+                        aria-hidden="true"
+                        className={textRoleClassName(
+                          "meta",
+                          cn(
+                            "inline-flex shrink-0 items-center gap-0.5 self-center tabular-nums",
+                            trend.direction === "rising" && "text-danger",
+                            trend.direction === "falling" && "text-success"
+                          )
+                        )}
+                      >
+                        <trend.Icon className="size-3.5" />
+                        {trend.text}
+                      </span>
+                    ) : null}
+                  </span>
                   <span className={textRoleClassName("meta", "shrink-0 tabular-nums")}>
                     {spent}
                   </span>
@@ -157,7 +183,10 @@ export function StatsCategoryForecast({
                       amount: money(bill.amount),
                     })}
                   </span>
-                  <span className={textRoleClassName("meta", "block")}>{cadenceOf(bill)}</span>
+                  <span className={textRoleClassName("meta", "block")}>
+                    {cadenceOf(bill)}
+                    {bill.inPeriod ? null : forecastCopy.afterPeriod}
+                  </span>
                 </span>
               </li>
             ))}
@@ -165,40 +194,61 @@ export function StatsCategoryForecast({
         </div>
       ) : null}
 
-      <div className="space-y-1">
-        <p className={textRoleClassName("meta")}>
-          {forecast.halfLifeDays != null
-            ? forecastCopy.basis({ halfLife: forecast.halfLifeDays })
-            : forecastCopy.basisEven}
-          {forecast.largePurchaseFrom != null
-            ? forecastCopy.largePurchases({
-                amount: formatCurrencyAmount(forecast.largePurchaseFrom, currencySymbol, locale, {
-                  minimumFractionDigits: 0,
-                  maximumFractionDigits: 0,
-                }),
-              })
-            : null}
-        </p>
-        {forecast.model?.accuracy != null ? (
+      {forecast.judgment != null ? (
+        <div className="space-y-1">
           <p className={textRoleClassName("meta")}>
-            {forecastCopy.accuracy({
-              origins: forecast.model.accuracy.origins,
-              days: forecast.model.accuracy.horizonDays,
-              error: Math.round(forecast.model.accuracy.error * 100),
-            })}
-            {forecast.model.networkShare > 0
-              ? forecastCopy.networkShare({
-                  percent: Math.round(forecast.model.networkShare * 100),
-                })
-              : forecastCopy.networkBench}
+            {forecastCopy.judgedBasis({ date: shortDate(forecast.judgment.asOf) })}
           </p>
-        ) : null}
-      </div>
+          {forecast.judgment.accuracy != null ? (
+            <p className={textRoleClassName("meta")}>
+              {forecastCopy.judgedAccuracy({
+                origins: forecast.judgment.accuracy.origins,
+                days: forecast.judgment.accuracy.horizonDays,
+                error: Math.round(forecast.judgment.accuracy.error * 100),
+                statistical: Math.round(forecast.judgment.accuracy.statisticalError * 100),
+              })}
+            </p>
+          ) : null}
+        </div>
+      ) : (
+        <div className="space-y-1">
+          <p className={textRoleClassName("meta")}>
+            {forecast.halfLifeDays != null
+              ? forecastCopy.basis({ halfLife: forecast.halfLifeDays })
+              : forecastCopy.basisEven}
+            {forecast.largePurchaseFrom != null
+              ? forecastCopy.largePurchases({
+                  amount: formatCurrencyAmount(forecast.largePurchaseFrom, currencySymbol, locale, {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0,
+                  }),
+                })
+              : null}
+          </p>
+          {forecast.model?.accuracy != null ? (
+            <p className={textRoleClassName("meta")}>
+              {forecastCopy.accuracy({
+                origins: forecast.model.accuracy.origins,
+                days: forecast.model.accuracy.horizonDays,
+                error: Math.round(forecast.model.accuracy.error * 100),
+              })}
+              {forecast.model.networkShare > 0
+                ? forecastCopy.networkShare({
+                    percent: Math.round(forecast.model.networkShare * 100),
+                  })
+                : forecastCopy.networkBench}
+            </p>
+          ) : null}
+        </div>
+      )}
     </StatsPanel>
   );
 }
 
 function cadenceOf(bill: ForecastUpcomingDto): string {
+  if (bill.streak == null) {
+    return forecastCopy.seen({ cadence: cadenceName(bill.cadence), count: bill.seen ?? 0 });
+  }
   // Each key is spelled out so the catalogue check can find it.
   switch (bill.cadence) {
     case "weekly":
@@ -207,5 +257,55 @@ function cadenceOf(bill: ForecastUpcomingDto): string {
       return forecastCopy.biweeklyStreak({ count: bill.streak });
     case "monthly":
       return forecastCopy.monthlyStreak({ count: bill.streak });
+    default:
+      return cadenceName(bill.cadence);
+  }
+}
+
+/** How often something comes back, in words. */
+export function cadenceName(cadence: ForecastUpcomingDto["cadence"]): string {
+  switch (cadence) {
+    case "weekly":
+      return forecastCopy.weekly;
+    case "biweekly":
+      return forecastCopy.biweekly;
+    case "monthly":
+      return forecastCopy.monthly;
+    case "semester":
+      return forecastCopy.semester;
+    case "yearly":
+      return forecastCopy.yearly;
+    case "irregular":
+      return forecastCopy.irregular;
+  }
+}
+
+/** The arrow, the change and the words for a category's trend; null without a judgment. */
+function trendOf(category: ForecastCategoryDto) {
+  const trend = category.trend;
+  if (trend == null) return null;
+  const percent = trend.change == null ? null : Math.round(Math.abs(trend.change) * 100);
+  switch (trend.direction) {
+    case "rising":
+      return {
+        direction: trend.direction,
+        Icon: ArrowUpRight,
+        text: percent == null ? null : forecastCopy.trendRising({ percent }),
+        label: forecastCopy.trendRisingLabel,
+      };
+    case "falling":
+      return {
+        direction: trend.direction,
+        Icon: ArrowDownRight,
+        text: percent == null ? null : forecastCopy.trendFalling({ percent }),
+        label: forecastCopy.trendFallingLabel,
+      };
+    case "steady":
+      return {
+        direction: trend.direction,
+        Icon: ArrowRight,
+        text: null,
+        label: forecastCopy.trendSteadyLabel,
+      };
   }
 }

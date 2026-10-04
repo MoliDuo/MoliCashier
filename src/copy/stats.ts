@@ -105,6 +105,35 @@ export const forecastCopy = {
   weeklyStreak: (v: { count: string | number }) => `每周 · 已连续 ${v.count} 次`,
   biweeklyStreak: (v: { count: string | number }) => `每两周 · 已连续 ${v.count} 次`,
   monthlyStreak: (v: { count: string | number }) => `每月 · 已连续 ${v.count} 次`,
+  weekly: "每周",
+  biweekly: "每两周",
+  monthly: "每月",
+  semester: "每学期",
+  yearly: "每年",
+  irregular: "不定期",
+  oneOff: "一次性",
+  seen: (v: { cadence: string | number; count: string | number }) =>
+    `${v.cadence} · 见过 ${v.count} 次`,
+  afterPeriod: " · 本期之后，不计入",
+  trendRising: (v: { percent: string | number }) => `+${v.percent}%`,
+  trendFalling: (v: { percent: string | number }) => `−${v.percent}%`,
+  trendRisingLabel: "最近在涨",
+  trendFallingLabel: "最近在降",
+  trendSteadyLabel: "最近平稳",
+  judgedBasis: (v: { date: string | number }) =>
+    `按 AI 在 ${v.date} 对每个分类日常花销和接下来大额的判断计算，已花随记随算。`,
+  judgedAccuracy: (v: {
+    origins: string | number;
+    days: string | number;
+    error: string | number;
+    statistical: string | number;
+  }) =>
+    `AI 过去 ${v.origins} 次预测之后 ${v.days} 天花多少，平均差约 ±${v.error}%；统计模型 ±${v.statistical}%。`,
+  phasesTitle: "生活阶段",
+  phaseRange: (v: { from: string | number; to: string | number }) => `${v.from}–${v.to}`,
+  phaseSince: (v: { from: string | number }) => `${v.from} 起`,
+  phaseDaily: (v: { amount: string | number }) => `日常 ${v.amount}/天`,
+  phaseCurrent: "现在",
   anomaly: (v: {
     date: string | number;
     category: string | number;

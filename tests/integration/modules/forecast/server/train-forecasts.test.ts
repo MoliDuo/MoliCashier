@@ -5,6 +5,8 @@ import { createLedgerData } from "tests/helpers/factories";
 import { entryCategories, ledgerEntries, ledgers, sourceDocuments } from "@/persistence";
 import { getPeriodForecast } from "@/modules/forecast/server/get-forecast";
 import { addCivilDays } from "@/modules/ledger/domain/period";
+import { setAiTransportForTests } from "@/lib/ai/client";
+import { fakeAiTransport } from "tests/helpers/fake-ai";
 import { MemoryObjectStore } from "tests/helpers/memory-object-store";
 
 // The daily run also sweeps object storage; an empty bucket keeps it off the network.
@@ -48,12 +50,19 @@ describe("the nightly forecast training", () => {
       if (date.endsWith("-15")) await record(date, "1200", home!.id, "房租");
     }
 
+    // No AI analyst here: the statistical model answers, as it does when the provider is down.
+    setAiTransportForTests(
+      fakeAiTransport(() => {
+        throw new Error("no AI in this test");
+      })
+    );
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-10T04:00:00Z"));
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    setAiTransportForTests(null);
   });
 
   it("trains every scope as a daily step, and the forecast then says how it was chosen", async () => {

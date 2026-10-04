@@ -1,5 +1,6 @@
 import "server-only";
 import {
+  FORECAST_AI_MAX_AGE_DAYS,
   FORECAST_CHANGE_DISCOUNT,
   FORECAST_HALF_LIFE_DAYS,
   FORECAST_HISTORY_DAYS,
@@ -11,12 +12,16 @@ import { forecastInputSchema } from "@/modules/forecast/contract-schemas";
 import type { ForecastDto, ForecastRangeDto } from "@/modules/forecast/contracts";
 import { forecastPeriod } from "@/modules/forecast/domain/forecast";
 import { prepareHistory } from "@/modules/forecast/domain/history";
+import { applyJudgment } from "@/modules/forecast/domain/judgment/apply";
 import { seedOf } from "@/modules/forecast/domain/random";
 import { UNCATEGORIZED_KEY } from "@/modules/forecast/domain/series";
 import type { Quantiles } from "@/modules/forecast/domain/simulate";
 import { addCivilDays, periodKey, resolveComparison } from "@/modules/ledger/domain/period";
 import { ledgerToday } from "@/modules/ledger/server/query-period";
+import { getLedgerSettings } from "@/modules/ledger/server/settings";
 import { readForecastHistory } from "./forecast-history";
+import { judgmentAccuracy, refreshJudgmentInBackground } from "./judge-ledger";
+import { latestJudgment } from "./judgments";
 import { currentTraining, forecastScope, trainScopeInBackground } from "./model-registry";
 
 function money(value: number): string {
@@ -38,6 +43,12 @@ function rangeDto(quantiles: Quantiles): ForecastRangeDto {
  * current (none yet, too old, or trained before the latest change in the way
  * of spending) it answers from the statistical model with the default
  * half-life and starts training in the background for the next read.
+ *
+ * When the AI analyst has judged the ledger in the last couple of days, the
+ * figures come from its judgment instead — every category's everyday day,
+ * what it expects to come, the phases of life — with what was spent read
+ * now. A judgment that no longer stands for the history is asked for again
+ * in the background.
  */
 export async function getPeriodForecast(
   input: unknown,
@@ -59,6 +70,18 @@ export async function getPeriodForecast(
     bookId
   );
   const scope = forecastScope(bookId);
+  const [latest, settings] = await Promise.all([
+    latestJudgment(scope, { from: addCivilDays(today, -FORECAST_AI_MAX_AGE_DAYS), to: today }),
+    getLedgerSettings(),
+  ]);
+  refreshJudgmentInBackground({
+    scope,
+    bookId,
+    history,
+    today,
+    latest,
+    language: settings?.aiLanguage,
+  });
   const prepared = prepareHistory(history.rows, today, FORECAST_MIN_HISTORY_DAYS);
   const changeDate =
     prepared?.change == null ? null : addCivilDays(prepared.earliest, prepared.change.day);
@@ -82,8 +105,17 @@ export async function getPeriodForecast(
     },
   });
   if (forecast == null) return null;
+  const judged =
+    latest == null
+      ? null
+      : applyJudgment({
+          judgment: latest.judgment,
+          rows: history.rows,
+          today,
+          period: { from: window.range.from, end: window.periodEnd },
+        });
 
-  return {
+  const statistical: ForecastDto = {
     asOf: today,
     periodEnd: window.periodEnd,
     currency: history.mainCurrency,
@@ -96,6 +128,7 @@ export async function getPeriodForecast(
       ...categoryOf(category.key),
       spent: category.spent,
       forecast: rangeDto(category.forecast),
+      trend: null,
     })),
     exceedPrevious: forecast.exceedPrevious,
     lifeChange:
@@ -114,6 +147,8 @@ export async function getPeriodForecast(
       amount: money(bill.amount),
       cadence: bill.cadence,
       streak: bill.streak,
+      seen: null,
+      inPeriod: true,
     })),
     anomalies: forecast.anomalies.map((anomaly) => ({
       date: anomaly.date,
@@ -142,6 +177,71 @@ export async function getPeriodForecast(
                     typicalDayError: Number(trained.backtest.typicalDay.error.toFixed(3)),
                   },
           },
+    judgment: null,
+  };
+  if (judged == null || latest == null) return statistical;
+
+  const phases = judged.phases;
+  const current = phases.at(-1);
+  const before = phases.at(-2);
+  const accuracy = judgmentAccuracy(scope, history.rows, today);
+  return {
+    ...statistical,
+    spent: judged.spent,
+    total: rangeDto(judged.total),
+    running: judged.running.map(rangeDto),
+    categories: judged.categories.map((category) => ({
+      ...categoryOf(category.key),
+      spent: category.spent,
+      forecast: rangeDto(category.forecast),
+      trend:
+        category.trend == null
+          ? null
+          : {
+              direction: category.trend.direction,
+              change:
+                category.trend.change == null ? null : Number(category.trend.change.toFixed(3)),
+            },
+    })),
+    // The current phase's first day stands where the detected change stood, on the chart too.
+    lifeChange:
+      current == null || before == null
+        ? null
+        : {
+            date: current.from,
+            dailyBefore: money(before.daily ?? 0),
+            dailyAfter: money(current.daily ?? 0),
+          },
+    largePurchaseFrom: null,
+    upcoming: judged.upcoming.map((item) => ({
+      date: item.date,
+      label: item.label,
+      ...categoryOf(item.key),
+      amount: money(item.amount),
+      cadence: item.cadence,
+      streak: null,
+      seen: item.seen,
+      inPeriod: item.inPeriod,
+    })),
+    judgment: {
+      asOf: latest.asOf,
+      phases: phases.map((phase) => ({
+        from: phase.from,
+        to: phase.to,
+        label: phase.label,
+        daily: phase.daily == null ? null : money(phase.daily),
+      })),
+      documents: judged.documents,
+      accuracy:
+        accuracy == null
+          ? null
+          : {
+              origins: accuracy.origins,
+              horizonDays: accuracy.horizonDays,
+              error: Number(accuracy.error.toFixed(3)),
+              statisticalError: Number(accuracy.statisticalError.toFixed(3)),
+            },
+    },
   };
 
   function categoryOf(key: string) {

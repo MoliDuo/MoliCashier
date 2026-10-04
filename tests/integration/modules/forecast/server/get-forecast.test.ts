@@ -6,6 +6,8 @@ import { insertExchangeRates } from "tests/helpers/exchange-rates";
 import { entryCategories, ledgerEntries, ledgers, sourceDocuments } from "@/persistence";
 import { getPeriodForecast } from "@/modules/forecast/server/get-forecast";
 import { addCivilDays } from "@/modules/ledger/domain/period";
+import { setAiTransportForTests } from "@/lib/ai/client";
+import { fakeAiTransport } from "tests/helpers/fake-ai";
 
 const THIS_MONTH = { range: "month", offset: 0 } as const;
 
@@ -53,12 +55,19 @@ describe("getPeriodForecast", () => {
     await record("2026-10-02", "1000", "CNY", { book: "旅行" });
 
     // Noon on the 10th in Shanghai.
+    // No AI analyst here: the statistical model answers, as it does when the provider is down.
+    setAiTransportForTests(
+      fakeAiTransport(() => {
+        throw new Error("no AI in this test");
+      })
+    );
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-10T04:00:00Z"));
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    setAiTransportForTests(null);
   });
 
   it("forecasts this month from the ledger's history, converted to the main currency", async () => {

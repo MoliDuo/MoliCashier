@@ -89,6 +89,7 @@ describe("StatsTab", () => {
           icon: null,
           spent: "120",
           forecast: { p10: "150.00", p50: "170.00", p90: "200.00" },
+          trend: null,
         },
       ],
       exceedPrevious: null,
@@ -97,6 +98,7 @@ describe("StatsTab", () => {
       upcoming: [],
       anomalies: [],
       model: null,
+      judgment: null,
     };
     vi.mocked(fetchEnhancedStats).mockResolvedValue(running);
     vi.mocked(fetchForecast).mockResolvedValue(forecast);
@@ -124,6 +126,7 @@ describe("StatsTab", () => {
           icon: null,
           spent: "0",
           forecast: { p10: "1", p50: "1", p90: "1" },
+          trend: null,
         },
       ],
       exceedPrevious: null,
@@ -132,6 +135,7 @@ describe("StatsTab", () => {
       upcoming: [],
       anomalies: [],
       model: null,
+      judgment: null,
     });
     renderStatsTab();
 

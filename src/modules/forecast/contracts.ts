@@ -9,6 +9,13 @@ export interface ForecastCategoryDto extends ForecastCategoryRef {
   spent: string;
   /** Where the whole period ends up for the category, spent days included. */
   forecast: ForecastRangeDto;
+  /**
+   * Which way the AI judged the category's everyday spending heading against
+   * the current phase of life, and the last two weeks against the phase's
+   * usual day as a share (0.25 reads "+25%"; null while the phase is short).
+   * Null without a judgment.
+   */
+  trend: { direction: "rising" | "falling" | "steady"; change: number | null } | null;
 }
 
 /** Who a recurring bill, an unusual day and a category row belong to. */
@@ -19,14 +26,53 @@ interface ForecastCategoryRef {
   icon: string | null;
 }
 
-/** A bill that has come back on a schedule and is expected again before the period ends. */
+/**
+ * A charge expected after today: a bill the statistical model saw come back
+ * on a schedule, before the period ends, or what the AI expects over the
+ * next three months.
+ */
 export interface ForecastUpcomingDto extends ForecastCategoryRef {
   date: string;
   label: string;
   amount: string;
-  cadence: "weekly" | "biweekly" | "monthly";
-  /** How many came in a row on schedule. */
-  streak: number;
+  cadence: "weekly" | "biweekly" | "monthly" | "semester" | "yearly" | "irregular";
+  /** How many came in a row on schedule, as the statistical model counts; null for the AI's. */
+  streak: number | null;
+  /** How many past purchases the AI's expectation rests on; null for the statistical model's. */
+  seen: number | null;
+  /** Whether it falls before the period ends, and so counts in the forecast. */
+  inPeriod: boolean;
+}
+
+/** A stretch of life as the AI split the ledger. */
+export interface ForecastPhaseDto {
+  from: string;
+  /** Its last day; yesterday for the current one. */
+  to: string;
+  label: string;
+  /** Everyday spending a day across it, purchases judged not everyday left out; null for one begun today. */
+  daily: string | null;
+}
+
+/** What the AI analyst judged, and how its past judgments did. */
+export interface ForecastJudgmentDto {
+  /** The day it judged. */
+  asOf: string;
+  phases: ForecastPhaseDto[];
+  /** The purchases of the period so far it judged not everyday. */
+  documents: {
+    documentId: string;
+    kind: "one_off" | "recurring";
+    cadence: "weekly" | "monthly" | "semester" | "yearly" | "irregular" | null;
+  }[];
+  /** Null until past judgments have been scored. */
+  accuracy: {
+    origins: number;
+    horizonDays: number;
+    /** The typical miss as a share of what was spent: 0.11 reads "±11%". */
+    error: number;
+    statisticalError: number;
+  } | null;
 }
 
 /** A day of the period that cost a category far more than its usual day. */
@@ -86,7 +132,7 @@ export interface ForecastDto {
    * no change. Days before it counted for less.
    */
   lifeChange: { date: string; dailyBefore: string; dailyAfter: string } | null;
-  /** The recurring bills expected after today through `periodEnd`, soonest first. */
+  /** What is expected after today, soonest first. */
   upcoming: ForecastUpcomingDto[];
   /**
    * A single purchase of at least this much counts as a large one-off: it is
@@ -98,4 +144,9 @@ export interface ForecastDto {
   anomalies: ForecastAnomalyDto[];
   /** Null until the nightly training (or the first read's) has finished. */
   model: ForecastModelDto | null;
+  /**
+   * The AI analyst's judgment the figures were computed from; null when there
+   * is none recent enough and the statistical model answered instead.
+   */
+  judgment: ForecastJudgmentDto | null;
 }
