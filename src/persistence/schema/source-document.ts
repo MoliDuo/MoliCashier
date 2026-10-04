@@ -44,6 +44,11 @@ export const sourceDocuments = pgTable(
     dateOrganizationSuggestion: jsonb("date_organization_suggestion").$type<
       import("@/lib/ai/date-organization").DateOrganizationSuggestion
     >(),
+    /** Entries the parse found already recorded elsewhere, until the owner confirms or dismisses. */
+    duplicateSuggestion:
+      jsonb("duplicate_suggestion").$type<
+        import("@/lib/ai/duplicate-suggestion").DuplicateSuggestion
+      >(),
     createdAt: rowTimestamp("created_at"),
     updatedAt: rowTimestamp("updated_at"),
   },
@@ -79,6 +84,10 @@ export const sourceDocuments = pgTable(
       table.idempotencyKey
     ),
     check("ck_source_documents_version", sql`${table.version} > 0`),
+    check(
+      "ck_source_documents_duplicate_suggestion",
+      sql`${table.duplicateSuggestion} IS NULL OR jsonb_typeof(${table.duplicateSuggestion}) = 'object'`
+    ),
     check(
       "ck_source_documents_idempotency",
       sql`(${table.idempotencySource} IS NULL) = (${table.idempotencyKey} IS NULL)`

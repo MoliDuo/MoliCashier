@@ -314,6 +314,13 @@ export const dismissDateOrganizationInputSchema = strictObjectSchema({
   suggestionId: uuidSchema,
 });
 
+export const applyDuplicateSuggestionInputSchema = strictObjectSchema({
+  sourceDocumentId: uuidSchema,
+  suggestionId: uuidSchema,
+});
+
+export const dismissDuplicateSuggestionInputSchema = applyDuplicateSuggestionInputSchema;
+
 export const batchUpdateSourceDocumentsInputSchema = strictObjectSchema({
   sourceDocumentIds: sourceDocumentTargetIdsSchema,
   data: updateSourceDocumentInputSchema,

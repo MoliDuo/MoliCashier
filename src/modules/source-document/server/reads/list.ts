@@ -1,6 +1,9 @@
 import { and, asc, desc, eq, getTableColumns, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import type { SourceDocumentDetailDto } from "@/modules/source-document/contracts";
+import type {
+  PendingSuggestionKind,
+  SourceDocumentDetailDto,
+} from "@/modules/source-document/contracts";
 import {
   entryCategories,
   ledgerEntries,
@@ -16,6 +19,7 @@ import {
   entryExchangeRateSql,
 } from "@/modules/currency/server/conversion-sql";
 
+import { resolveDuplicateSuggestion } from "./duplicate-suggestion";
 import type { TargetSourceDocumentListInput } from "./filters";
 import { baseConditions } from "./filters";
 import { cursorCondition, encodeCursor } from "./cursor";
@@ -107,9 +111,20 @@ async function loadSourceDocumentDetailSnapshot(
             updatedAt: entry.category.updatedAt.toISOString(),
           },
   }));
+  const duplicateSuggestion = await resolveDuplicateSuggestion(
+    tx,
+    baseRow.duplicateSuggestion,
+    activeEntries
+  );
+  const pendingSuggestions: PendingSuggestionKind[] = [
+    ...(duplicateSuggestion == null ? [] : (["duplicate"] as const)),
+    ...(baseRow.dateOrganizationSuggestion == null ? [] : (["date_organization"] as const)),
+  ];
   const hydration: SourceDocumentHydrationRow = {
     mainCurrency: baseRow.mainCurrency,
     inputText: baseRow.inputText,
+    duplicateSuggestion,
+    pendingSuggestions,
     processingStatus: baseRow.latestAttemptStatus,
     failureKind: baseRow.failureKind,
     failureMessage: baseRow.failureMessage,
@@ -139,6 +154,15 @@ export async function listTargetSourceDocuments(input: TargetSourceDocumentListI
       failureKind: extractionAttempts.failureKind,
       failureMessage: extractionAttempts.failureMessage,
       failureCode: extractionAttempts.failureCode,
+      // Only a suggestion whose recorded counterpart still exists counts, so the
+      // list agrees with the detail the suggestion opens.
+      hasDuplicateSuggestion: sql<boolean>`EXISTS (
+            SELECT 1
+            FROM jsonb_array_elements(${sourceDocuments.duplicateSuggestion}->'items') list_suggestion_item
+            INNER JOIN ${ledgerEntries} list_matched_entry
+              ON list_matched_entry.id = (list_suggestion_item->'matched'->>'ledgerEntryId')::uuid
+          )`,
+      hasDateOrganizationSuggestion: sql<boolean>`${sourceDocuments.dateOrganizationSuggestion} IS NOT NULL`,
       hasImages: sql<boolean>`EXISTS (
             SELECT 1
             FROM ${sourceDocumentFiles} list_document_file
@@ -173,6 +197,10 @@ export async function listTargetSourceDocuments(input: TargetSourceDocumentListI
         failureMessage: row.failureMessage,
         failureCode: row.failureCode,
         hasImages: row.hasImages,
+        pendingSuggestions: [
+          ...(row.hasDuplicateSuggestion ? (["duplicate"] as const) : []),
+          ...(row.hasDateOrganizationSuggestion ? (["date_organization"] as const) : []),
+        ],
       };
       return mapListItem(row, hydration);
     }),

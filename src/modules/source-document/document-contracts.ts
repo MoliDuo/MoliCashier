@@ -37,6 +37,30 @@ interface SourceDocumentInputDataDto {
   files: SourceDocumentStoredFileDto[];
 }
 
+export interface DuplicateSuggestionItemDto {
+  ledgerEntryId: string;
+  itemName: string;
+  amount: string;
+  currency: string;
+  /** The recorded entry this one repeats, and the record that holds it. */
+  matched: {
+    sourceDocumentId: string;
+    title: string | null;
+    documentDate: string;
+    itemName: string;
+  };
+}
+
+export interface DuplicateSuggestionDto {
+  id: string;
+  items: DuplicateSuggestionItemDto[];
+  /** Every entry of the record is flagged, so removing them leaves nothing. */
+  coversWholeDocument: boolean;
+}
+
+/** A suggestion the owner has not yet confirmed or dismissed. */
+export type PendingSuggestionKind = "duplicate" | "date_organization";
+
 export interface SourceDocumentDetailDto
   extends SourceDocumentSummaryDto, SourceDocumentInputDataDto {
   ledgerEntries: SourceDocumentLedgerEntryDto[];
@@ -44,6 +68,7 @@ export interface SourceDocumentDetailDto
   activeResultSummary?: SourceDocumentActiveResultSummary;
   dateOrganizationSuggestion?:
     import("@/lib/ai/date-organization").DateOrganizationSuggestion | null;
+  duplicateSuggestion?: DuplicateSuggestionDto | null;
 }
 
 export interface SourceDocumentActiveResultSummary {
@@ -54,6 +79,7 @@ export interface SourceDocumentActiveResultSummary {
 
 export interface SourceDocumentListItemDto extends SourceDocumentSummaryDto {
   text: null;
+  pendingSuggestions: PendingSuggestionKind[];
   ledgerEntries?: SourceDocumentLedgerEntryDto[];
   hasImages: boolean;
 }

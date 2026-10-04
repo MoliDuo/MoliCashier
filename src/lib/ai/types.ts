@@ -10,6 +10,8 @@ export interface ParsedLedgerEntry {
   receiptIndex?: number; // index of receipt within multi-receipt document
   isAdjustment?: boolean; // true for order_adjustments rows (discounts, fees, etc.)
   dateHint?: DateHint;
+  /** The handle of a recently recorded entry the row repeats, as the parse named it. */
+  alreadyRecorded?: string;
 }
 
 export interface CategoryInfo {

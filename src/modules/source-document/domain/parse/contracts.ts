@@ -1,5 +1,16 @@
 import type { CategoryInfo, ParsedLedgerEntry } from "@/lib/ai/types";
 
+/** One already-recorded entry the parse compares the evidence against. */
+export interface RecentEntryForParse {
+  /** The short handle the model answers with; the caller maps it back to the entry. */
+  ref: string;
+  documentTitle: string | null;
+  documentDate: string;
+  itemName: string;
+  amount: string;
+  currency: string;
+}
+
 export interface ParseSourceDocumentInput {
   text?: string;
   evidence?: ParseEvidence;
@@ -7,6 +18,7 @@ export interface ParseSourceDocumentInput {
   aiLanguage?: string;
   settings: { aiCustomPrompt?: string };
   preferredCurrencies?: string[];
+  recentEntries?: readonly RecentEntryForParse[];
 }
 
 interface ParseEvidence {

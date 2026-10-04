@@ -59,3 +59,8 @@ export const SESSION_MAX_AGE_DAYS = 14;
 
 /** How many due extraction attempts the worker looks at per pass. */
 export const PROCESSING_BATCH_SIZE = 5;
+
+/** How far back a parse looks for entries the new evidence may repeat. */
+export const RECENT_ENTRIES_WINDOW_DAYS = 14;
+/** The most recent entries handed to one parse, newest first. */
+export const RECENT_ENTRIES_MAX = 200;

@@ -107,6 +107,9 @@ export const SourceDocumentCardHeader = memo(function SourceDocumentCardHeader({
   // else is announced to assistive tech and left unprinted.
   const shouldAnnounceStatus = processingStatus != null;
   const shouldShowTotal = ledgerEntries.length > 0;
+  // Suggestions wait inside the record, so the card says there is one to see.
+  const pendingSuggestions =
+    "pendingSuggestions" in sourceDocument ? sourceDocument.pendingSuggestions : [];
 
   // A failed document shows one stable label: a document the AI could not turn
   // into entries reads as unparsable, everything else by its failure code. The
@@ -152,6 +155,16 @@ export const SourceDocumentCardHeader = memo(function SourceDocumentCardHeader({
       </button>
 
       <div className="flex items-center gap-2 shrink-0">
+        {pendingSuggestions.includes("duplicate") && (
+          <span className={textRoleClassName("micro", "whitespace-nowrap text-warning")}>
+            {sourceDocumentCardCopy.pendingDuplicate}
+          </span>
+        )}
+        {pendingSuggestions.includes("date_organization") && (
+          <span className={textRoleClassName("micro", "whitespace-nowrap text-info")}>
+            {sourceDocumentCardCopy.pendingDateOrganization}
+          </span>
+        )}
         {shouldAnnounceStatus && (
           <ProcessingStatus
             status={processingStatus}

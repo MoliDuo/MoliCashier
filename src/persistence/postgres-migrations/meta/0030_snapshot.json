@@ -1,6 +1,6 @@
 {
-  "id": "757627b7-70bf-444b-b0a2-87c4b59f0147",
-  "prevId": "cc3400b3-2bbb-42a1-85a5-f7d63829dddc",
+  "id": "b5af04b0-ebb9-4f4d-9f5b-55b6cee8bbca",
+  "prevId": "757627b7-70bf-444b-b0a2-87c4b59f0147",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -817,6 +817,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "duplicate_suggestion": {
+          "name": "duplicate_suggestion",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -967,6 +973,10 @@
         "ck_source_documents_version": {
           "name": "ck_source_documents_version",
           "value": "\"source_documents\".\"version\" > 0"
+        },
+        "ck_source_documents_duplicate_suggestion": {
+          "name": "ck_source_documents_duplicate_suggestion",
+          "value": "\"source_documents\".\"duplicate_suggestion\" IS NULL OR jsonb_typeof(\"source_documents\".\"duplicate_suggestion\") = 'object'"
         },
         "ck_source_documents_idempotency": {
           "name": "ck_source_documents_idempotency",

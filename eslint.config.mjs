@@ -9,6 +9,7 @@ export const registeredSourceDocumentWriters = [
   "src/modules/source-document/server/split.ts",
   "src/modules/source-document/server/cancel-processing.ts",
   "src/modules/source-document/server/date-organization.ts",
+  "src/modules/source-document/server/duplicate-suggestion.ts",
   "src/modules/source-document/server/projections/manual-entries.ts",
   "src/modules/source-document/server/projections/writes.ts",
   "src/modules/source-document/server/extraction-attempts.ts",

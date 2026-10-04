@@ -1,4 +1,6 @@
 import type {
+  DuplicateSuggestionDto,
+  PendingSuggestionKind,
   SourceDocumentDetailDto,
   SourceDocumentStoredFileDto,
   SourceDocumentListItemDto,
@@ -26,6 +28,7 @@ export interface SourceDocumentListRow {
 }
 
 export interface SourceDocumentRow extends SourceDocumentListRow {
+  duplicateSuggestion: import("@/lib/ai/duplicate-suggestion").DuplicateSuggestion | null;
   dateOrganizationSuggestion:
     import("@/lib/ai/date-organization").DateOrganizationSuggestion | null;
 }
@@ -36,10 +39,12 @@ export interface SourceDocumentListHydrationRow {
   failureMessage: string | null;
   failureCode: string | null;
   hasImages: boolean;
+  pendingSuggestions: PendingSuggestionKind[];
 }
 
 export interface SourceDocumentHydrationRow extends SourceDocumentListHydrationRow {
   inputText: string | null;
+  duplicateSuggestion: DuplicateSuggestionDto | null;
   mainCurrency: string;
   files: SourceDocumentStoredFileAggregateRow[];
   ledgerEntries: SourceDocumentLedgerEntryAggregateRow[];
@@ -139,6 +144,7 @@ export function mapListItem(
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     hasImages: hydration.hasImages,
+    pendingSuggestions: hydration.pendingSuggestions,
     supportedActions: [...capabilities.supportedActions],
     canEdit: capabilities.canEdit,
     errorCode: sanitizedErrorCode(
@@ -179,6 +185,7 @@ export function mapSourceDocumentDetail(
     failureMessage: hydration.failureMessage,
     documentDate: row.documentDate,
     dateOrganizationSuggestion: row.dateOrganizationSuggestion,
+    duplicateSuggestion: hydration.duplicateSuggestion,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     hasImages: hydration.hasImages,

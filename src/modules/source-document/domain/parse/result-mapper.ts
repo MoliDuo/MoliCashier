@@ -55,6 +55,7 @@ export function convertToParsedEntries({
     entryDate: null,
     notes: entry.notes,
     ...("date_hint" in entry && entry.date_hint != null ? { dateHint: entry.date_hint } : {}),
+    ...(entry.already_recorded == null ? {} : { alreadyRecorded: entry.already_recorded }),
     receiptIndex: entry.receipt_index,
     isAdjustment: index >= ledgerEntries.length,
   }));

@@ -160,12 +160,19 @@ export async function applyDateOrganization(
       remainingItems.length === 0
         ? null
         : { ...lockedDocument.dateOrganizationSuggestion, items: remainingItems };
+    const remainingDuplicateItems = (lockedDocument.duplicateSuggestion?.items ?? []).filter(
+      (item) => !assigned.has(item.ledgerEntryId)
+    );
     await tx
       .update(sourceDocuments)
       .set({
         version: sql`${sourceDocuments.version} + 1`,
         documentDate: originalGroup?.entryDate ?? lockedDocument.documentDate,
         dateOrganizationSuggestion: remainingSuggestion,
+        duplicateSuggestion:
+          lockedDocument.duplicateSuggestion == null || remainingDuplicateItems.length === 0
+            ? null
+            : { ...lockedDocument.duplicateSuggestion, items: remainingDuplicateItems },
         updatedAt: new Date(),
       })
       .where(eq(sourceDocuments.id, input.sourceDocumentId));

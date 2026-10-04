@@ -16,6 +16,7 @@ const row: SourceDocumentRow = {
   createdAt: new Date("2026-09-24"),
   updatedAt: new Date("2026-09-24"),
   dateOrganizationSuggestion: null,
+  duplicateSuggestion: null,
 };
 const hydration: SourceDocumentHydrationRow = {
   inputText: "retry",
@@ -24,6 +25,8 @@ const hydration: SourceDocumentHydrationRow = {
   failureMessage: null,
   failureCode: "storage_failure",
   hasImages: false,
+  pendingSuggestions: [],
+  duplicateSuggestion: null,
   files: [],
   mainCurrency: "KWD",
   ledgerEntries: [

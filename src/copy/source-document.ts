@@ -8,6 +8,8 @@ export const sourceDocumentCardCopy = {
   processing: "处理中",
   completed: "已完成",
   cancelled: "已取消",
+  pendingDuplicate: "可能重复",
+  pendingDateOrganization: "日期待整理",
 };
 
 export const sourceDocumentInputCopy = {
@@ -116,6 +118,19 @@ export const sourceDocumentDetailCopy = {
     done: "完成调整",
     applyFailed: "应用失败，账单未更改。请重试。",
     groupDate: "分组日期",
+  },
+  duplicateSuggestion: {
+    title: "可能已经记过",
+    summary: (v: { count: string | number }) => `这 ${v.count} 条之前好像已经记过了`,
+    summaryWhole: "这张账单里的内容之前好像已经全部记过了",
+    matchedIn: (v: { title: string; date: string; item: string }) =>
+      `和「${v.title}」（${v.date}）里的「${v.item}」是同一笔`,
+    untitled: "未命名账单",
+    view: "查看",
+    remove: "移除重复",
+    removeWhole: "删除这张账单",
+    keep: "保留",
+    applyFailed: "操作失败，账单未更改。请重试。",
   },
 };
 

@@ -19,6 +19,7 @@ import {
 import type {
   ApplyDateOrganizationInput,
   ApplyDateOrganizationResultDto,
+  ApplyDuplicateSuggestionResultDto,
   PartialBatchCommandResult,
   SourceDocument,
   SplitSourceDocumentInput,
@@ -32,6 +33,10 @@ import {
   dismissDateOrganizationAction,
 } from "@/modules/source-document/server-actions/date-organization";
 import { deleteSourceDocumentAction } from "@/modules/source-document/server-actions/delete";
+import {
+  applyDuplicateSuggestionAction,
+  dismissDuplicateSuggestionAction,
+} from "@/modules/source-document/server-actions/duplicate-suggestion";
 import { cancelSourceDocumentProcessingAction } from "@/modules/source-document/server-actions/processing";
 import { retrySourceDocumentAction } from "@/modules/source-document/server-actions/retry";
 import { splitSourceDocumentAction } from "@/modules/source-document/server-actions/split";
@@ -171,6 +176,21 @@ export function useSourceDocumentDetail({
   const dismissDateOrganizationMutation = useLedgerMutation<{ dismissed: true }, string>({
     mutationFn: (suggestionId) =>
       dismissDateOrganizationAction({ sourceDocumentId: id, suggestionId }),
+    waitFor: detailKey,
+  });
+  const applyDuplicateMutation = useLedgerMutation<ApplyDuplicateSuggestionResultDto, string>({
+    mutationFn: (suggestionId) =>
+      applyDuplicateSuggestionAction({ sourceDocumentId: id, suggestionId }),
+    waitFor: detailKey,
+    onSuccess: (result) => {
+      // A record that held only repeats is gone, so there is nothing left to show.
+      if (result.sourceDocument == null) onClose();
+      else return commitDetailSnapshot(result.sourceDocument);
+    },
+  });
+  const dismissDuplicateMutation = useLedgerMutation<{ dismissed: true }, string>({
+    mutationFn: (suggestionId) =>
+      dismissDuplicateSuggestionAction({ sourceDocumentId: id, suggestionId }),
     waitFor: detailKey,
   });
   const addEntryMutation = useLedgerMutation<{ ledgerEntryId: string }, AddEntryData>({
@@ -461,6 +481,9 @@ export function useSourceDocumentDetail({
     dismissDateOrganization: dismissDateOrganizationMutation.mutateAsync,
     isOrganizingDates:
       dateOrganizationMutation.isPending || dismissDateOrganizationMutation.isPending,
+    applyDuplicateSuggestion: applyDuplicateMutation.mutateAsync,
+    dismissDuplicateSuggestion: dismissDuplicateMutation.mutateAsync,
+    isResolvingDuplicates: applyDuplicateMutation.isPending || dismissDuplicateMutation.isPending,
     selection,
     status: {
       busy,
