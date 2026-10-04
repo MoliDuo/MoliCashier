@@ -128,7 +128,7 @@ describe("dependency-cruiser architecture rules", () => {
     const clientRule = config.forbidden.find((rule) => rule.name === "client-not-server-code");
     const clientPaths = [clientRule?.from.path ?? []].flat();
 
-    expect(clientPaths).toContain("^src/modules/ledger/ui/CategoryAssignmentStatus\\.tsx$");
+    expect(clientPaths).toContain("^src/modules/ledger/ui/CategoryAssignmentTasks\\.tsx$");
     expect(clientPaths).not.toContain("^src/app/layout\\.tsx$");
   });
 });

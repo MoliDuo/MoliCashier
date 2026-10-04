@@ -52,6 +52,9 @@ export const queryKeys = {
   categoryAssignment: () => ["ledger", "category-assignment"] as const,
   categoryAssignmentResults: (jobId: string) =>
     ["ledger", "category-assignment", jobId, "results"] as const,
+  /** `progress` is whatever the run's status poll last said, so a change refetches. */
+  categoryAssignmentEntryStates: (jobId: string, progress: string) =>
+    ["ledger", "category-assignment", jobId, "entry-states", progress] as const,
   ledgerSettings: () => ["ledger", "settings"] as const,
 
   // === Summary & Stats ===

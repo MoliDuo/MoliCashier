@@ -7,6 +7,9 @@ import { cn } from "@/lib/utils";
 import { AmountDisplay } from "@/modules/currency/ui/AmountDisplay";
 
 import { memo } from "react";
+import { ProcessingSweep } from "@/modules/source-document/ui/processing-sweep";
+import { CategoryAssignmentEntryLabel } from "./CategoryAssignmentEntryLabel";
+import { useCategoryAssignmentEntryState } from "./category-assignment-entry-states";
 import { commonCopy } from "@/copy/common";
 
 interface LedgerEntryCardProps {
@@ -30,6 +33,7 @@ export const LedgerEntryCard = memo(function LedgerEntryCard({
   selectionDisabled = false,
   onToggleSelect,
 }: LedgerEntryCardProps) {
+  const assignmentState = useCategoryAssignmentEntryState(ledgerEntry.id);
   return (
     <SelectableCardSurface
       selectionMode={selectionMode}
@@ -41,6 +45,13 @@ export const LedgerEntryCard = memo(function LedgerEntryCard({
       <EntryCardShell
         selected={selectionMode && isSelected}
         interactive={onView != null || selectionMode}
+        tone={
+          assignmentState === "pending"
+            ? "busy"
+            : assignmentState === "failed"
+              ? "danger"
+              : "default"
+        }
         className={className}
         data-testid="ledger-entry-card-root"
         {...(!selectionMode && onView != null
@@ -55,6 +66,7 @@ export const LedgerEntryCard = memo(function LedgerEntryCard({
             }
           : {})}
       >
+        {assignmentState === "pending" ? <ProcessingSweep /> : null}
         {/* The same padding as the entry rows inside a source document, so a
             card here is exactly as tall as one of those rows — and its amounts
             line up with them, and with the toolbar's total above. Widening the
@@ -86,6 +98,9 @@ export const LedgerEntryCard = memo(function LedgerEntryCard({
                     {ledgerEntry.itemName}
                   </p>
                   <div className="flex min-w-0 items-center gap-1.5 mt-0.5">
+                    {assignmentState != null && (
+                      <CategoryAssignmentEntryLabel state={assignmentState} />
+                    )}
                     {ledgerEntry.category && (
                       <div
                         className={textRoleClassName(

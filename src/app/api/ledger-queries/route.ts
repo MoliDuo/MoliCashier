@@ -24,6 +24,7 @@ import {
 import { getEntryCategoriesAction } from "@/modules/ledger/server/list-categories";
 import { getLedgerSettingsAction } from "@/modules/ledger/server/get-ledger-settings";
 import {
+  getCategoryAssignmentEntryStatesAction,
   getCategoryAssignmentResultsAction,
   getCategoryAssignmentJobAction,
 } from "@/modules/ledger/server/get-category-assignment-job";
@@ -53,6 +54,7 @@ const requestSchema = z
       "stats",
       "category-assignment",
       "category-assignment-results",
+      "category-assignment-entry-states",
       "source-document-input",
       "convert-currency",
     ]),
@@ -170,6 +172,11 @@ export async function POST(request: Request) {
             })
             .strict()
             .parse(input) as { jobId: string; cursor?: number; limit?: number }
+        );
+        break;
+      case "category-assignment-entry-states":
+        result = await getCategoryAssignmentEntryStatesAction(
+          z.object({ jobId: z.string().uuid() }).strict().parse(input) as { jobId: string }
         );
         break;
     }

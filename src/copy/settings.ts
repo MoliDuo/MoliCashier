@@ -24,7 +24,6 @@ export const settingsCopy = {
   categories: "分类",
   manageCategories: "管理分类",
   categoryAssignmentActive: "分类任务进行中，结束后才能修改分类。",
-  categoryAssignmentViewTask: "查看任务",
   moveCategoryUp: "上移",
   moveCategoryDown: "下移",
   editCategory: (v: { name: string | number }) => `编辑分类 ${v.name}`,

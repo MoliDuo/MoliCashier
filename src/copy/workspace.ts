@@ -98,6 +98,8 @@ export const batchActionsCopy = {
   categoryRetryFailed: "重试失败部分",
   categoryRetryLatest: "按最新内容重新分类",
   categoryStopDescription: "停止后，已完成的分类会保留。",
+  categoryEntryPending: "分类中",
+  categoryEntryFailed: "分类失败",
   categoryEvidenceIncomplete: "部分原图无法读取，已用其余资料",
   categoryRefreshStatus: "刷新状态",
   categoryViewResults: "查看结果",

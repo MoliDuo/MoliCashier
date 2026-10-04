@@ -5,6 +5,8 @@ import { textRoleClassName } from "@/components/typography";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 import { AmountDisplay } from "@/modules/currency/ui/AmountDisplay";
+import { CategoryAssignmentEntryLabel } from "@/modules/ledger/ui/CategoryAssignmentEntryLabel";
+import { useCategoryAssignmentEntryState } from "@/modules/ledger/ui/category-assignment-entry-states";
 
 /**
  * Variant styles for different source document states.
@@ -51,10 +53,16 @@ export const LedgerEntryItem = memo(function LedgerEntryItem({
   variant = "default",
   className,
 }: LedgerEntryItemProps) {
+  const assignmentState = useCategoryAssignmentEntryState(ledgerEntry.id);
   return (
     <button
       type="button"
-      className={cn(itemVariants({ variant }), className)}
+      className={cn(
+        itemVariants({ variant }),
+        assignmentState === "pending" && "bg-primary/5",
+        assignmentState === "failed" && "bg-danger/5",
+        className
+      )}
       onClick={onView}
       disabled={onView == null}
     >
@@ -70,6 +78,7 @@ export const LedgerEntryItem = memo(function LedgerEntryItem({
           </div>
 
           <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+            {assignmentState != null && <CategoryAssignmentEntryLabel state={assignmentState} />}
             {ledgerEntry.category != null && (
               <div
                 className={textRoleClassName(

@@ -6,21 +6,37 @@ import { batchActionsCopy } from "@/copy/workspace";
 import type { CategoryAssignmentJob } from "@/modules/ledger/contracts";
 import { CategoryAssignmentProvider } from "@/modules/ledger/ui/CategoryAssignmentProvider";
 import { useCategoryAssignment } from "@/modules/ledger/ui/category-assignment-context";
+import { useCategoryAssignmentEntryState } from "@/modules/ledger/ui/category-assignment-entry-states";
 
-const { getJob, toastSuccess, toastError } = vi.hoisted(() => ({
-  getJob: vi.fn(),
-  toastSuccess: vi.fn(),
-  toastError: vi.fn(),
-}));
+const { getJob, getEntryStates, toastSuccess, toastError, toastLoading, toastDismiss } = vi.hoisted(
+  () => ({
+    getJob: vi.fn(),
+    getEntryStates: vi.fn(),
+    toastSuccess: vi.fn(),
+    toastError: vi.fn(),
+    toastLoading: vi.fn(),
+    toastDismiss: vi.fn(),
+  })
+);
 
 vi.mock("@/modules/ledger/queries", () => ({
   fetchCategoryAssignmentJob: getJob,
+  fetchCategoryAssignmentEntryStates: getEntryStates,
   fetchCategoryAssignmentResults: vi.fn(async () => ({ items: [], nextCursor: null })),
 }));
 vi.mock("@/lib/mutations/ledger-invalidation", () => ({
   invalidateLedgerQueries: vi.fn(async () => undefined),
 }));
-vi.mock("sonner", () => ({ toast: { success: toastSuccess, error: toastError } }));
+vi.mock("sonner", () => ({
+  toast: {
+    success: toastSuccess,
+    error: toastError,
+    loading: toastLoading,
+    dismiss: toastDismiss,
+    warning: vi.fn(),
+    info: vi.fn(),
+  },
+}));
 vi.mock("@/modules/ledger/server-actions/category-assignment", () => ({
   cancelCategoryAssignmentAction: vi.fn(),
   retryCategoryAssignmentFailuresAction: vi.fn(),
@@ -102,15 +118,21 @@ async function poll(queryClient: QueryClient) {
   });
 }
 
-/** The band appears only once the page has a run to describe. */
-async function waitForBand() {
-  await waitFor(() => expect(document.getElementById("category-assignment-status")).not.toBeNull());
+/** The progress toast appears only once the page has a moving run to describe. */
+async function waitForProgressToast() {
+  await waitFor(() => expect(toastLoading).toHaveBeenCalled());
+}
+
+/** One list row, reading its own entry's state the way the lists do. */
+function RowProbe({ entryId }: { entryId: string }) {
+  return <p data-testid={`row-${entryId}`}>{useCategoryAssignmentEntryState(entryId) ?? "none"}</p>;
 }
 
 describe("CategoryAssignmentProvider", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getJob.mockResolvedValue(null);
+    getEntryStates.mockResolvedValue({ jobId: "job-1", pendingIds: [], failedIds: [] });
   });
 
   it("reports a run this page watched once it ends", async () => {
@@ -118,10 +140,10 @@ describe("CategoryAssignmentProvider", () => {
     const { queryClient, wrapper } = setup();
     render(<SubmitProbe run={job()} />, { wrapper });
 
-    await waitForBand();
+    await waitForProgressToast();
     await poll(queryClient);
 
-    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith(DONE_9_OF_10));
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith(DONE_9_OF_10, {}));
     // A statement of the ledger's most recent run is not news a second time.
     await poll(queryClient);
     expect(toastSuccess).toHaveBeenCalledTimes(1);
@@ -135,7 +157,7 @@ describe("CategoryAssignmentProvider", () => {
 
     fireEvent.click(screen.getByText("submit"));
 
-    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith(DONE_9_OF_10));
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith(DONE_9_OF_10, {}));
   });
 
   it("stays quiet about a run that ended before this page opened", async () => {
@@ -161,21 +183,106 @@ describe("CategoryAssignmentProvider", () => {
     const { queryClient, wrapper } = setup();
     render(<SubmitProbe run={job()} />, { wrapper });
 
-    await waitForBand();
+    await waitForProgressToast();
     await poll(queryClient);
 
     expect(toastSuccess).not.toHaveBeenCalled();
     expect(toastError).not.toHaveBeenCalled();
   });
 
-  it("shows the status band above the page while a run is moving", async () => {
+  it("carries a moving run's progress and its Stop control in one toast that stays open", async () => {
     getJob.mockResolvedValue(job());
     const { wrapper } = setup();
     render(<SubmitProbe run={job()} />, { wrapper });
 
-    await waitFor(() =>
-      expect(document.getElementById("category-assignment-status")).not.toBeNull()
+    await waitForProgressToast();
+
+    expect(toastLoading).toHaveBeenLastCalledWith(
+      batchActionsCopy.categoryJobProgress({ processed: 4, total: 10, active: 2 }),
+      expect.objectContaining({
+        duration: Infinity,
+        dismissible: false,
+        action: expect.objectContaining({ label: batchActionsCopy.categoryStop }),
+      })
     );
+  });
+
+  it("takes the progress toast down once the run ends", async () => {
+    getJob.mockResolvedValueOnce(job()).mockResolvedValue(succeededJob());
+    const { queryClient, wrapper } = setup();
+    render(<SubmitProbe run={job()} />, { wrapper });
+    await waitForProgressToast();
+
+    await poll(queryClient);
+
+    await waitFor(() => expect(toastDismiss).toHaveBeenCalledWith("category-assignment-progress"));
+  });
+
+  it("offers the results when a run ends with entries that need a look", async () => {
+    const partial = job({
+      status: "partial",
+      processedCount: 10,
+      appliedCount: 7,
+      confirmedCount: 1,
+      failedCount: 2,
+      completedAt: "2026-09-14T00:05:00.000Z",
+    });
+    getJob.mockResolvedValueOnce(job()).mockResolvedValue(partial);
+    const { queryClient, wrapper } = setup();
+    render(<SubmitProbe run={job()} />, { wrapper });
+    await waitForProgressToast();
+
+    await poll(queryClient);
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith(
+        batchActionsCopy.aiCategoryFailed,
+        expect.objectContaining({
+          action: expect.objectContaining({ label: batchActionsCopy.categoryViewResults }),
+        })
+      )
+    );
+  });
+
+  it("marks the rows a moving run is working on, and clears them when it ends", async () => {
+    getJob.mockResolvedValue(job());
+    getEntryStates.mockResolvedValue({ jobId: "job-1", pendingIds: ["e1"], failedIds: [] });
+    const { queryClient, wrapper } = setup();
+    render(
+      <>
+        <RowProbe entryId="e1" />
+        <RowProbe entryId="e2" />
+      </>,
+      { wrapper }
+    );
+
+    await waitFor(() => expect(screen.getByTestId("row-e1").textContent).toBe("pending"));
+    expect(screen.getByTestId("row-e2").textContent).toBe("none");
+
+    getJob.mockResolvedValue(succeededJob());
+    await poll(queryClient);
+
+    await waitFor(() => expect(screen.getByTestId("row-e1").textContent).toBe("none"));
+  });
+
+  it("marks the rows a finished run failed", async () => {
+    const partial = job({
+      status: "partial",
+      processedCount: 10,
+      failedCount: 1,
+      completedAt: "2026-09-14T00:05:00.000Z",
+    });
+    getJob.mockResolvedValue(job());
+    getEntryStates.mockResolvedValue({ jobId: "job-1", pendingIds: ["e1"], failedIds: [] });
+    const { queryClient, wrapper } = setup();
+    render(<RowProbe entryId="e1" />, { wrapper });
+    await waitFor(() => expect(screen.getByTestId("row-e1").textContent).toBe("pending"));
+
+    getJob.mockResolvedValue(partial);
+    getEntryStates.mockResolvedValue({ jobId: "job-1", pendingIds: [], failedIds: ["e1"] });
+    await poll(queryClient);
+
+    await waitFor(() => expect(screen.getByTestId("row-e1").textContent).toBe("failed"));
   });
 
   it("hands its readers the same value when it re-renders with nothing new", async () => {

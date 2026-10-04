@@ -13,6 +13,7 @@ import {
 import type {
   CategoryAssignmentCandidateSnapshot,
   CategoryAssignmentEntryResultDto,
+  CategoryAssignmentEntryStatesDto,
   CategoryAssignmentMode,
   CategoryAssignmentResultPageDto,
 } from "@/modules/ledger/contracts";
@@ -863,5 +864,39 @@ export async function listCategoryAssignmentResults(input: {
   return {
     items,
     nextCursor: rows.length > limit ? rows[limit]!.selectionOrder : null,
+  };
+}
+
+/**
+ * The entries of a run a row has something to say about: those still waiting for
+ * the model, and those the model could not place. A failure is only reported
+ * while the entry still sits in the category it had when the run was selected,
+ * so a row the reader has since fixed by hand stops being flagged. Entries the
+ * run settled are not listed, which keeps the answer short for a large run.
+ */
+export async function listCategoryAssignmentEntryStates(input: {
+  jobId: string;
+}): Promise<CategoryAssignmentEntryStatesDto> {
+  const rows = await db
+    .select({
+      ledgerEntryId: categoryAssignmentEntries.ledgerEntryId,
+      outcome: categoryAssignmentEntries.outcome,
+    })
+    .from(categoryAssignmentEntries)
+    .leftJoin(ledgerEntries, eq(ledgerEntries.id, categoryAssignmentEntries.ledgerEntryId))
+    .where(
+      and(
+        eq(categoryAssignmentEntries.jobId, input.jobId),
+        sql`(${categoryAssignmentEntries.outcome} IS NULL OR (
+          ${categoryAssignmentEntries.outcome} = 'failed'
+          AND ${ledgerEntries.categoryId} IS NOT DISTINCT FROM ${categoryAssignmentEntries.originalCategoryId}
+        ))`
+      )
+    )
+    .orderBy(categoryAssignmentEntries.selectionOrder);
+  return {
+    jobId: input.jobId,
+    pendingIds: rows.filter((row) => row.outcome == null).map((row) => row.ledgerEntryId),
+    failedIds: rows.filter((row) => row.outcome === "failed").map((row) => row.ledgerEntryId),
   };
 }

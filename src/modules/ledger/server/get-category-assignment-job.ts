@@ -1,8 +1,14 @@
 import { withLedgerAccess } from "../access";
 import type { CategoryAssignmentJobDto } from "@/modules/ledger/contracts";
 import { toCategoryAssignmentJobDto } from "@/modules/ledger/server/category-assignment-job-dto";
-import type { CategoryAssignmentResultPageDto } from "@/modules/ledger/contracts";
-import { listCategoryAssignmentResults } from "@/server/category-assignment/assignments";
+import type {
+  CategoryAssignmentEntryStatesDto,
+  CategoryAssignmentResultPageDto,
+} from "@/modules/ledger/contracts";
+import {
+  listCategoryAssignmentEntryStates,
+  listCategoryAssignmentResults,
+} from "@/server/category-assignment/assignments";
 import { getLatestCategoryAssignmentJob } from "@/server/category-assignment/jobs";
 
 /**
@@ -23,4 +29,9 @@ export const getCategoryAssignmentResultsAction = withLedgerAccess(
     cursor?: number;
     limit?: number;
   }): Promise<CategoryAssignmentResultPageDto> => listCategoryAssignmentResults(input)
+);
+
+export const getCategoryAssignmentEntryStatesAction = withLedgerAccess(
+  async (input: { jobId: string }): Promise<CategoryAssignmentEntryStatesDto> =>
+    listCategoryAssignmentEntryStates(input)
 );

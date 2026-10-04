@@ -3,6 +3,7 @@ import type { PeriodQuery } from "./domain/period";
 import type { LedgerStatsQueryInput, ListLedgerEntriesInput } from "./contract-schemas";
 import type {
   BookDto,
+  CategoryAssignmentEntryStatesDto,
   CategoryAssignmentResultPageDto,
   CategoryAssignmentJobDto,
   EntryCategoryWithCountDto,
@@ -42,3 +43,8 @@ export const fetchCategoryAssignmentResults = (input: {
   cursor?: number;
   limit?: number;
 }) => postLedgerQuery<CategoryAssignmentResultPageDto>("category-assignment-results", [input]);
+
+export const fetchCategoryAssignmentEntryStates = (jobId: string) =>
+  postLedgerQuery<CategoryAssignmentEntryStatesDto>("category-assignment-entry-states", [
+    { jobId },
+  ]);

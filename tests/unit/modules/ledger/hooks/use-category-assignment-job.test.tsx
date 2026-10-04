@@ -4,13 +4,15 @@ import type { PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCategoryAssignmentJob } from "@/modules/ledger/hooks/useCategoryAssignmentJob";
 
-const { getJob, invalidateLedger } = vi.hoisted(() => ({
+const { getJob, getEntryStates, invalidateLedger } = vi.hoisted(() => ({
   getJob: vi.fn(),
+  getEntryStates: vi.fn(),
   invalidateLedger: vi.fn(),
 }));
 
 vi.mock("@/modules/ledger/queries", () => ({
   fetchCategoryAssignmentJob: getJob,
+  fetchCategoryAssignmentEntryStates: getEntryStates,
 }));
 vi.mock("@/lib/mutations/ledger-sync", () => ({
   syncLedgerAfterWrite: invalidateLedger,
@@ -64,6 +66,7 @@ describe("useCategoryAssignmentJob", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     getJob.mockResolvedValue(runningJob);
+    getEntryStates.mockResolvedValue({ jobId: "job-1", pendingIds: [], failedIds: [] });
     invalidateLedger.mockResolvedValue(undefined);
   });
 
@@ -92,75 +95,6 @@ describe("useCategoryAssignmentJob", () => {
 
     expect(result.current.isReadError).toBe(true);
     expect(result.current.job).toBeNull();
-    expect(result.current.isVisible).toBe(true);
-  });
-
-  it("does not reprint a run that finished before this page opened", async () => {
-    getJob.mockResolvedValue({ ...runningJob, status: "succeeded", processedCount: 10 });
-    const { wrapper } = setup();
-    const { result } = renderHook(() => useCategoryAssignmentJob(), { wrapper });
-    await flush();
-
-    expect(result.current.job).toMatchObject({ status: "succeeded" });
-    expect(result.current.isVisible).toBe(false);
-  });
-
-  it("keeps a watched run's outcome visible until it is dismissed", async () => {
-    const succeeded = {
-      ...runningJob,
-      status: "succeeded" as const,
-      processedCount: 10,
-      appliedCount: 9,
-      confirmedCount: 1,
-    };
-    getJob.mockResolvedValueOnce(runningJob).mockResolvedValue(succeeded);
-    const { wrapper } = setup();
-    const { result } = renderHook(() => useCategoryAssignmentJob(), { wrapper });
-    await flush();
-    expect(result.current.isVisible).toBe(true);
-
-    await act(async () => void (await result.current.refresh()));
-    await flush();
-    expect(result.current.job).toMatchObject({ status: "succeeded" });
-    expect(result.current.isVisible).toBe(true);
-
-    act(() => result.current.dismiss());
-    expect(result.current.isVisible).toBe(false);
-  });
-
-  it("lets a later run announce itself after the previous one was dismissed", async () => {
-    getJob
-      .mockResolvedValueOnce(runningJob)
-      .mockResolvedValueOnce({ ...runningJob, status: "succeeded", processedCount: 10 })
-      .mockResolvedValue({ ...runningJob, id: "job-2", status: "running", processedCount: 0 });
-    const { wrapper } = setup();
-    const { result } = renderHook(() => useCategoryAssignmentJob(), { wrapper });
-    await flush();
-    act(() => result.current.dismiss());
-    expect(result.current.isVisible).toBe(true);
-
-    await act(async () => void (await result.current.refresh()));
-    await flush();
-    act(() => result.current.dismiss());
-    expect(result.current.isVisible).toBe(false);
-
-    await act(async () => void (await result.current.refresh()));
-    await flush();
-
-    expect(result.current.job).toMatchObject({ id: "job-2" });
-    expect(result.current.isVisible).toBe(true);
-  });
-
-  it("never hides a live run behind a dismissal", async () => {
-    const { wrapper } = setup();
-    const { result } = renderHook(() => useCategoryAssignmentJob(), { wrapper });
-    await flush();
-
-    act(() => result.current.dismiss());
-    await act(async () => vi.advanceTimersByTimeAsync(3_000));
-
-    expect(result.current.job).toMatchObject({ status: "running" });
-    expect(result.current.isVisible).toBe(true);
   });
 
   it("refreshes the ledger when a run stops where it stood", async () => {
@@ -294,5 +228,86 @@ describe("useCategoryAssignmentJob", () => {
 
     expect(result.current.job).toMatchObject({ status: "cancelled" });
     expect(result.current.notices).toEqual([]);
+  });
+
+  it("reports the entries a moving run is still working on", async () => {
+    getEntryStates.mockResolvedValue({ jobId: "job-1", pendingIds: ["a", "b"], failedIds: [] });
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useCategoryAssignmentJob(), { wrapper });
+    await flush();
+    await act(async () => vi.advanceTimersByTimeAsync(50));
+
+    expect(getEntryStates).toHaveBeenCalledWith("job-1");
+    expect(result.current.entryStates).toEqual({
+      jobId: "job-1",
+      pendingIds: ["a", "b"],
+      failedIds: [],
+    });
+  });
+
+  it("reads the entries again when the run's progress moves", async () => {
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useCategoryAssignmentJob(), { wrapper });
+    await flush();
+    expect(getEntryStates).toHaveBeenCalledTimes(1);
+
+    getJob.mockResolvedValue({ ...runningJob, processedCount: 3 });
+    await act(async () => void (await result.current.refresh()));
+    await flush();
+
+    expect(getEntryStates).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps marking the failed entries of a run this page watched", async () => {
+    const failed = {
+      ...runningJob,
+      status: "partial" as const,
+      processedCount: 10,
+      failedCount: 2,
+    };
+    getJob.mockResolvedValueOnce(runningJob).mockResolvedValue(failed);
+    getEntryStates.mockResolvedValue({ jobId: "job-1", pendingIds: [], failedIds: ["a", "b"] });
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useCategoryAssignmentJob(), { wrapper });
+    await flush();
+
+    await act(async () => void (await result.current.refresh()));
+    await flush();
+
+    expect(result.current.job).toMatchObject({ status: "partial" });
+    expect(result.current.entryStates).toMatchObject({ failedIds: ["a", "b"] });
+  });
+
+  it("marks no entries of a run that ended before this page opened", async () => {
+    getJob.mockResolvedValue({
+      ...runningJob,
+      status: "partial" as const,
+      processedCount: 10,
+      failedCount: 2,
+    });
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useCategoryAssignmentJob(), { wrapper });
+    await flush();
+
+    expect(result.current.job).toMatchObject({ status: "partial" });
+    expect(result.current.entryStates).toBeNull();
+    expect(getEntryStates).not.toHaveBeenCalled();
+  });
+
+  it("stops marking entries once a watched run ends with nothing failed", async () => {
+    getJob
+      .mockResolvedValueOnce(runningJob)
+      .mockResolvedValue({ ...runningJob, status: "succeeded" as const, processedCount: 10 });
+    getEntryStates.mockResolvedValue({ jobId: "job-1", pendingIds: ["a"], failedIds: [] });
+    const { wrapper } = setup();
+    const { result } = renderHook(() => useCategoryAssignmentJob(), { wrapper });
+    await flush();
+    await act(async () => vi.advanceTimersByTimeAsync(50));
+    expect(result.current.entryStates).not.toBeNull();
+
+    await act(async () => void (await result.current.refresh()));
+    await flush();
+
+    expect(result.current.entryStates).toBeNull();
   });
 });
