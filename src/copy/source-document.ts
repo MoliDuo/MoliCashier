@@ -121,11 +121,6 @@ export const sourceDocumentDetailCopy = {
   },
   duplicateSuggestion: {
     title: "可能已经记过",
-    summary: (v: { count: string | number }) => `这 ${v.count} 条之前好像已经记过了`,
-    summaryWhole: "这张账单里的内容之前好像已经全部记过了",
-    matchedIn: (v: { title: string; date: string; item: string }) =>
-      `和「${v.title}」（${v.date}）里的「${v.item}」是同一笔`,
-    untitled: "未命名账单",
     view: "查看",
     remove: "移除重复",
     removeWhole: "删除这张账单",
