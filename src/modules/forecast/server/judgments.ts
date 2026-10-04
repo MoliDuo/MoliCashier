@@ -1,9 +1,7 @@
 import "server-only";
-import { createHash } from "node:crypto";
 import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { storedJudgmentSchema, type Judgment } from "@/modules/forecast/domain/judgment/schema";
-import type { HistoryRow } from "@/modules/forecast/domain/series";
 import { forecastJudgments } from "@/persistence";
 
 export interface StoredJudgment {
@@ -23,15 +21,6 @@ function toStored(row: typeof forecastJudgments.$inferSelect): StoredJudgment | 
         judgment: parsed.data,
       }
     : null;
-}
-
-/** A digest of the rows recorded on or before `asOf`, the same whatever order they come in. */
-export function historyFingerprint(rows: readonly HistoryRow[], asOf: string): string {
-  const lines = rows
-    .filter((row) => row.date <= asOf)
-    .map((row) => `${row.date}|${row.documentId ?? ""}|${row.categoryId ?? ""}|${row.amount}`)
-    .sort();
-  return createHash("sha256").update(lines.join("\n")).digest("hex").slice(0, 32);
 }
 
 /** The newest judgment of `scope` from `from` through `to`, or null. */
