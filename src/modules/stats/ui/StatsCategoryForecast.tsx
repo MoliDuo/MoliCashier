@@ -92,7 +92,9 @@ export function StatsCategoryForecast({
               </span>
 
               <span className="min-w-0 space-y-1.5">
-                <span className="flex items-baseline justify-between gap-2">
+                {/* On a phone the spent line drops under the name: beside it, the name
+                    was squeezed to nothing between the trend and the amount. */}
+                <span className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
                   <span className="flex min-w-0 items-baseline gap-1.5">
                     <span className={textRoleClassName("bodyStrong", "truncate")}>{name}</span>
                     {trend != null ? (

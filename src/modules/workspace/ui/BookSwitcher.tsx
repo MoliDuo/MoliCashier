@@ -54,11 +54,14 @@ export function BookSwitcher({ disabled = false, align = "end" }: BookSwitcherPr
           aria-label={`${bookScopeCopy.label}：${label}`}
           className={textRoleClassName(
             "bodyStrong",
-            "inline-flex h-9 min-w-0 max-w-[12rem] items-center gap-0.5 rounded-md px-1.5 transition-colors hover:bg-surface2 disabled:opacity-60 max-md:max-w-[9rem] md:gap-1 md:px-2"
+            "inline-flex h-9 min-w-0 max-w-[12rem] items-center gap-0.5 rounded-md px-1 transition-colors hover:bg-surface2 disabled:opacity-60 max-md:max-w-[9rem] md:gap-1 md:px-2"
           )}
         >
           <span className="truncate">{label}</span>
-          <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+          <ChevronDown
+            aria-hidden="true"
+            className="size-3.5 shrink-0 text-muted-foreground md:size-4"
+          />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} className="min-w-52 max-w-[calc(100vw-2rem)]">
