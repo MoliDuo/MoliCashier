@@ -140,16 +140,6 @@ export async function getPeriodForecast(
             dailyAfter: money(forecast.lifeChange.dailyAfter),
           },
     largePurchaseFrom: forecast.largeFrom == null ? null : money(forecast.largeFrom),
-    upcoming: forecast.upcoming.map((bill) => ({
-      date: bill.date,
-      label: bill.label,
-      ...categoryOf(bill.key),
-      amount: money(bill.amount),
-      cadence: bill.cadence,
-      streak: bill.streak,
-      seen: null,
-      inPeriod: true,
-    })),
     anomalies: forecast.anomalies.map((anomaly) => ({
       date: anomaly.date,
       ...categoryOf(anomaly.key),
@@ -213,16 +203,6 @@ export async function getPeriodForecast(
             dailyAfter: money(current.daily ?? 0),
           },
     largePurchaseFrom: null,
-    upcoming: judged.upcoming.map((item) => ({
-      date: item.date,
-      label: item.label,
-      ...categoryOf(item.key),
-      amount: money(item.amount),
-      cadence: item.cadence,
-      streak: null,
-      seen: item.seen,
-      inPeriod: item.inPeriod,
-    })),
     judgment: {
       asOf: latest.asOf,
       phases: phases.map((phase) => ({

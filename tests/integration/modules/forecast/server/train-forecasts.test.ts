@@ -78,17 +78,6 @@ describe("the nightly forecast training", () => {
     expect(accuracy.error).toBeGreaterThanOrEqual(0);
     expect(forecast!.model!.networkShare).toBeGreaterThanOrEqual(0);
     expect(forecast!.model!.networkShare).toBeLessThan(1);
-    // The rent came back on the 15th four times running, so it is expected again.
-    expect(forecast!.upcoming).toEqual([
-      expect.objectContaining({
-        date: "2026-10-15",
-        label: "房租",
-        name: "居住",
-        amount: "1200.00",
-        cadence: "monthly",
-        streak: 4,
-      }),
-    ]);
     expect(forecast!.anomalies).toEqual([]);
   });
 });
