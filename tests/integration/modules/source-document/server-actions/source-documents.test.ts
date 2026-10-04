@@ -12,15 +12,9 @@ import {
 } from "@/persistence";
 import { eq } from "drizzle-orm";
 import { createTestLedger, testBookId } from "tests/helpers/schema-setup";
-import { createOpenAIMock } from "tests/helpers/mocks/openai";
+import { createOpenAIMock } from "tests/helpers/mocks/ai-parser-reply";
 
-// Mock OpenAI
-vi.mock("@/lib/ai/openai-client", () => ({
-  getOpenAIClient: vi.fn(),
-  resetOpenAIClient: vi.fn(),
-}));
-
-import { getOpenAIClient } from "@/lib/ai/openai-client";
+import { setAiTransportForTests } from "@/lib/ai/client";
 import { processAllPendingTasks } from "tests/helpers/processing";
 
 describe("SourceDocument Actions", () => {
@@ -37,11 +31,13 @@ describe("SourceDocument Actions", () => {
   const createDocument = (input: Parameters<typeof createSourceDocumentAction>[0]) =>
     createSourceDocumentAction(input, crypto.randomUUID());
 
+  afterEach(() => {
+    setAiTransportForTests(null);
+  });
+
   beforeEach(async () => {
     // Reset mock to use multi-stage mock by default
-    vi.mocked(getOpenAIClient).mockReturnValue(
-      createOpenAIMock() as unknown as ReturnType<typeof getOpenAIClient>
-    );
+    setAiTransportForTests(createOpenAIMock());
 
     const db = getTestDb();
 
@@ -72,7 +68,7 @@ describe("SourceDocument Actions", () => {
 
   it("should persist ledger entries with notes", async () => {
     // Override mock for this test with custom entries
-    vi.mocked(getOpenAIClient).mockReturnValue(
+    setAiTransportForTests(
       createOpenAIMock({
         categories: ["水果"],
         entries: [
@@ -84,7 +80,7 @@ describe("SourceDocument Actions", () => {
             notes: "2kg * 10元/kg, 红富士苹果",
           },
         ],
-      }) as unknown as ReturnType<typeof getOpenAIClient>
+      })
     );
 
     const result = await createDocument({

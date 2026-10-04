@@ -12,7 +12,7 @@ const packages = (names) => [
 const persistence = moduleAt("src/persistence");
 const libDb = moduleAt("src/lib/db");
 const s3 = moduleAt("src/lib/storage/s3");
-const openaiClient = moduleAt("src/lib/ai/openai-client");
+const aiRuntime = moduleAt("src/lib/ai/(?:client|structured)");
 const serverFlows = moduleAt("src/server");
 const moduleServer = moduleAt("src/modules/[^/]+/server");
 const moduleUi = moduleAt("src/modules/[^/]+/(?:ui|hooks)");
@@ -112,7 +112,7 @@ module.exports = {
         "Server actions and API routes call server functions, not the database or providers.",
       severity: "error",
       from: { path: ["^src/modules/[^/]+/server-actions/", "^src/app/api/"] },
-      to: onto([...dataAccess, s3, openaiClient, ...aiSdks]),
+      to: onto([...dataAccess, s3, aiRuntime, ...aiSdks]),
     },
     {
       name: "providers-not-module-ui",
@@ -126,7 +126,7 @@ module.exports = {
       comment: '"use client" files must not import server-only code.',
       severity: "error",
       from: { path: clientComponents },
-      to: onto([libDb, persistence, serverFlows, moduleServer, s3, openaiClient]),
+      to: onto([libDb, persistence, serverFlows, moduleServer, s3, aiRuntime]),
     },
     {
       name: "client-not-actions-barrel",

@@ -221,8 +221,12 @@ src/copy/                 全部界面文案，按界面区域分文件
 - `POST /api/v1/source-documents` 在图片处理、对象上传和落库完成后返回 `201`，不等 AI 解析。
 - 重试创建请求要复用同一个 `Idempotency-Key`。key 存在它创建的票据上，按账本和发送方限定，永久有效：
   重复请求直接返回那张票据，内容不同返回 `409`，并发的重复请求在账本锁上等第一个提交。
-- AI 的文本、图片和 JSON 修复请求都用配置的单一模型。AI 客户端在进程内串行化请求并遵守 Retry-After；
-  这不是跨实例的服务商配额。
+- AI 的文本、图片和 JSON 修复请求都用配置的单一模型。AI 调用分两层，都在 `src/lib/ai/`，别处不直接依赖
+  `openai`：传输层（`client.ts`，`AiTransport.complete`）在进程内串行化请求、遵守 Retry-After、退避重试，并把
+  服务商错误统一成 `ai_rate_limited`、`ai_provider_unavailable`、`ai_timeout`、`ai_configuration_invalid`；
+  结构化输出层（`structured.ts`，`generateStructured`）取 JSON、用 Zod 校验，回复不是合法 JSON 或不符合
+  schema 时做一轮修复，仍失败就抛 `ai_schema_invalid`。解析、批量分类、分类图标和描述都只通过
+  `generateStructured` 调用模型，参数（token 上限、温度、超时、尝试次数）由各调用方自己定。这不是跨实例的服务商配额。
 
 ### 批量分类
 

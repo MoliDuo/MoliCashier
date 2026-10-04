@@ -33,6 +33,9 @@
 
 - **单元测试**不访问 PostgreSQL、网络或真实时间。纯 `.test.ts` 逻辑跑在 Node；组件测试和真正用到浏览器
   API 的测试跑在 happy-dom。外部边界（AI、网络、对象存储）mock 掉或换成内存假实现。
+  AI 只有一种替身：`tests/helpers/fake-ai.ts` 的 `fakeAiTransport(responder)`，用 `setAiTransportForTests`
+  装上，或用 `generateVia(transport)` 交给接收生成函数的代码；真实的 `generateStructured` 照常运行，
+  所以 JSON 解析、修复和错误码都在测试覆盖之内。
 - **集成测试**验证 PostgreSQL 行为、路由和 server action 的组合、事务、并发，以及落库的服务端函数。
 - **每个服务端函数只有一份实现，直接测它。** 用真实数据库调用它；只 mock 它调用的外部边界，
   不 mock 数据库、仓储或同仓库的其他模块，也不写只断言调用参数的测试。

@@ -1,30 +1,27 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { asc, eq } from "drizzle-orm";
 import { getTestDb } from "tests/setup";
 import { createTestSourceDocument, createTestLedger } from "tests/helpers/schema-setup";
-import { createOpenAIMock } from "tests/helpers/mocks/openai";
+import { createOpenAIMock } from "tests/helpers/mocks/ai-parser-reply";
 import { processAllPendingTasks } from "tests/helpers/processing";
 import { ledgerEntries, ledgers, extractionAttempts, sourceDocuments } from "@/persistence";
 import { getCurrentSession } from "@/modules/auth/server/current-session";
-import { getOpenAIClient } from "@/lib/ai/openai-client";
+import { setAiTransportForTests } from "@/lib/ai/client";
 import { NotFoundError, UnauthorizedError, ValidationError } from "@/lib/errors";
 import {
   batchDeleteSourceDocumentsAction,
   batchRetrySourceDocumentsAction,
 } from "@/modules/source-document/server-actions/batch";
 
-vi.mock("@/lib/ai/openai-client", () => ({
-  getOpenAIClient: vi.fn(),
-  resetOpenAIClient: vi.fn(),
-}));
-
 const MISSING_ID = "00000000-0000-4000-8000-000000000001";
 
 describe("source document batch actions", () => {
+  afterEach(() => {
+    setAiTransportForTests(null);
+  });
+
   beforeEach(async () => {
-    vi.mocked(getOpenAIClient).mockReturnValue(
-      createOpenAIMock() as unknown as ReturnType<typeof getOpenAIClient>
-    );
+    setAiTransportForTests(createOpenAIMock());
     const db = getTestDb();
     await db.delete(ledgers);
     await createTestLedger(db);

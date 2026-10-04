@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import type { AttemptProcessingRequestContract } from "@/server/processing/types";
-import type { AIContext } from "@/lib/tasks/types";
+import type { GenerateStructured } from "@/lib/ai/structured";
 import { processAttempt } from "@/server/processing/attempt-processor";
 import {
   claimProcessingJob,
@@ -26,10 +26,9 @@ export function processingJobs() {
   };
 }
 
-/** An attempt processor whose model calls come from the given AI context. */
-export function attemptProcessor(createAIContext: (signal: AbortSignal) => AIContext) {
+/** An attempt processor whose model calls go through the given generator. */
+export function attemptProcessor(generate: GenerateStructured) {
   return {
-    process: (request: AttemptProcessingRequestContract) =>
-      processAttempt(request, { createAIContext }),
+    process: (request: AttemptProcessingRequestContract) => processAttempt(request, { generate }),
   };
 }

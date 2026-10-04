@@ -7,17 +7,20 @@
  * Uses a vision model when images are present, a text model for text-only input.
  */
 
+import type { z } from "zod";
 import { logger } from "@/lib/logger";
 import { buildAiOutputLocaleInstruction } from "@/config/ai-output-locales";
-import {
-  ProcessingCancelledError,
-  ProcessingFailure,
-  type AiContextContract,
-  type AiMessageContentPart as AIMessageContentPart,
-} from "./contracts";
+import { AppError } from "@/lib/errors";
+import type { AiContentPart } from "@/lib/ai/client";
+import type { GenerateStructured } from "@/lib/ai/structured";
+import { ProcessingCancelledError, ProcessingFailure } from "./contracts";
 import { parserOutputSchema, normalizeResult, type NormalizedParseOutput } from "./parser-schema";
 import { TITLE_POLICY_PROMPT } from "@/modules/source-document/title-policy";
 import { INVALID_REASON_PROMPT } from "@/modules/source-document/failure-reason-policy";
+
+/** The parse reply is a whole receipt, so it gets the generous output budget. */
+const PARSER_MAX_TOKENS = 8192;
+const PARSER_TEMPERATURE = 1;
 
 export interface ParserInput {
   evidence?: { images: readonly { dataUrl: string }[] };
@@ -28,12 +31,8 @@ export interface ParserInput {
   preferredCurrencies?: string[];
 }
 
-function buildMessageContent(
-  images: readonly { dataUrl: string }[] | undefined
-): AIMessageContentPart[] {
-  const content: AIMessageContentPart[] = [
-    { type: "text", text: "Please parse this source document." },
-  ];
+function buildMessageContent(images: readonly { dataUrl: string }[] | undefined): AiContentPart[] {
+  const content: AiContentPart[] = [{ type: "text", text: "Please parse this source document." }];
 
   if (images != null) {
     content.push(
@@ -155,7 +154,7 @@ Everything above this line is fixed and identical on every call. Everything belo
 
 export async function executeParser(
   input: ParserInput,
-  ai: AiContextContract,
+  generate: GenerateStructured,
   signal?: AbortSignal
 ): Promise<NormalizedParseOutput> {
   const aiLanguage = input.aiLanguage ?? "zh-CN";
@@ -166,45 +165,31 @@ export async function executeParser(
 
   logger.debug({ hasImages }, "parser: calling AI");
 
-  let response: Awaited<ReturnType<AiContextContract["generate"]>>;
+  let parsed: z.infer<typeof parserOutputSchema>;
   try {
-    response = await ai.generate({
-      prompt,
+    parsed = await generate({
+      task: "parse",
+      schema: parserOutputSchema,
+      system: prompt,
       messages: [{ role: "user", content: buildMessageContent(images) }],
-      requireJson: true,
+      maxTokens: PARSER_MAX_TOKENS,
+      temperature: PARSER_TEMPERATURE,
       ...(signal == null ? {} : { signal }),
     });
   } catch (error) {
     if (signal?.aborted) throw new ProcessingCancelledError();
     if (error instanceof ProcessingFailure) throw error;
+    if (error instanceof AppError && error.code === "ai_schema_invalid") {
+      throw new ProcessingFailure("ai_schema_invalid", "Parser AI response was invalid", {
+        cause: error,
+      });
+    }
     throw new ProcessingFailure("ai_provider_unavailable", "Parser AI request failed", {
       cause: error,
     });
   }
 
-  let raw: unknown;
-  try {
-    const content = response.content
-      .replace(/^```json\s*/m, "")
-      .replace(/```\s*$/m, "")
-      .trim();
-    raw = JSON.parse(content);
-  } catch (e) {
-    throw new ProcessingFailure("ai_schema_invalid", "Parser AI response was not valid JSON", {
-      cause: e,
-    });
-  }
-
-  const parsed = parserOutputSchema.safeParse(raw);
-  if (!parsed.success) {
-    throw new ProcessingFailure(
-      "ai_schema_invalid",
-      "Parser AI response failed schema validation",
-      { cause: parsed.error }
-    );
-  }
-
-  const result = normalizeResult(parsed.data, aiLanguage);
+  const result = normalizeResult(parsed, aiLanguage);
   logger.debug(
     { outcome: result.outcome, entries: result.ledger_entries.length },
     "parser: complete"

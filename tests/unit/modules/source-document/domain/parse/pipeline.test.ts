@@ -1,10 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
-import type { AIContext, AIGenerateOptions, AIResponse } from "@/lib/tasks/types";
+import type { GenerateStructured } from "@/lib/ai/structured";
 import type { ParseSourceDocumentInput } from "@/modules/source-document/domain/parse/contracts";
 import {
   runParsePipeline,
   buildParserInput,
 } from "@/modules/source-document/domain/parse/pipeline";
+import { fakeAiTransport, generateVia, type FakeAiTransport } from "../../../../../helpers/fake-ai";
 
 // Mock DB so pipeline unit tests don't need a real database
 vi.mock("@/lib/db", () => ({
@@ -87,18 +88,18 @@ function createMockAI(
     firstParseResult?: object;
     firstParseOutcome?: "success" | "invalid";
   } = {}
-): { ai: AIContext; generate: ReturnType<typeof vi.fn> } {
+): { generate: GenerateStructured; transport: FakeAiTransport } {
   const { firstParseResult = SIMPLE_FIRST_PARSE_RESULT, firstParseOutcome } = options;
 
-  const generate = vi.fn(async (_opts: AIGenerateOptions): Promise<AIResponse> => {
-    const result =
+  const transport = fakeAiTransport(() =>
+    JSON.stringify(
       firstParseOutcome != null
         ? { ...firstParseResult, outcome: firstParseOutcome }
-        : firstParseResult;
-    return { content: JSON.stringify(result) };
-  });
+        : firstParseResult
+    )
+  );
 
-  return { ai: { generate }, generate };
+  return { generate: generateVia(transport), transport };
 }
 
 type ParseSourceDocumentInputOverrides = {
@@ -132,27 +133,27 @@ function createInput(overrides: ParseSourceDocumentInputOverrides = {}): ParseSo
   };
 }
 
-function buildCtx(ai: AIContext) {
+function buildCtx(generate: GenerateStructured) {
   return {
     signal: new AbortController().signal,
-    ai,
+    generate,
   };
 }
 
 describe("runParsePipeline — single-pass flow", () => {
   it("uses one AI request for both simple and complex documents", async () => {
     for (const firstParseResult of [SIMPLE_FIRST_PARSE_RESULT, COMPLEX_FIRST_PARSE_RESULT]) {
-      const { ai, generate } = createMockAI({ firstParseResult });
-      const result = await runParsePipeline(createInput(), buildCtx(ai));
+      const { generate, transport } = createMockAI({ firstParseResult });
+      const result = await runParsePipeline(createInput(), buildCtx(generate));
 
       expect(result.kind).toBe("success");
-      expect(generate).toHaveBeenCalledOnce();
+      expect(transport.complete).toHaveBeenCalledOnce();
     }
   });
 
   it("provides a nonblank fallback title when an invalid AI result has no usable title", async () => {
     for (const title of [null, undefined, "   "] as const) {
-      const { ai } = createMockAI({
+      const { generate } = createMockAI({
         firstParseResult: {
           ...SIMPLE_FIRST_PARSE_RESULT,
           outcome: "invalid",
@@ -164,7 +165,7 @@ describe("runParsePipeline — single-pass flow", () => {
 
       const result = await runParsePipeline(
         createInput({ text: "今天天气很好出去散步了" }),
-        buildCtx(ai)
+        buildCtx(generate)
       );
 
       expect(result.kind).toBe("invalid");
@@ -173,7 +174,7 @@ describe("runParsePipeline — single-pass flow", () => {
   });
 
   it("invalid outcome returns the AI reason and the AI-declared diagnostic", async () => {
-    const { ai } = createMockAI({
+    const { generate } = createMockAI({
       firstParseResult: {
         ...SIMPLE_FIRST_PARSE_RESULT,
         outcome: "invalid",
@@ -182,7 +183,7 @@ describe("runParsePipeline — single-pass flow", () => {
         receipt_totals: [],
       },
     });
-    const result = await runParsePipeline(createInput(), buildCtx(ai));
+    const result = await runParsePipeline(createInput(), buildCtx(generate));
 
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
@@ -192,7 +193,7 @@ describe("runParsePipeline — single-pass flow", () => {
   });
 
   it("invalid outcome without a reason stays reason-less instead of inventing text", async () => {
-    const { ai } = createMockAI({
+    const { generate } = createMockAI({
       firstParseResult: {
         ...SIMPLE_FIRST_PARSE_RESULT,
         outcome: "invalid",
@@ -201,7 +202,7 @@ describe("runParsePipeline — single-pass flow", () => {
         receipt_totals: [],
       },
     });
-    const result = await runParsePipeline(createInput(), buildCtx(ai));
+    const result = await runParsePipeline(createInput(), buildCtx(generate));
 
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
@@ -211,7 +212,7 @@ describe("runParsePipeline — single-pass flow", () => {
   });
 
   it("flags a self-detected non-positive entry with its own diagnostic", async () => {
-    const { ai } = createMockAI({
+    const { generate } = createMockAI({
       firstParseResult: {
         ...SIMPLE_FIRST_PARSE_RESULT,
         ledger_entries: [
@@ -227,7 +228,7 @@ describe("runParsePipeline — single-pass flow", () => {
         receipt_totals: [],
       },
     });
-    const result = await runParsePipeline(createInput(), buildCtx(ai));
+    const result = await runParsePipeline(createInput(), buildCtx(generate));
 
     expect(result.kind).toBe("invalid");
     if (result.kind === "invalid") {
@@ -236,16 +237,16 @@ describe("runParsePipeline — single-pass flow", () => {
   });
 
   it("text-only input sends no image parts", async () => {
-    const { ai, generate } = createMockAI({ firstParseResult: SIMPLE_FIRST_PARSE_RESULT });
+    const { generate, transport } = createMockAI({ firstParseResult: SIMPLE_FIRST_PARSE_RESULT });
     await runParsePipeline(
       createInput({ evidence: undefined, text: "Lunch 10 USD" }),
-      buildCtx(ai)
+      buildCtx(generate)
     );
 
-    expect(generate).toHaveBeenCalled();
-    for (const [options] of generate.mock.calls) {
+    expect(transport.complete).toHaveBeenCalled();
+    for (const [options] of transport.complete.mock.calls) {
       expect(
-        (options as AIGenerateOptions).messages.every(
+        options.messages.every(
           (message) =>
             typeof message.content === "string" ||
             message.content.every((part) => part.type === "text")
@@ -255,8 +256,8 @@ describe("runParsePipeline — single-pass flow", () => {
   });
 
   it("success result includes ledgerEntries from parse output", async () => {
-    const { ai } = createMockAI({ firstParseResult: SIMPLE_FIRST_PARSE_RESULT });
-    const result = await runParsePipeline(createInput(), buildCtx(ai));
+    const { generate } = createMockAI({ firstParseResult: SIMPLE_FIRST_PARSE_RESULT });
+    const result = await runParsePipeline(createInput(), buildCtx(generate));
 
     expect(result.kind).toBe("success");
     if (result.kind === "success") {
@@ -266,7 +267,7 @@ describe("runParsePipeline — single-pass flow", () => {
   });
 
   it("accepts mixed currencies without totals and preserves signed adjustments", async () => {
-    const { ai } = createMockAI({
+    const { generate } = createMockAI({
       firstParseResult: {
         ...SIMPLE_FIRST_PARSE_RESULT,
         receipt_totals: [],
@@ -282,7 +283,7 @@ describe("runParsePipeline — single-pass flow", () => {
         ],
       },
     });
-    const result = await runParsePipeline(createInput(), buildCtx(ai));
+    const result = await runParsePipeline(createInput(), buildCtx(generate));
     expect(result.kind).toBe("success");
     if (result.kind === "success") {
       expect(result.ledgerEntries.map((e) => [e.amount, e.currency])).toEqual([
@@ -295,13 +296,16 @@ describe("runParsePipeline — single-pass flow", () => {
   it.each(["1", "1000"])(
     "ignores legacy total %s without synthesizing balancing rows",
     async (amount) => {
-      const { ai } = createMockAI({
+      const { generate } = createMockAI({
         firstParseResult: {
           ...SIMPLE_FIRST_PARSE_RESULT,
           receipt_totals: [{ receipt_index: 0, amount, currency: "USD" }],
         },
       });
-      const result = await runParsePipeline(createInput({ aiLanguage: undefined }), buildCtx(ai));
+      const result = await runParsePipeline(
+        createInput({ aiLanguage: undefined }),
+        buildCtx(generate)
+      );
       expect(result.kind).toBe("success");
       if (result.kind === "success")
         expect(result.ledgerEntries).toEqual([
@@ -315,15 +319,13 @@ describe("runParsePipeline — single-pass flow", () => {
     // Abort during the first AI call but still return a valid result, so the
     // pipeline reaches the post-parse cancellation check and reports cancelled
     // instead of treating the aborted request as a parse failure.
-    const abortingAi: AIContext = {
-      generate: async () => {
-        controller.abort();
-        return { content: JSON.stringify(SIMPLE_FIRST_PARSE_RESULT) };
-      },
-    };
+    const abortingTransport = fakeAiTransport(() => {
+      controller.abort();
+      return JSON.stringify(SIMPLE_FIRST_PARSE_RESULT);
+    });
     const ctx = {
       signal: controller.signal,
-      ai: abortingAi,
+      generate: generateVia(abortingTransport),
     };
 
     const result = await runParsePipeline(createInput(), ctx);

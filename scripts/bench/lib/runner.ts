@@ -6,7 +6,7 @@
  * runs `repeat` times and the report keeps each run, so pass rate and the
  * flaky/stable split come from the same data.
  */
-import type { AiContextContract } from "@/modules/source-document/domain/parse/contracts";
+import type { GenerateStructured } from "@/lib/ai/structured";
 import type { BenchDocument, BenchLabels } from "./schema";
 import type { BenchTask } from "../tasks/types";
 
@@ -38,8 +38,8 @@ export interface RunOptions {
   cases: readonly BenchCase[];
   repeat: number;
   concurrency: number;
-  /** One AI context per call; the caller decides how clients are shared. */
-  createAi: (signal: AbortSignal) => AiContextContract;
+  /** One generator per run; the caller decides how clients are shared. */
+  createGenerate: () => GenerateStructured;
   signal?: AbortSignal;
   onRunFinished?: (progress: { done: number; total: number }) => void;
 }
@@ -77,18 +77,17 @@ function describeError(error: unknown): { code: string; message: string } {
   };
 }
 
-/** Wraps the AI context so each run reports the tokens it spent. */
-function meter(ai: AiContextContract, usage: RunRecord["usage"]): AiContextContract {
-  return {
-    async generate(options) {
-      const response = await ai.generate(options);
-      if (response.usage != null) {
-        usage.promptTokens += response.usage.promptTokens;
-        usage.completionTokens += response.usage.completionTokens;
-      }
-      return response;
-    },
-  };
+/** Wraps the generator so each run reports the tokens it spent. */
+function meter(generate: GenerateStructured, usage: RunRecord["usage"]): GenerateStructured {
+  return (request) =>
+    generate({
+      ...request,
+      onUsage: (spent) => {
+        usage.promptTokens += spent.promptTokens;
+        usage.completionTokens += spent.completionTokens;
+        request.onUsage?.(spent);
+      },
+    });
 }
 
 async function runOnce(options: RunOptions, benchCase: BenchCase): Promise<RunRecord> {
@@ -100,7 +99,7 @@ async function runOnce(options: RunOptions, benchCase: BenchCase): Promise<RunRe
       document: benchCase.document,
       images: benchCase.images,
       expect: benchCase.expect,
-      ai: meter(options.createAi(signal), usage),
+      generate: meter(options.createGenerate(), usage),
       signal,
     });
     return { ...score, latencyMs: Date.now() - startedAt, usage };

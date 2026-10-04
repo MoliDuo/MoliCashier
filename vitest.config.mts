@@ -48,7 +48,7 @@ const coverageConfig = {
 
 const defaultProjectExcludes = ["node_modules", ".next"];
 const unitDomTypeScriptTests = [
-  "tests/unit/lib/ai/openai-client.test.ts",
+  "tests/unit/lib/ai/client.test.ts",
   "tests/unit/lib/drafts.test.ts",
   "tests/unit/lib/image-utils.test.ts",
   "tests/unit/lib/navigation/ledger-detail-navigation.test.ts",

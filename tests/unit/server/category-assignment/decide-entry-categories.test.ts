@@ -1,18 +1,34 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { AIMessageContentPart } from "@/lib/tasks/types";
+import { afterEach, describe, expect, it } from "vitest";
+import { setAiTransportForTests, type AiContentPart } from "@/lib/ai/client";
+import { AI_CATEGORY_REQUEST_TIMEOUT_MS } from "@/config/tuning";
 import type {
   CategoryAssignmentCandidate,
   CategoryAssignmentDocumentGroup,
 } from "@/modules/ledger/domain/category-assignment-protocol";
 import { decideEntryCategories } from "@/server/category-assignment/decide-entry-categories";
+import {
+  fakeAiTransport,
+  type FakeAiTransport,
+  type FakeResponder,
+} from "../../../helpers/fake-ai";
 
-const { generateContent } = vi.hoisted(() => ({ generateContent: vi.fn() }));
+type SentMessage = { role: string; content: AiContentPart[] };
 
-vi.mock("@/lib/ai/openai-client", () => ({
-  getOpenAIClient: () => ({ generateContent }),
-}));
+let transport: FakeAiTransport;
 
-type SentMessage = { role: string; content: AIMessageContentPart[] };
+/** Installs a transport that answers every request with the next scripted reply. */
+function reply(...contents: string[]): void {
+  let next = 0;
+  const responder: FakeResponder = () => contents[Math.min(next++, contents.length - 1)] ?? "";
+  transport = fakeAiTransport(responder);
+  setAiTransportForTests(transport);
+}
+
+function firstRequest() {
+  const call = transport.complete.mock.calls[0];
+  if (call == null) throw new Error("complete was not called");
+  return call[0];
+}
 
 const candidates: CategoryAssignmentCandidate[] = [
   { id: "cat-food", name: "吃喝", description: null },
@@ -44,9 +60,7 @@ function group(
 }
 
 function sentMessages(): SentMessage[] {
-  const call = generateContent.mock.calls[0];
-  if (call == null) throw new Error("generateContent was not called");
-  return call[1] as SentMessage[];
+  return firstRequest().messages as SentMessage[];
 }
 
 function sentText(): string {
@@ -57,14 +71,12 @@ function sentText(): string {
 }
 
 describe("entryCategoryDeciderAdapter", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  afterEach(() => {
+    setAiTransportForTests(null);
   });
 
   it("resolves the model's indices back onto category ids", async () => {
-    generateContent.mockResolvedValue({
-      content: '```json\n{ "decisions": [{ "entry_index": 1, "category_index": 2 }] }\n```',
-    });
+    reply('```json\n{ "decisions": [{ "entry_index": 1, "category_index": 2 }] }\n```');
 
     await expect(
       decideEntryCategories({ candidates, group: group(), images: [] })
@@ -75,10 +87,9 @@ describe("entryCategoryDeciderAdapter", () => {
   });
 
   it("accepts the model's notes and ignores them", async () => {
-    generateContent.mockResolvedValue({
-      content:
-        '{"document_context":"Convenience store snack run","decisions":[{"entry_index":1,"reason":"Store sells food","category_index":1}]}',
-    });
+    reply(
+      '{"document_context":"Convenience store snack run","decisions":[{"entry_index":1,"reason":"Store sells food","category_index":1}]}'
+    );
 
     await expect(
       decideEntryCategories({ candidates, group: group(), images: [] })
@@ -88,10 +99,58 @@ describe("entryCategoryDeciderAdapter", () => {
     });
   });
 
-  it("sends the document's own context, not just the entries", async () => {
-    generateContent.mockResolvedValue({
-      content: '{"decisions":[{"entry_index":1,"category_index":1}]}',
+  it("asks with the call's own limits and forwards the abort signal", async () => {
+    reply('{"decisions":[{"entry_index":1,"category_index":1}]}');
+    const controller = new AbortController();
+
+    await decideEntryCategories({
+      candidates,
+      group: group(),
+      images: [],
+      signal: controller.signal,
     });
+
+    const request = firstRequest();
+    expect(request.system).toContain("吃喝");
+    expect(request).toMatchObject({
+      maxTokens: 6000,
+      temperature: 0.1,
+      maxAttempts: 1,
+      timeoutMs: AI_CATEGORY_REQUEST_TIMEOUT_MS,
+      signal: controller.signal,
+    });
+  });
+
+  it("recovers from a reply that is not JSON through the repair round", async () => {
+    reply("I could not decide.", '{"decisions":[{"entry_index":1,"category_index":2}]}');
+
+    await expect(
+      decideEntryCategories({ candidates, group: group(), images: [] })
+    ).resolves.toEqual({
+      decisions: [{ ledgerEntryId: "entry-1", categoryId: "cat-home" }],
+      confirmedCount: 0,
+    });
+    expect(transport.complete).toHaveBeenCalledTimes(2);
+  });
+
+  it("fails when the answer does not cover every entry", async () => {
+    reply('{"decisions":[]}');
+
+    await expect(
+      decideEntryCategories({ candidates, group: group(), images: [] })
+    ).rejects.toMatchObject({ code: "ai_schema_invalid" });
+  });
+
+  it("fails when the answer points past the candidate list", async () => {
+    reply('{"decisions":[{"entry_index":1,"category_index":3}]}');
+
+    await expect(
+      decideEntryCategories({ candidates, group: group(), images: [] })
+    ).rejects.toMatchObject({ code: "ai_schema_invalid" });
+  });
+
+  it("sends the document's own context, not just the entries", async () => {
+    reply('{"decisions":[{"entry_index":1,"category_index":1}]}');
 
     await decideEntryCategories({
       candidates,
@@ -107,9 +166,7 @@ describe("entryCategoryDeciderAdapter", () => {
   });
 
   it("passes the document's images through as content parts, in order", async () => {
-    generateContent.mockResolvedValue({
-      content: '{"decisions":[{"entry_index":1,"category_index":1}]}',
-    });
+    reply('{"decisions":[{"entry_index":1,"category_index":1}]}');
 
     await decideEntryCategories({
       candidates,
@@ -129,7 +186,7 @@ describe("entryCategoryDeciderAdapter", () => {
   });
 
   it("rejects a response that is not JSON", async () => {
-    generateContent.mockResolvedValue({ content: "I could not decide." });
+    reply("I could not decide.");
 
     await expect(
       decideEntryCategories({ candidates, group: group(), images: [] })
@@ -140,9 +197,7 @@ describe("entryCategoryDeciderAdapter", () => {
   });
 
   it("rejects a response that does not match the schema", async () => {
-    generateContent.mockResolvedValue({
-      content: '{ "decisions": [{ "entry_index": 0, "category_index": 1 }] }',
-    });
+    reply('{ "decisions": [{ "entry_index": 0, "category_index": 1 }] }');
 
     await expect(
       decideEntryCategories({ candidates, group: group(), images: [] })

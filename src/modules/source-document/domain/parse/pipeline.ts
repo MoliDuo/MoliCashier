@@ -2,11 +2,11 @@ import {
   ProcessingCancelledError,
   ProcessingFailure,
   throwIfProcessingCancelled,
-  type AiContextContract,
   type ParseSourceDocumentInput,
   type ParsePipelineResult,
 } from "./contracts";
 export type { ParsePipelineResult } from "./contracts";
+import type { GenerateStructured } from "@/lib/ai/structured";
 import { executeParser } from "./parser";
 import type { ParserInput } from "./parser";
 import { convertToParsedEntries } from "./result-mapper";
@@ -18,7 +18,7 @@ import { AI_ATTEMPT_DEADLINE_MS } from "@/config/tuning";
 
 export interface StageContext {
   signal: AbortSignal;
-  ai: AiContextContract;
+  generate: GenerateStructured;
 }
 
 // ===== Result contract =====
@@ -87,7 +87,7 @@ async function executeParsePipeline(
     throwIfProcessingCancelled(ctx.signal);
 
     const parserInput = buildParserInput(input);
-    const result = await executeParser(parserInput, ctx.ai, ctx.signal);
+    const result = await executeParser(parserInput, ctx.generate, ctx.signal);
 
     throwIfProcessingCancelled(ctx.signal);
 

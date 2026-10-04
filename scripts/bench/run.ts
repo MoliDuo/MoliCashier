@@ -110,13 +110,13 @@ async function main(): Promise<void> {
   console.log(`${cases.length} ${task.name} cases loaded and verified against the manifest`);
   if (options["dry-run"]) return;
 
-  const { OpenAIClient } = await import("@/lib/ai/openai-client");
-  const { createAIContext } = await import("@/lib/tasks/ai-context");
+  const { OpenAiTransport } = await import("@/lib/ai/client");
+  const { generateStructured } = await import("@/lib/ai/structured");
   const { runtimeEnv } = await import("@/lib/env/runtime");
   const model = runtimeEnv.aiModel;
-  // One OpenAIClient serializes its own requests, so concurrency needs a client per slot.
-  const clients = Array.from({ length: options.concurrency }, () => new OpenAIClient());
-  let nextClient = 0;
+  // One transport serializes its own requests, so concurrency needs a transport per slot.
+  const transports = Array.from({ length: options.concurrency }, () => new OpenAiTransport());
+  let nextTransport = 0;
 
   const interrupt = new AbortController();
   process.once("SIGINT", () => interrupt.abort());
@@ -128,10 +128,10 @@ async function main(): Promise<void> {
     repeat: options.repeat,
     concurrency: options.concurrency,
     signal: interrupt.signal,
-    createAi: (signal) => {
-      const client = clients[nextClient++ % clients.length] ?? clients[0];
-      if (client == null) throw new Error("no AI client available");
-      return createAIContext({ signal, getClient: () => client, model });
+    createGenerate: () => {
+      const transport = transports[nextTransport++ % transports.length] ?? transports[0];
+      if (transport == null) throw new Error("no AI transport available");
+      return (request) => generateStructured(request, transport);
     },
     onRunFinished: ({ done, total }) => {
       if (done % 10 === 0 || done === total) console.log(`  ${done}/${total} runs`);

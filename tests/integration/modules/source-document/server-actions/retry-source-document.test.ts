@@ -1,5 +1,5 @@
 import { asc, eq, and } from "drizzle-orm";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 import { createSourceDocumentAction } from "@/modules/source-document/server-actions/create";
 import {
@@ -7,8 +7,9 @@ import {
   retrySourceDocumentAction,
 } from "@/modules/source-document/server-actions/retry";
 import { NotFoundError, ValidationError } from "@/lib/errors";
-import { getOpenAIClient } from "@/lib/ai/openai-client";
-import { createOpenAIMock } from "tests/helpers/mocks/openai";
+import { setAiTransportForTests } from "@/lib/ai/client";
+import { fakeAiTransport } from "tests/helpers/fake-ai";
+import { createOpenAIMock } from "tests/helpers/mocks/ai-parser-reply";
 import { processAllPendingTasks } from "tests/helpers/processing";
 import { createTestLedger } from "tests/helpers/schema-setup";
 import { getTestDb } from "tests/setup";
@@ -20,19 +21,16 @@ import {
   sourceDocuments,
 } from "@/persistence";
 
-vi.mock("@/lib/ai/openai-client", () => ({
-  getOpenAIClient: vi.fn(),
-  resetOpenAIClient: vi.fn(),
-}));
-
 describe("source-document retry action", () => {
   const createDocument = (text: string) =>
     createSourceDocumentAction({ text }, crypto.randomUUID());
 
+  afterEach(() => {
+    setAiTransportForTests(null);
+  });
+
   beforeEach(async () => {
-    vi.mocked(getOpenAIClient).mockReturnValue(
-      createOpenAIMock() as unknown as ReturnType<typeof getOpenAIClient>
-    );
+    setAiTransportForTests(createOpenAIMock());
     const db = getTestDb();
     await db.delete(ledgers);
     await createTestLedger(db);
@@ -57,7 +55,7 @@ describe("source-document retry action", () => {
       })
     ).resolves.toMatchObject({ status: "completed" });
 
-    vi.mocked(getOpenAIClient).mockReturnValue(
+    setAiTransportForTests(
       createOpenAIMock({
         title: "晚餐费用",
         entries: [
@@ -69,7 +67,7 @@ describe("source-document retry action", () => {
             entry_date: "2026-07-15",
           },
         ],
-      }) as unknown as ReturnType<typeof getOpenAIClient>
+      })
     );
     const retried = await editRetrySourceDocumentAction(created.sourceDocumentId, {
       text: "晚餐 50元",
@@ -136,9 +134,11 @@ describe("source-document retry action", () => {
     expect(originalEntries.length).toBeGreaterThan(0);
 
     // Step 2: Retry with a broken AI mock that causes processing failure
-    vi.mocked(getOpenAIClient).mockReturnValue({
-      generateContent: vi.fn().mockRejectedValue(new Error("AI service failure")),
-    } as unknown as ReturnType<typeof getOpenAIClient>);
+    setAiTransportForTests(
+      fakeAiTransport(() => {
+        throw new Error("AI service failure");
+      })
+    );
 
     await editRetrySourceDocumentAction(created.sourceDocumentId, {
       text: "修改 50元",
@@ -166,7 +166,7 @@ describe("source-document retry action", () => {
     expect(attempts1[1]?.status).toBe("failed");
 
     // Step 4: Retry a second time with a working AI mock
-    vi.mocked(getOpenAIClient).mockReturnValue(
+    setAiTransportForTests(
       createOpenAIMock({
         title: "晚餐费用",
         entries: [
@@ -178,7 +178,7 @@ describe("source-document retry action", () => {
             entry_date: "2026-07-15",
           },
         ],
-      }) as unknown as ReturnType<typeof getOpenAIClient>
+      })
     );
 
     const retried = await editRetrySourceDocumentAction(created.sourceDocumentId, {

@@ -1,22 +1,5 @@
 import type { CategoryInfo, ParsedLedgerEntry } from "@/lib/ai/types";
 
-export type AiMessageContentPart =
-  { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
-
-export interface AiContextContract {
-  generate(options: {
-    prompt: string;
-    messages: Array<{ role: "user" | "assistant"; content: string | AiMessageContentPart[] }>;
-    maxTokens?: number;
-    temperature?: number;
-    requireJson?: boolean;
-    signal?: AbortSignal;
-  }): Promise<{
-    content: string;
-    usage?: { promptTokens: number; completionTokens: number };
-  }>;
-}
-
 export interface ParseSourceDocumentInput {
   text?: string;
   evidence?: ParseEvidence;

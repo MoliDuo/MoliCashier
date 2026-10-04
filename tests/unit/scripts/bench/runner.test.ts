@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
+import type { GenerateStructured } from "@/lib/ai/structured";
 import { loadCases } from "../../../../scripts/bench/lib/cases";
 import {
   compareRuns,
@@ -32,16 +34,29 @@ const echoTask = defineTask<unknown, string>({
   name: "echo",
   expectSchema: parseExpectSchema,
   check: () => [],
-  run: async ({ ai, signal }) => (await ai.generate({ prompt: "p", messages: [], signal })).content,
+  run: ({ generate, signal }) =>
+    generate({
+      task: "echo",
+      schema: z.string(),
+      system: "p",
+      messages: [],
+      maxTokens: 16,
+      temperature: 0,
+      signal,
+    }),
   score: ({ output }) => {
     if (output === "boom") throw new Error("scoring blew up");
     return { pass: output !== "bad", metrics: { good: output === "bad" ? 0 : 1 }, notes: [] };
   },
 });
 
-/** An AI that answers every call with `content`, reporting fixed token usage. */
-function fakeAi(content: string, usage = { promptTokens: 10, completionTokens: 2 }) {
-  return () => ({ generate: async () => ({ content, usage }) });
+/** A generator that answers every call with `content`, reporting fixed token usage. */
+function fakeGenerate(content: string, usage = { promptTokens: 10, completionTokens: 2 }) {
+  const generate: GenerateStructured = async (request) => {
+    request.onUsage?.(usage);
+    return request.schema.parse(content);
+  };
+  return () => generate;
 }
 
 describe("benchmark runner", () => {
@@ -51,7 +66,7 @@ describe("benchmark runner", () => {
       cases: [benchCase("a"), benchCase("b")],
       repeat: 3,
       concurrency: 2,
-      createAi: fakeAi("ok"),
+      createGenerate: fakeGenerate("ok"),
     });
     expect(results.map((result) => result.runs.length)).toEqual([3, 3]);
     expect(results[0]?.runs[0]?.usage).toEqual({ promptTokens: 10, completionTokens: 2 });
@@ -64,7 +79,7 @@ describe("benchmark runner", () => {
       cases: [benchCase("a")],
       repeat: 1,
       concurrency: 1,
-      createAi: fakeAi("boom"),
+      createGenerate: fakeGenerate("boom"),
     });
     expect(results[0]?.runs[0]).toMatchObject({
       pass: false,
@@ -91,7 +106,7 @@ describe("benchmark runner", () => {
       cases: [benchCase("a")],
       repeat: 1,
       concurrency: 1,
-      createAi: fakeAi("ok"),
+      createGenerate: fakeGenerate("ok"),
     });
     expect(results[0]?.runs[0]?.error?.message).toBe(
       "Parser AI request failed <- Error invalid_api_key status 401"
@@ -107,7 +122,7 @@ describe("benchmark runner", () => {
       repeat: 5,
       concurrency: 1,
       signal: controller.signal,
-      createAi: fakeAi("ok"),
+      createGenerate: fakeGenerate("ok"),
     });
     expect(results[0]?.runs).toEqual([]);
   });
