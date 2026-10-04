@@ -198,23 +198,24 @@ describe("SourceDocumentViewDetails image stage", () => {
     expect(screen.getByTestId("source-document-details-pane")).not.toHaveClass("hidden");
   });
 
-  it("uses the authenticated stored-file route and hides thumbnails for one image", () => {
+  it("shows a single image whole, without an inner scroll or a thumbnail grid", () => {
     renderDetails(1);
     const stage = screen.getByTestId("source-document-image-stage");
-    expect(stage).toHaveClass("aspect-[4/3]");
+    expect(stage).not.toHaveClass("overflow-y-auto");
+    expect(stage.className).not.toMatch(/aspect-/);
+    expect(stage.querySelector("img")).toHaveClass("max-h-[70dvh]", "object-contain");
+    expect(screen.queryByTestId("source-document-image-grid")).not.toBeInTheDocument();
     expect(stage.querySelector("img")).toHaveAttribute("src", "/api/stored-files/file-1");
     expect(stage.querySelector("img")).not.toHaveAttribute("src", expect.stringContaining("blob:"));
     expect(screen.getAllByRole("button", { name: /图片 1|image 1/i })).toHaveLength(1);
     expect(screen.getByTestId("image-viewer-state")).toHaveAttribute("data-file-ids", "file-1");
   });
 
-  it("switches thumbnails independently and opens the viewer at the active index", () => {
+  it("shows several images as thumbnails and opens the viewer at the clicked one", () => {
     renderDetails(2);
+    expect(screen.queryByTestId("source-document-image-stage")).not.toBeInTheDocument();
+    expect(screen.getByTestId("source-document-image-grid")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /图片 2|image 2/i }));
-    expect(screen.getByTestId("source-document-image-stage")).toHaveAccessibleName(
-      /图片 2|image 2/i
-    );
-    fireEvent.click(screen.getByTestId("source-document-image-stage"));
     expect(screen.getByTestId("image-viewer-state")).toHaveAttribute("data-open", "true");
     expect(screen.getByTestId("image-viewer-state")).toHaveAttribute("data-index", "1");
     expect(screen.getByTestId("image-viewer-state")).toHaveAttribute(

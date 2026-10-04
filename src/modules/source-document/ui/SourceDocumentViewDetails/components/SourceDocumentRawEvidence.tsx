@@ -3,7 +3,6 @@ import { useState } from "react";
 import Image from "next/image";
 import { FileText, ImagePlay, Maximize2 } from "lucide-react";
 import type { SourceDocument } from "@/modules/source-document/contracts";
-import { cn } from "@/lib/utils";
 import { textRoleClassName } from "@/components/typography";
 import { storedFileReadUrl } from "../../../stored-file-read";
 import { SourceDocumentImageModal } from "../../SourceDocumentImageModal";
@@ -14,13 +13,11 @@ interface SourceDocumentRawEvidenceProps {
 }
 
 export function SourceDocumentRawEvidence({ sourceDocument }: SourceDocumentRawEvidenceProps) {
-  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   const files = sourceDocument.files;
   const hasImages = files.length > 0;
   const hasRawText = sourceDocument.text != null && sourceDocument.text.trim().length > 0;
-  const selectedImageIndex = Math.min(activeImageIndex, Math.max(files.length - 1, 0));
 
   return (
     <>
@@ -58,59 +55,50 @@ export function SourceDocumentRawEvidence({ sourceDocument }: SourceDocumentRawE
                 <ImagePlay className="h-3 w-3 text-primary/60" />
                 {sourceDocumentCardCopy.image}
               </h3>
-              {files[selectedImageIndex] == null ? null : (
-                <>
-                  <button
-                    type="button"
-                    data-testid="source-document-image-stage"
-                    className="group relative flex aspect-[4/3] min-h-64 w-full items-start justify-center overflow-y-auto rounded-md border border-border/60 bg-surface2/70 transition-[border-color,background-color] duration-[var(--motion-feedback)]"
-                    onClick={() => setViewerIndex(selectedImageIndex)}
-                    aria-label={sourceDocumentCardCopy.imageAlt({ index: selectedImageIndex + 1 })}
-                  >
-                    <Image
-                      src={storedFileReadUrl(files[selectedImageIndex].id)}
-                      alt={sourceDocumentCardCopy.imageAlt({ index: selectedImageIndex + 1 })}
-                      width={1200}
-                      height={2400}
-                      className="h-auto w-full object-contain p-2"
-                    />
-                    <span className="fine-pointer-reveal absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-md bg-text/70 text-bg opacity-0 transition-opacity duration-[var(--motion-feedback)] group-focus-visible:opacity-100 group-active:opacity-100">
-                      <Maximize2 className="h-4 w-4" />
-                    </span>
-                  </button>
-                  {files.length > 1 ? (
-                    <div
-                      role="group"
-                      className="mt-2 flex gap-2 overflow-x-auto pb-1"
-                      aria-label={sourceDocumentCardCopy.image}
+              {files.length === 1 && files[0] != null ? (
+                <button
+                  type="button"
+                  data-testid="source-document-image-stage"
+                  className="group relative flex w-full items-center justify-center rounded-md border border-border/60 bg-surface2/70 transition-[border-color,background-color] duration-[var(--motion-feedback)]"
+                  onClick={() => setViewerIndex(0)}
+                  aria-label={sourceDocumentCardCopy.imageAlt({ index: 1 })}
+                >
+                  <Image
+                    src={storedFileReadUrl(files[0].id)}
+                    alt={sourceDocumentCardCopy.imageAlt({ index: 1 })}
+                    width={1200}
+                    height={2400}
+                    className="h-auto max-h-[70dvh] w-auto max-w-full object-contain p-2"
+                  />
+                  <span className="fine-pointer-reveal absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-md bg-text/70 text-bg opacity-0 transition-opacity duration-[var(--motion-feedback)] group-focus-visible:opacity-100 group-active:opacity-100">
+                    <Maximize2 className="h-4 w-4" />
+                  </span>
+                </button>
+              ) : (
+                <div
+                  role="group"
+                  data-testid="source-document-image-grid"
+                  className="grid grid-cols-3 gap-2"
+                  aria-label={sourceDocumentCardCopy.image}
+                >
+                  {files.map((file, index) => (
+                    <button
+                      key={file.id}
+                      type="button"
+                      className="group relative aspect-square overflow-hidden rounded-md border border-border/60 bg-surface2 transition-opacity duration-[var(--motion-feedback)] hover:opacity-90"
+                      onClick={() => setViewerIndex(index)}
+                      aria-label={sourceDocumentCardCopy.imageAlt({ index: index + 1 })}
                     >
-                      {files.map((file, index) => {
-                        return (
-                          <button
-                            key={file.id}
-                            type="button"
-                            className={cn(
-                              "relative h-16 w-16 shrink-0 overflow-hidden rounded-md border bg-surface2 transition-[border-color,opacity] duration-[var(--motion-feedback)]",
-                              selectedImageIndex === index
-                                ? "border-primary ring-1 ring-primary"
-                                : "border-border opacity-75"
-                            )}
-                            onClick={() => setActiveImageIndex(index)}
-                            aria-label={sourceDocumentCardCopy.imageAlt({ index: index + 1 })}
-                            aria-current={selectedImageIndex === index ? "true" : undefined}
-                          >
-                            <Image
-                              src={storedFileReadUrl(file.id)}
-                              alt=""
-                              fill
-                              className="object-cover"
-                            />
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-                </>
+                      <Image
+                        src={storedFileReadUrl(file.id)}
+                        alt=""
+                        fill
+                        sizes="(min-width: 1024px) 10rem, 33vw"
+                        className="object-cover object-top"
+                      />
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
           )}
