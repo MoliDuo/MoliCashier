@@ -66,44 +66,25 @@ export function SourceDocumentDuplicateSuggestion({
           {copy.applyFailed}
         </p>
       ) : null}
-      <div className="space-y-2 p-3">
-        <p className={textRoleClassName("bodyMuted")}>
-          {suggestion.coversWholeDocument
-            ? copy.summaryWhole
-            : copy.summary({ count: suggestion.items.length })}
-        </p>
-        <ul className="space-y-1">
-          {suggestion.items.map((item) => (
-            <li
-              key={item.ledgerEntryId}
-              className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1"
+      <ul className="divide-y divide-warning/15 px-3">
+        {suggestion.items.map((item) => (
+          <li key={item.ledgerEntryId} className="flex items-center justify-between gap-3 py-1">
+            <p className={textRoleClassName("body", "min-w-0 truncate")}>
+              {item.itemName}
+              <span className="ml-2 tabular-nums">
+                {formatCurrencyAmount(item.amount, item.currency, DISPLAY_LOCALE)}
+              </span>
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => openLedgerDetail(item.matched.sourceDocumentId)}
             >
-              <div className="min-w-0">
-                <p className={textRoleClassName("body", "truncate")}>
-                  {item.itemName}
-                  <span className="ml-2 tabular-nums">
-                    {formatCurrencyAmount(item.amount, item.currency, DISPLAY_LOCALE)}
-                  </span>
-                </p>
-                <p className={textRoleClassName("meta", "truncate")}>
-                  {copy.matchedIn({
-                    title: item.matched.title ?? copy.untitled,
-                    date: item.matched.documentDate,
-                    item: item.matched.itemName,
-                  })}
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => openLedgerDetail(item.matched.sourceDocumentId)}
-              >
-                {copy.view}
-              </Button>
-            </li>
-          ))}
-        </ul>
-      </div>
+              {copy.view}
+            </Button>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

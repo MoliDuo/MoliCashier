@@ -45,14 +45,12 @@ function renderSuggestion(
 describe("SourceDocumentDuplicateSuggestion", () => {
   beforeEach(() => openLedgerDetail.mockClear());
 
-  it("names each flagged entry and the record that already holds it", () => {
+  it("lists each flagged entry on one line, without a sentence around it", () => {
     renderSuggestion();
 
-    expect(screen.getByText("这 1 条之前好像已经记过了")).toBeInTheDocument();
+    expect(screen.getByText(/数据线/)).toBeInTheDocument();
     expect(screen.getByText(/19\.90/)).toBeInTheDocument();
-    expect(
-      screen.getByText("和「淘宝订单」（2026-09-10）里的「数据线」是同一笔")
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/是同一笔/)).not.toBeInTheDocument();
   });
 
   it("removes the repeats only when asked, and keeps them on 保留", async () => {
@@ -67,7 +65,6 @@ describe("SourceDocumentDuplicateSuggestion", () => {
   it("offers deleting the record when every entry is a repeat", () => {
     renderSuggestion({ suggestion: { ...suggestion, coversWholeDocument: true } });
 
-    expect(screen.getByText("这张账单里的内容之前好像已经全部记过了")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "删除这张账单" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "移除重复" })).not.toBeInTheDocument();
   });
