@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import {
   aiCorrections,
   categoryAssignmentJobs,
+  forecastJudgments,
   sessions,
   sourceDocumentFiles,
   storedFiles,
@@ -11,10 +12,11 @@ import {
 import { getS3Storage } from "@/lib/storage/s3";
 import { logger } from "@/lib/logger";
 import { runWithConcurrency } from "@/lib/concurrency";
-import { AI_CORRECTIONS_RETENTION_DAYS } from "@/config/tuning";
+import { AI_CORRECTIONS_RETENTION_DAYS, FORECAST_AI_RETENTION_DAYS } from "@/config/tuning";
 import { runPreferenceLearning } from "@/modules/ledger/server/preference-learning";
 import { refreshExchangeRates } from "@/modules/currency/server/exchange-rates";
 import { trainForecasts } from "@/modules/forecast/server/train-forecasts";
+import { judgeForecasts } from "@/modules/forecast/server/judge-ledger";
 
 const BATCH = 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -27,7 +29,8 @@ export type DailyStep =
   | "unused_files"
   | "orphan_objects"
   | "preference_learning"
-  | "forecast_models";
+  | "forecast_models"
+  | "forecast_judgments";
 
 export type DailyStepOutcome = "done" | "failed";
 
@@ -67,6 +70,8 @@ export async function runDailyMaintenance(
   });
   // After the exchange rates, so the history it trains on is converted at today's rates.
   await step("forecast_models", trainForecasts);
+  // The AI analyst's judgment, with the statistical model's first pass and the record of its past judgments.
+  await step("forecast_judgments", judgeForecasts);
   return outcomes;
 }
 
@@ -81,6 +86,9 @@ async function deleteInBatches(statement: SQL): Promise<void> {
 async function deleteExpiredRecords(now: Date): Promise<void> {
   const sevenDaysAgo = new Date(now.getTime() - 7 * DAY_MS);
   const corrections = new Date(now.getTime() - AI_CORRECTIONS_RETENTION_DAYS * DAY_MS);
+  const judgments = new Date(now.getTime() - FORECAST_AI_RETENTION_DAYS * DAY_MS)
+    .toISOString()
+    .slice(0, 10);
   const statements = [
     sql`DELETE FROM ${sessions} WHERE id IN (
       SELECT id FROM ${sessions} WHERE expires_at < ${now} LIMIT ${BATCH}
@@ -97,6 +105,10 @@ async function deleteExpiredRecords(now: Date): Promise<void> {
       SELECT id FROM ${aiCorrections}
       WHERE consumed_at IS NOT NULL AND consumed_at < ${corrections}
       LIMIT ${BATCH}
+    )`,
+    // Judgments past the days their record is scored over.
+    sql`DELETE FROM ${forecastJudgments} WHERE id IN (
+      SELECT id FROM ${forecastJudgments} WHERE as_of < ${judgments}::date LIMIT ${BATCH}
     )`,
   ];
   for (const statement of statements) await deleteInBatches(statement);

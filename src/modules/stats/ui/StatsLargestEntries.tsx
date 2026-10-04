@@ -15,13 +15,21 @@ interface StatsLargestEntriesProps {
   currencySymbol: string;
   /** Opens the record an entry belongs to. */
   onOpen: (entry: StatsLargestEntryDto) => void;
+  /** What the AI judged each record to be, by record id — 一次性, 每学期 — for the records it judged not everyday. */
+  kinds?: ReadonlyMap<string, string>;
 }
 
 /**
  * The period's biggest entries. A total that looks high is usually two or three
  * purchases; naming them answers "where did it go" without a trip to 账目.
+ * With the AI's judgment, a purchase that is not everyday spending says what it is.
  */
-export function StatsLargestEntries({ entries, currencySymbol, onOpen }: StatsLargestEntriesProps) {
+export function StatsLargestEntries({
+  entries,
+  currencySymbol,
+  onOpen,
+  kinds,
+}: StatsLargestEntriesProps) {
   const locale = DISPLAY_LOCALE;
   if (entries.length === 0) return null;
 
@@ -36,12 +44,13 @@ export function StatsLargestEntries({ entries, currencySymbol, onOpen }: StatsLa
               ? null
               : formatCurrencyAmount(entry.originalAmount, entry.originalCurrency, locale);
           const category = entry.categoryName ?? statsTabCopy.uncategorized;
+          const kind = kinds?.get(entry.sourceDocumentId) ?? null;
           return (
             <li key={entry.id}>
               <button
                 type="button"
                 onClick={() => onOpen(entry)}
-                aria-label={[entry.name, category, date, amount, original]
+                aria-label={[entry.name, category, date, kind, amount, original]
                   .filter((part) => part != null)
                   .join(", ")}
                 className="group -mx-2 grid w-[calc(100%+1rem)] grid-cols-[2.5rem_minmax(0,1fr)_auto_1rem] items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-surface2/50"
@@ -58,6 +67,7 @@ export function StatsLargestEntries({ entries, currencySymbol, onOpen }: StatsLa
                   </span>
                   <span className={textRoleClassName("meta", "block truncate")}>
                     {category} · {date}
+                    {kind != null ? ` · ${kind}` : null}
                   </span>
                 </span>
                 <span className="shrink-0 text-right">

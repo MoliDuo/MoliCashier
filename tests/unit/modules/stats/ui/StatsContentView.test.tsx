@@ -12,6 +12,7 @@ vi.mock("@/lib/navigation/ledger-detail-navigation", () => ({
 
 import { StatsContentView } from "@/modules/stats/ui/StatsContentView";
 import { buildEnhancedStatsFixture } from "tests/helpers/stats-fixture";
+import type { ForecastDto } from "@/modules/forecast/contracts";
 
 const baseProps = {
   periodBar: <div>period bar</div>,
@@ -136,5 +137,56 @@ describe("StatsContentView", () => {
     render(<StatsContentView {...baseProps} stats={statsFixture} />);
 
     expect(screen.queryByRole("heading", { name: "最大几笔" })).not.toBeInTheDocument();
+  });
+
+  it("shows the AI's phases of life, and what it judged a big purchase to be", () => {
+    const stats = buildEnhancedStatsFixture({
+      largestEntries: [
+        {
+          id: "e1",
+          sourceDocumentId: "d1",
+          name: "Tuition",
+          categoryName: "Education",
+          categoryIcon: null,
+          date: "2026-08-03",
+          amount: "4000",
+          originalAmount: "4000",
+          originalCurrency: "CNY",
+        },
+      ],
+    });
+    const forecast: ForecastDto = {
+      asOf: "2026-08-06",
+      periodEnd: "2026-08-31",
+      currency: "CNY",
+      historyFrom: "2026-01-02",
+      halfLifeDays: 30,
+      spent: "4120",
+      total: { p10: "5000.00", p50: "5200.00", p90: "5500.00" },
+      running: [],
+      categories: [],
+      exceedPrevious: null,
+      lifeChange: null,
+      largePurchaseFrom: null,
+      upcoming: [],
+      anomalies: [],
+      model: null,
+      judgment: {
+        asOf: "2026-08-06",
+        phases: [
+          { from: "2026-02-01", to: "2026-07-31", label: "独居", daily: "80.00" },
+          { from: "2026-08-01", to: "2026-08-05", label: "读博", daily: "120.00" },
+        ],
+        documents: [{ documentId: "d1", kind: "recurring", cadence: "semester" }],
+        accuracy: null,
+      },
+    };
+    render(<StatsContentView {...baseProps} stats={stats} forecast={forecast} />);
+
+    expect(screen.getByRole("heading", { name: "生活阶段" })).toBeInTheDocument();
+    expect(screen.getByText("现在")).toBeInTheDocument();
+    expect(screen.getByText("日常 ¥120/天")).toBeInTheDocument();
+    expect(screen.getByText("2026/2/1–2026/7/31")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Tuition/ })).toHaveAccessibleName(/每学期/);
   });
 });

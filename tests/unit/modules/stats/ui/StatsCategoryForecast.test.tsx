@@ -20,6 +20,7 @@ function forecastFixture(overrides: Partial<ForecastDto> = {}): ForecastDto {
         icon: null,
         spent: "300",
         forecast: { p10: "1500.00", p50: "1800.00", p90: "2100.00" },
+        trend: null,
       },
       {
         id: null,
@@ -27,6 +28,7 @@ function forecastFixture(overrides: Partial<ForecastDto> = {}): ForecastDto {
         icon: null,
         spent: "100",
         forecast: { p10: "100.00", p50: "120.00", p90: "200.00" },
+        trend: null,
       },
     ],
     exceedPrevious: { total: "2200", probability: 0.684 },
@@ -35,6 +37,7 @@ function forecastFixture(overrides: Partial<ForecastDto> = {}): ForecastDto {
     upcoming: [],
     anomalies: [],
     model: null,
+    judgment: null,
     ...overrides,
   };
 }
@@ -94,6 +97,8 @@ describe("StatsCategoryForecast", () => {
               amount: "1200.00",
               cadence: "monthly",
               streak: 6,
+              seen: null,
+              inPeriod: true,
             },
           ],
         })}
@@ -151,5 +156,69 @@ describe("StatsCategoryForecast", () => {
     );
 
     expect(screen.getByText(/单笔 ¥1,250 以上的一次性大额不预测，记了才算。/)).toBeInTheDocument();
+  });
+
+  it("computes from the AI's judgment: trends, what is expected next, and how its past judgments did", () => {
+    render(
+      <StatsCategoryForecast
+        forecast={forecastFixture({
+          categories: [
+            {
+              id: "food",
+              name: "餐饮",
+              icon: null,
+              spent: "300",
+              forecast: { p10: "1500.00", p50: "1800.00", p90: "2100.00" },
+              trend: { direction: "rising", change: 0.254 },
+            },
+            {
+              id: "fun",
+              name: "娱乐",
+              icon: null,
+              spent: "50",
+              forecast: { p10: "60.00", p50: "80.00", p90: "120.00" },
+              trend: { direction: "steady", change: 0.01 },
+            },
+          ],
+          upcoming: [
+            {
+              id: "edu",
+              name: "教育",
+              icon: null,
+              date: "2026-12-20",
+              label: "学费",
+              amount: "4000.00",
+              cadence: "semester",
+              streak: null,
+              seen: 2,
+              inPeriod: false,
+            },
+          ],
+          judgment: {
+            asOf: "2026-10-04",
+            phases: [],
+            documents: [],
+            accuracy: { origins: 10, horizonDays: 14, error: 0.083, statisticalError: 0.21 },
+          },
+        })}
+        currencySymbol="CNY"
+      />
+    );
+
+    expect(
+      screen.getByRole("button", { name: /^餐饮, 最近在涨, 预计 ¥1,800.00/ })
+    ).toBeInTheDocument();
+    expect(screen.getByText("+25%")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^娱乐, 最近平稳/ })).toBeInTheDocument();
+    expect(screen.getByText("12/20 学费 约 ¥4,000.00")).toBeInTheDocument();
+    expect(screen.getByText("每学期 · 见过 2 次 · 本期之后，不计入")).toBeInTheDocument();
+    expect(
+      screen.getByText("按 AI 在 10/4 对每个分类日常花销和接下来大额的判断计算，已花随记随算。")
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("AI 过去 10 次预测之后 14 天花多少，平均差约 ±8%；统计模型 ±21%。")
+    ).toBeInTheDocument();
+    // The statistical model's footer gives way.
+    expect(screen.queryByText(/天前的一天只算昨天的一半/)).not.toBeInTheDocument();
   });
 });

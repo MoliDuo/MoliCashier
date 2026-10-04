@@ -317,6 +317,20 @@ function categoryAssignmentBody(prompt: string, scenario: ScenarioName): Categor
   };
 }
 
+/** 统计's AI analyst: one phase from today, and a modest steady day for every category spent in this month. */
+function forecastJudgmentBody(prompt: string): Record<string, unknown[]> | null {
+  if (!prompt.includes("You are the analyst behind the statistics page")) return null;
+  const today = /Today: (\d{4}-\d{2}-\d{2})/.exec(prompt)?.[1];
+  const spent = /## Spent this month so far[^\n]*\n([^\n]*)/.exec(prompt)?.[1] ?? "";
+  const refs = [...spent.matchAll(/\b(c\d+) /g)].map((match) => match[1]);
+  return {
+    phases: today == null ? [] : [{ from: today, label: "演示" }],
+    documents: [],
+    expected: [],
+    categories: refs.map((ref) => ({ category: ref, low: 20, mid: 30, high: 45, trend: "steady" })),
+  };
+}
+
 async function respond(
   request: http.IncomingMessage,
   response: http.ServerResponse,
@@ -333,7 +347,8 @@ async function respond(
   const payload = JSON.parse((await readBody(request)) || "{}") as ChatCompletionRequest;
   const prompt = promptOf(payload);
   const answer = answerFor(prompt, options);
-  const assignmentBody = categoryAssignmentBody(prompt, answer.scenario);
+  const assignmentBody =
+    categoryAssignmentBody(prompt, answer.scenario) ?? forecastJudgmentBody(prompt);
 
   options.log(
     `[demo-ai] scenario=${answer.scenario}` +
