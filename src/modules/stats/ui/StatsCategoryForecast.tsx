@@ -14,7 +14,6 @@ import type {
 } from "@/modules/forecast/contracts";
 import { StatsPanel } from "./StatsPanel";
 import { DISPLAY_LOCALE } from "@/lib/constants";
-import { formatCivilDate } from "@/lib/date-utils";
 import { forecastCopy, statsTabCopy } from "@/copy/stats";
 
 /** Past this many, the tail is folded away, as the ranking folds its own. */
@@ -42,8 +41,6 @@ export function StatsCategoryForecast({
   if (forecast.categories.length === 0) return null;
 
   const money = (amount: string) => formatCurrencyAmount(amount, currencySymbol, locale);
-  const shortDate = (date: string) =>
-    formatCivilDate(date, locale, { month: "numeric", day: "numeric" });
   const visible = expanded ? forecast.categories : forecast.categories.slice(0, COLLAPSED_LENGTH);
   const hidden = forecast.categories.length - visible.length;
   const scaleMax = Math.max(
@@ -162,54 +159,6 @@ export function StatsCategoryForecast({
             : statsTabCopy.showAllCategories({ count: hidden })}
         </Button>
       ) : null}
-
-      {forecast.judgment != null ? (
-        <div className="space-y-1">
-          <p className={textRoleClassName("meta")}>
-            {forecastCopy.judgedBasis({ date: shortDate(forecast.judgment.asOf) })}
-          </p>
-          {forecast.judgment.accuracy != null ? (
-            <p className={textRoleClassName("meta")}>
-              {forecastCopy.judgedAccuracy({
-                origins: forecast.judgment.accuracy.origins,
-                days: forecast.judgment.accuracy.horizonDays,
-                error: Math.round(forecast.judgment.accuracy.error * 100),
-                statistical: Math.round(forecast.judgment.accuracy.statisticalError * 100),
-              })}
-            </p>
-          ) : null}
-        </div>
-      ) : (
-        <div className="space-y-1">
-          <p className={textRoleClassName("meta")}>
-            {forecast.halfLifeDays != null
-              ? forecastCopy.basis({ halfLife: forecast.halfLifeDays })
-              : forecastCopy.basisEven}
-            {forecast.largePurchaseFrom != null
-              ? forecastCopy.largePurchases({
-                  amount: formatCurrencyAmount(forecast.largePurchaseFrom, currencySymbol, locale, {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0,
-                  }),
-                })
-              : null}
-          </p>
-          {forecast.model?.accuracy != null ? (
-            <p className={textRoleClassName("meta")}>
-              {forecastCopy.accuracy({
-                origins: forecast.model.accuracy.origins,
-                days: forecast.model.accuracy.horizonDays,
-                error: Math.round(forecast.model.accuracy.error * 100),
-              })}
-              {forecast.model.networkShare > 0
-                ? forecastCopy.networkShare({
-                    percent: Math.round(forecast.model.networkShare * 100),
-                  })
-                : forecastCopy.networkBench}
-            </p>
-          ) : null}
-        </div>
-      )}
     </StatsPanel>
   );
 }
