@@ -1,3 +1,4 @@
+import { SIGN_IN_PATH } from "@/modules/auth/constants";
 import { redirect } from "next/navigation";
 import { Providers } from "@/components/providers";
 import { resolveAuthenticatedHome } from "@/modules/workspace/server/resolve-authenticated-home";
@@ -15,7 +16,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     await resolveAuthenticatedHome();
   } catch (error) {
     if (error instanceof UnauthorizedError) {
-      redirect("/login");
+      redirect(SIGN_IN_PATH);
     }
     throw error;
   }

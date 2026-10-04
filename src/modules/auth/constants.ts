@@ -10,3 +10,9 @@ export const SESSION_COOKIE_NAME = "__Host-cashier_session";
  * left", so a stray navigation to it does not send them straight back in.
  */
 export const SIGNED_OUT_COOKIE_NAME = "cashier_signed_out";
+
+/**
+ * Where a signed-out request goes. The route only redirects to the identity provider
+ * (standard 008, 8.4.4); the login page is for errors and notices, not a stop on the way.
+ */
+export const SIGN_IN_PATH = "/api/auth/login";

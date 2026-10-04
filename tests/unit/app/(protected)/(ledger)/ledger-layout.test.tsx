@@ -1,5 +1,6 @@
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { redirect } from "next/navigation";
 
 const {
   loadLedgerViewMock,
@@ -129,10 +130,11 @@ describe("ledger layout", () => {
     expect(find(data, LedgerWorkspace)).toBeDefined();
   });
 
-  it("redirects a request without a session to the login page", async () => {
+  it("sends a request without a session straight to the sign-in route", async () => {
     loadLedgerViewMock.mockRejectedValue(new UnauthorizedError());
 
     await expect(LedgerLayout({ children: null })).rejects.toThrow("REDIRECT");
+    expect(redirect).toHaveBeenCalledWith("/api/auth/login");
   });
 
   it("rethrows anything else", async () => {
