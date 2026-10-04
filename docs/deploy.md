@@ -83,7 +83,7 @@ printf '%s %s rollback\n' cashier <提交哈希> | /data/apps/deploy/deploy-app
 数据库不做反向迁移。迁移前的备份在 `/data/apps/cashier/backups/`（最近 5 份），只有迁移本身损坏了数据时才用它恢复：
 
 ```bash
-docker compose --env-file .tag exec -T postgres pg_restore -U cashier -d cashier --clean --if-exists < backups/<文件名>.dump
+docker compose --env-file .tag exec -T postgres pg_restore -U cashier -d moli-cashier-db --clean --if-exists < backups/<文件名>.dump
 ```
 
 ## 5. 上线后的验证
@@ -109,5 +109,5 @@ docker compose --env-file .tag exec -T postgres pg_restore -U cashier -d cashier
 数据都在 `/data/apps/cashier/data/` 下（`postgres` 和 `s3` 两个目录）。导出时停掉应用，整份复制；或者只导出数据库：
 
 ```bash
-docker compose --env-file .tag exec -T postgres pg_dump -U cashier -Fc cashier > cashier.dump
+docker compose --env-file .tag exec -T postgres pg_dump -U cashier -Fc moli-cashier-db > cashier.dump
 ```

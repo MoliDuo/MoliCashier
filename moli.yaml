@@ -26,9 +26,6 @@ exceptions:
   - rule: "8.5.5"
     reason: There is no local user table; the session is the identity, and who may sign in is decided by the Authelia client policy
     until: 2027-03-31
-  - rule: "10.3.2"
-    reason: Existing Postgres database, role and S3 bucket are named "cashier"; renaming needs a data migration
-    until: 2027-03-31
   - rule: "10.3.5"
     reason: The ledger is shared by everyone the Authelia client admits; there is no per-row owner column
     until: 2027-03-31

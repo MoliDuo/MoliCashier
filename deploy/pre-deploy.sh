@@ -11,7 +11,7 @@ compose up storage-bootstrap
 
 mkdir -p backups
 dump="backups/cashier-$(date +%Y%m%d-%H%M%S).dump"
-compose exec -T postgres pg_dump -U cashier -Fc cashier > "$dump"
+compose exec -T postgres pg_dump -U cashier -Fc moli-cashier-db > "$dump"
 echo "[pre-deploy] database dumped to $dump"
 
 ls -1t backups/cashier-*.dump | tail -n +6 | xargs -r rm --
