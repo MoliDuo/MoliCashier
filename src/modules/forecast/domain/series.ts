@@ -3,13 +3,17 @@ import { civilDaysBetween } from "@/modules/ledger/domain/period";
 /** The key the series files entries without a category under; 统计's drilldown uses the same one. */
 export const UNCATEGORIZED_KEY = "__uncategorized__";
 
-/** One day's spending in one category and one original currency, converted to the main currency. */
+/** Spending on one day in one category and one original currency, converted to the main currency. */
 export interface HistoryRow {
   date: string;
   categoryId: string | null;
   currency: string;
-  /** The converted sum, as the decimal string the database returns. */
+  /** The converted amount, as the decimal string the database returns. */
   amount: string;
+  /** The document the spending is on, when the row is one entry; recurring bills are found by document. */
+  documentId?: string;
+  /** What the document is called — its title, or its first line's name. */
+  label?: string | null;
 }
 
 /** Spending per category per day, the days running from `start` for `length` days. */

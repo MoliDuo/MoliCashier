@@ -24,6 +24,8 @@ interface StatsCumulativeChartProps {
    * line, ending at the last day's middle instead of `forecast`.
    */
   forecastBand?: readonly { p10: string; p50: string; p90: string }[] | null;
+  /** The day the current way of spending began; marked when it falls within the days recorded. */
+  changeDate?: string | null;
   /** The comparison period whole, and what it came to; null when there is nothing to compare. */
   previous: {
     data: { date: string; total: string }[];
@@ -66,6 +68,7 @@ export function StatsCumulativeChart({
   periodEnd,
   forecast,
   forecastBand = null,
+  changeDate = null,
   previous,
   currencySymbol,
 }: StatsCumulativeChartProps) {
@@ -180,6 +183,11 @@ export function StatsCumulativeChart({
     active == null || band == null || active <= today ? null : band[active - today - 1]!;
   const activePrevious = active == null ? null : previousAt(active);
   const activeLeft = active == null ? 0 : x(active, days);
+  // The first day has nothing before it to have changed from.
+  const changeIndex =
+    changeDate == null || changeDate <= range.from || changeDate > range.to
+      ? null
+      : civilDaysBetween(range.from, changeDate);
 
   return (
     <div className="relative w-full select-none pt-12">
@@ -312,6 +320,15 @@ export function StatsCumulativeChart({
           />
         </svg>
 
+        {changeIndex != null ? (
+          <div
+            aria-hidden="true"
+            data-testid="cumulative-change-marker"
+            className="pointer-events-none absolute inset-y-0 border-l border-dashed border-warning"
+            style={{ left: `${x(changeIndex, days)}%` }}
+          />
+        ) : null}
+
         {/* Today's end of the line, ringed in the surface so it stays clear of
             the lines it meets. */}
         <span
@@ -354,6 +371,9 @@ export function StatsCumulativeChart({
                     high: money(activeBand.p90.toFixed(2)),
                   })}
                 </div>
+              ) : null}
+              {active === changeIndex ? (
+                <div className="text-warning">{statsTabCopy.changeMarker}</div>
               ) : null}
               {activePrevious != null && previous != null ? (
                 <div className="tabular-nums">

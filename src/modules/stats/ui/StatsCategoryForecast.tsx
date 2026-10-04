@@ -7,9 +7,16 @@ import { Button } from "@/components/ui/button";
 import { formatCurrencyAmount } from "@/lib/format/currency";
 import { cn } from "@/lib/utils";
 import { AmountText } from "@/modules/currency/ui/amount-text";
-import type { ForecastDto } from "@/modules/forecast/contracts";
+import type {
+  ForecastCommentaryDto,
+  ForecastDto,
+  ForecastUpcomingDto,
+} from "@/modules/forecast/contracts";
+import { StatsForecastCommentary } from "./StatsForecastCommentary";
+import { StatsForecastWhatIf } from "./StatsForecastWhatIf";
 import { StatsPanel } from "./StatsPanel";
 import { DISPLAY_LOCALE } from "@/lib/constants";
+import { formatCivilDate } from "@/lib/date-utils";
 import { forecastCopy, statsTabCopy } from "@/copy/stats";
 
 /** Past this many, the tail is folded away, as the ranking folds its own. */
@@ -21,6 +28,8 @@ interface StatsCategoryForecastProps {
   /** What the period is set against, e.g. 上月; null leaves the comparison out. */
   periodLabel: string | null;
   onCategoryClick?: (categoryId: string) => void;
+  /** Asks the AI about the forecast; without it there is no button. */
+  requestCommentary?: () => Promise<ForecastCommentaryDto | null>;
 }
 
 /**
@@ -33,12 +42,15 @@ export function StatsCategoryForecast({
   currencySymbol,
   periodLabel,
   onCategoryClick,
+  requestCommentary,
 }: StatsCategoryForecastProps) {
   const locale = DISPLAY_LOCALE;
   const [expanded, setExpanded] = useState(false);
   if (forecast.categories.length === 0) return null;
 
   const money = (amount: string) => formatCurrencyAmount(amount, currencySymbol, locale);
+  const shortDate = (date: string) =>
+    formatCivilDate(date, locale, { month: "numeric", day: "numeric" });
   const visible = expanded ? forecast.categories : forecast.categories.slice(0, COLLAPSED_LENGTH);
   const hidden = forecast.categories.length - visible.length;
   const scaleMax = Math.max(
@@ -58,6 +70,19 @@ export function StatsCategoryForecast({
             period: periodLabel,
             amount: money(forecast.exceedPrevious.total),
             percent: Math.round(forecast.exceedPrevious.probability * 100),
+          })}
+        </p>
+      ) : null}
+
+      {forecast.lifeChange != null ? (
+        <p className={textRoleClassName("bodyMuted")}>
+          {forecastCopy.lifeChange({
+            date: formatCivilDate(forecast.lifeChange.date, locale, {
+              month: "long",
+              day: "numeric",
+            }),
+            before: money(forecast.lifeChange.dailyBefore),
+            after: money(forecast.lifeChange.dailyAfter),
           })}
         </p>
       ) : null}
@@ -147,11 +172,77 @@ export function StatsCategoryForecast({
         </Button>
       ) : null}
 
-      {forecast.halfLifeDays != null ? (
-        <p className={textRoleClassName("meta")}>
-          {forecastCopy.basis({ halfLife: forecast.halfLifeDays })}
-        </p>
+      {forecast.upcoming.length > 0 ? (
+        <div className="space-y-2 border-t border-border pt-4">
+          <p className={textRoleClassName("bodyStrong")}>{forecastCopy.upcomingTitle}</p>
+          <ul className="space-y-2">
+            {forecast.upcoming.map((bill) => (
+              <li
+                key={`${bill.date}-${bill.label}-${bill.id ?? ""}`}
+                className="grid grid-cols-[2rem_minmax(0,1fr)] items-center gap-3"
+              >
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-surface2">
+                  <CategoryIcon iconName={bill.icon} className="h-4 w-4 text-text/80" />
+                </span>
+                <span className="min-w-0">
+                  <span className={textRoleClassName("body", "block truncate")}>
+                    {forecastCopy.upcomingItem({
+                      date: shortDate(bill.date),
+                      label: bill.label,
+                      amount: money(bill.amount),
+                    })}
+                  </span>
+                  <span className={textRoleClassName("meta", "block")}>{cadenceOf(bill)}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
+
+      <StatsForecastWhatIf
+        forecast={forecast}
+        currencySymbol={currencySymbol}
+        periodLabel={periodLabel}
+      />
+
+      {requestCommentary != null ? (
+        <StatsForecastCommentary forecast={forecast} requestCommentary={requestCommentary} />
+      ) : null}
+
+      <div className="space-y-1">
+        <p className={textRoleClassName("meta")}>
+          {forecast.halfLifeDays != null
+            ? forecastCopy.basis({ halfLife: forecast.halfLifeDays })
+            : forecastCopy.basisEven}
+        </p>
+        {forecast.model?.accuracy != null ? (
+          <p className={textRoleClassName("meta")}>
+            {forecastCopy.accuracy({
+              origins: forecast.model.accuracy.origins,
+              days: forecast.model.accuracy.horizonDays,
+              error: Math.round(forecast.model.accuracy.error * 100),
+            })}
+            {forecast.model.networkShare > 0
+              ? forecastCopy.networkShare({
+                  percent: Math.round(forecast.model.networkShare * 100),
+                })
+              : forecastCopy.networkBench}
+          </p>
+        ) : null}
+      </div>
     </StatsPanel>
   );
+}
+
+function cadenceOf(bill: ForecastUpcomingDto): string {
+  // Each key is spelled out so the catalogue check can find it.
+  switch (bill.cadence) {
+    case "weekly":
+      return forecastCopy.weeklyStreak({ count: bill.streak });
+    case "biweekly":
+      return forecastCopy.biweeklyStreak({ count: bill.streak });
+    case "monthly":
+      return forecastCopy.monthlyStreak({ count: bill.streak });
+  }
 }

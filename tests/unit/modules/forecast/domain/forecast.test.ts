@@ -3,7 +3,16 @@ import { forecastPeriod, type ForecastOptions } from "@/modules/forecast/domain/
 import type { HistoryRow } from "@/modules/forecast/domain/series";
 import { addCivilDays } from "@/modules/ledger/domain/period";
 
-const OPTIONS: ForecastOptions = { halfLifeDays: 30, paths: 400, seed: 7, minHistoryDays: 7 };
+const OPTIONS: ForecastOptions = {
+  halfLifeDays: 30,
+  changeDiscount: 0.2,
+  paths: 400,
+  seed: 7,
+  minHistoryDays: 7,
+  network: null,
+  networkShare: 0,
+  samples: 50,
+};
 
 /** `amount` in `category` every `every` days from `from`, `count` times. */
 function spending(
@@ -41,7 +50,13 @@ describe("forecastPeriod", () => {
     expect(forecast.running).toHaveLength(21);
     expect(forecast.running[0]!.p50).toBeCloseTo(330);
     expect(forecast.categories).toEqual([
-      { key: "food", spent: "300", forecast: { p10: 930, p50: 930, p90: 930 } },
+      {
+        key: "food",
+        spent: "300",
+        forecast: { p10: 930, p50: 930, p90: 930 },
+        // Every sampled path spends the same 630 over the 21 days left.
+        samples: Array.from({ length: 50 }, () => 630),
+      },
     ]);
     // September came to 900, and every outcome ends above it.
     expect(forecast.exceedPrevious).toEqual({ total: "900", probability: 1 });
@@ -62,13 +77,50 @@ describe("forecastPeriod", () => {
       options: OPTIONS,
     })!;
 
-    // Twenty-eight days to go. Every day counted the same, a day would cost
-    // about 88 (the average of all of it); with the past faded, the new 20
-    // already outweighs the half year before it.
+    // The move is found, and the half year before it counts for little:
+    // every day counted the same, a day would cost about 88; faded by time
+    // alone, about 58.
+    expect(forecast.lifeChange).toEqual({ date: "2026-09-01", dailyBefore: 100, dailyAfter: 20 });
     const perDay = (forecast.total.p50 - Number(forecast.spent)) / 28;
-    expect(perDay).toBeLessThan(70);
-    expect(perDay).toBeGreaterThan(20);
+    expect(perDay).toBeLessThan(40);
+    expect(perDay).toBeGreaterThanOrEqual(20);
     expect(forecast.exceedPrevious).toBeNull();
+  });
+
+  it("lets the time before a change still count for something, as asked", () => {
+    const rows = [
+      ...spending("2026-03-01", 184, "daily", "100"),
+      ...spending("2026-09-01", 33, "daily", "20"),
+    ];
+    const input = {
+      rows,
+      today: "2026-10-03",
+      period: { from: "2026-10-01", end: "2026-10-31" },
+      previous: null,
+    };
+
+    const discounted = forecastPeriod({ ...input, options: OPTIONS })!;
+    const undiscounted = forecastPeriod({ ...input, options: { ...OPTIONS, changeDiscount: 1 } })!;
+
+    expect(undiscounted.lifeChange).not.toBeNull();
+    expect(discounted.total.p50).toBeLessThan(undiscounted.total.p50);
+  });
+
+  it("finds no change in a ledger that has gone on the same way", () => {
+    const rows = [
+      ...spending("2026-06-01", 40, "coffee", "15", 3),
+      ...spending("2026-06-02", 40, "coffee", "45", 3),
+    ];
+
+    const forecast = forecastPeriod({
+      rows,
+      today: "2026-10-01",
+      period: { from: "2026-10-01", end: "2026-10-31" },
+      previous: null,
+      options: OPTIONS,
+    })!;
+
+    expect(forecast.lifeChange).toBeNull();
   });
 
   it("spreads a category that spends some days and not others", () => {
@@ -149,5 +201,48 @@ describe("forecastPeriod", () => {
     expect(
       forecastPeriod({ rows, today: "2026-10-02", period, previous: null, options: OPTIONS })
     ).not.toBeNull();
+  });
+
+  it("adds the rent on its day for certain, and names a day that cost far more than usual", () => {
+    const rent = ["2026-07-15", "2026-08-15", "2026-09-15"].map((date) => ({
+      date,
+      categoryId: "home",
+      currency: "CNY",
+      amount: "1200",
+      documentId: `rent-${date}`,
+      label: "房租",
+    }));
+    // Food every day, with a ¥300 dinner on the 3rd against the usual ¥30.
+    const food = spending("2026-07-01", 101, "food", "30").map((row) =>
+      row.date === "2026-10-03" ? { ...row, amount: "300" } : row
+    );
+
+    const forecast = forecastPeriod({
+      rows: [...rent, ...food],
+      today: "2026-10-10",
+      period: { from: "2026-10-01", end: "2026-10-31" },
+      previous: { from: "2026-09-01", to: "2026-09-30" },
+      options: OPTIONS,
+    })!;
+
+    expect(forecast.upcoming).toEqual([
+      {
+        date: "2026-10-15",
+        label: "房租",
+        key: "home",
+        amount: 1200,
+        cadence: "monthly",
+        streak: 3,
+      },
+    ]);
+    // Rent is not left to chance: every path pays it once.
+    expect(forecast.categories.find((category) => category.key === "home")!.forecast).toEqual({
+      p10: 1200,
+      p50: 1200,
+      p90: 1200,
+    });
+    expect(forecast.anomalies).toEqual([
+      { date: "2026-10-03", key: "food", amount: 300, typical: 30 },
+    ]);
   });
 });

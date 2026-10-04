@@ -1,15 +1,19 @@
 "use client";
 import { textRoleClassName } from "@/components/typography";
+import { cn } from "@/lib/utils";
 import { formatCivilDate } from "@/lib/date-utils";
 import { formatCurrencyAmount } from "@/lib/format/currency";
 import { AmountText } from "@/modules/currency/ui/amount-text";
+import type { ForecastAnomalyDto } from "@/modules/forecast/contracts";
 import type { StatsInsights } from "@/modules/stats/lib/derived-insights";
 import { StatsPanel } from "./StatsPanel";
 import { DISPLAY_LOCALE } from "@/lib/constants";
-import { statsTabCopy } from "@/copy/stats";
+import { forecastCopy, statsTabCopy } from "@/copy/stats";
 
 interface StatsHighlightsProps {
   insights: StatsInsights;
+  /** The days of a running period that cost a category far more than usual. */
+  anomalies?: readonly ForecastAnomalyDto[];
   currencySymbol: string;
   periodLabel: string;
   onDateDrilldown?: (date: string) => void;
@@ -21,10 +25,13 @@ interface StatsHighlightsProps {
  *
  * The biggest day earns its place because a single outlying day is what drags
  * the headline comparison to figures like -97.9%; naming it turns a number that
- * looks broken into one the reader can go and check.
+ * looks broken into one the reader can go and check. The unusual days the
+ * forecast found say the same of a category: this day, this much, against what
+ * a day usually costs it.
  */
 export function StatsHighlights({
   insights,
+  anomalies = [],
   currencySymbol,
   periodLabel,
   onDateDrilldown,
@@ -32,7 +39,12 @@ export function StatsHighlights({
   const locale = DISPLAY_LOCALE;
   const { busiestDay, topMover } = insights;
 
-  if (busiestDay == null && topMover == null) return null;
+  if (busiestDay == null && topMover == null && anomalies.length === 0) return null;
+  const wholeUnits = (amount: string) =>
+    formatCurrencyAmount(amount, currencySymbol, locale, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
 
   return (
     <StatsPanel title={statsTabCopy.highlights}>
@@ -77,6 +89,32 @@ export function StatsHighlights({
             ? statsTabCopy.topMoverUp(moverValues(topMover, periodLabel, currencySymbol, locale))
             : statsTabCopy.topMoverDown(moverValues(topMover, periodLabel, currencySymbol, locale))}
         </p>
+      ) : null}
+
+      {anomalies.length > 0 ? (
+        <div
+          className={cn(
+            "space-y-1",
+            busiestDay != null || topMover != null ? "border-t border-border pt-3" : undefined
+          )}
+        >
+          <p className={textRoleClassName("meta")}>{forecastCopy.anomalies}</p>
+          <ul className="space-y-1">
+            {anomalies.map((anomaly) => (
+              <li
+                key={`${anomaly.date}-${anomaly.id ?? ""}`}
+                className={textRoleClassName("bodyMuted")}
+              >
+                {forecastCopy.anomaly({
+                  date: formatCivilDate(anomaly.date, locale, { month: "numeric", day: "numeric" }),
+                  category: anomaly.name ?? statsTabCopy.uncategorized,
+                  amount: wholeUnits(anomaly.amount),
+                  typical: wholeUnits(anomaly.typical),
+                })}
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
     </StatsPanel>
   );

@@ -10,19 +10,30 @@ export interface ForecastHistory {
 }
 
 /**
- * Every day's spending from `from` through `to`, per category and original
- * currency, converted to the main currency the way 统计 converts it. An entry
- * with no rate for its day has no converted amount and is left out here, as it
- * is from 统计's totals.
+ * Every entry from `from` through `to`, converted to the main currency the
+ * way 统计 converts it, with the document it is on and what that document is
+ * called — its title, or its first line's name — for finding recurring bills.
+ * An entry with no rate for its day has no converted amount and is left out
+ * here, as it is from 统计's totals.
  */
 export async function readForecastHistory(
   range: { from: string; to: string },
   bookId?: string
 ): Promise<ForecastHistory> {
   const [rows, categories, ledger] = await Promise.all([
-    db.execute<HistoryRow & Record<string, unknown>>(sql`
+    db.execute<{
+      date: string;
+      categoryId: string | null;
+      currency: string;
+      amount: string;
+      documentId: string;
+      label: string | null;
+    }>(sql`
       SELECT documents.document_date::text AS date, entries.category_id AS "categoryId",
-        entries.currency, sum(converted.amount)::text AS amount
+        entries.currency, converted.amount::text AS amount, documents.id AS "documentId",
+        coalesce(nullif(btrim(documents.title), ''), first_value(entries.item_name) OVER (
+          PARTITION BY documents.id ORDER BY entries.position, entries.id
+        )) AS label
       FROM source_documents documents
       JOIN ledger_entries entries
         ON entries.source_document_id = documents.id
@@ -34,8 +45,7 @@ export async function readForecastHistory(
       WHERE documents.document_date BETWEEN ${range.from}::date AND ${range.to}::date
         ${bookId == null ? sql`` : sql`AND documents.book_id = ${bookId}`}
         AND converted.amount IS NOT NULL
-      GROUP BY documents.document_date, entries.category_id, entries.currency
-      ORDER BY documents.document_date
+      ORDER BY documents.document_date, documents.id
     `),
     db.execute<{ id: string; name: string; icon: string | null }>(sql`
       SELECT id, name, icon FROM entry_categories
@@ -51,6 +61,8 @@ export async function readForecastHistory(
       categoryId: row.categoryId,
       currency: row.currency,
       amount: row.amount,
+      documentId: row.documentId,
+      label: row.label,
     })),
     categories: new Map(
       categories.rows.map((category) => [category.id, { name: category.name, icon: category.icon }])
