@@ -34,7 +34,6 @@ function forecastFixture(overrides: Partial<ForecastDto> = {}): ForecastDto {
     exceedPrevious: { total: "2200", probability: 0.684 },
     lifeChange: null,
     largePurchaseFrom: null,
-    upcoming: [],
     anomalies: [],
     model: null,
     judgment: null,
@@ -81,34 +80,6 @@ describe("StatsCategoryForecast", () => {
       <StatsCategoryForecast forecast={forecastFixture({ categories: [] })} currencySymbol="CNY" />
     );
     expect(container).toBeEmptyDOMElement();
-  });
-
-  it("lists the bills expected before the period ends, with how they come back", () => {
-    render(
-      <StatsCategoryForecast
-        forecast={forecastFixture({
-          upcoming: [
-            {
-              id: "home",
-              name: "居住",
-              icon: null,
-              date: "2026-10-15",
-              label: "房租",
-              amount: "1200.00",
-              cadence: "monthly",
-              streak: 6,
-              seen: null,
-              inPeriod: true,
-            },
-          ],
-        })}
-        currencySymbol="CNY"
-      />
-    );
-
-    expect(screen.getByText("接下来大概会有")).toBeInTheDocument();
-    expect(screen.getByText("10/15 房租 约 ¥1,200.00")).toBeInTheDocument();
-    expect(screen.getByText("每月 · 已连续 6 次")).toBeInTheDocument();
   });
 
   it("says how well the forecast did on past days, and whether the network has earned a share", () => {
@@ -158,7 +129,7 @@ describe("StatsCategoryForecast", () => {
     expect(screen.getByText(/单笔 ¥1,250 以上的一次性大额不预测，记了才算。/)).toBeInTheDocument();
   });
 
-  it("computes from the AI's judgment: trends, what is expected next, and how its past judgments did", () => {
+  it("computes from the AI's judgment: trends, and how its past judgments did", () => {
     render(
       <StatsCategoryForecast
         forecast={forecastFixture({
@@ -180,20 +151,6 @@ describe("StatsCategoryForecast", () => {
               trend: { direction: "steady", change: 0.01 },
             },
           ],
-          upcoming: [
-            {
-              id: "edu",
-              name: "教育",
-              icon: null,
-              date: "2026-12-20",
-              label: "学费",
-              amount: "4000.00",
-              cadence: "semester",
-              streak: null,
-              seen: 2,
-              inPeriod: false,
-            },
-          ],
           judgment: {
             asOf: "2026-10-04",
             phases: [],
@@ -210,8 +167,7 @@ describe("StatsCategoryForecast", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("+25%")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^娱乐, 最近平稳/ })).toBeInTheDocument();
-    expect(screen.getByText("12/20 学费 约 ¥4,000.00")).toBeInTheDocument();
-    expect(screen.getByText("每学期 · 见过 2 次 · 本期之后，不计入")).toBeInTheDocument();
+    expect(screen.queryByText("接下来大概会有")).not.toBeInTheDocument();
     expect(
       screen.getByText("按 AI 在 10/4 对每个分类日常花销和接下来大额的判断计算，已花随记随算。")
     ).toBeInTheDocument();

@@ -286,10 +286,6 @@ export function StatsContentView({
             />
           ) : null}
 
-          {forecast?.judgment != null ? (
-            <StatsLifePhases phases={forecast.judgment.phases} currencySymbol={currencySymbol} />
-          ) : null}
-
           {stats != null ? (
             <StatsLargestEntries
               entries={stats.largestEntries}
@@ -307,6 +303,10 @@ export function StatsContentView({
               periodLabel={periodLabel}
               {...(onDateDrilldown !== undefined ? { onDateDrilldown } : {})}
             />
+          ) : null}
+
+          {forecast?.judgment != null ? (
+            <StatsLifePhases phases={forecast.judgment.phases} currencySymbol={currencySymbol} />
           ) : null}
         </div>
       </div>

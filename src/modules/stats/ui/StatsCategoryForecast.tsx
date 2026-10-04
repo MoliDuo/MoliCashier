@@ -10,7 +10,7 @@ import { AmountText } from "@/modules/currency/ui/amount-text";
 import type {
   ForecastCategoryDto,
   ForecastDto,
-  ForecastUpcomingDto,
+  ForecastJudgmentDto,
 } from "@/modules/forecast/contracts";
 import { StatsPanel } from "./StatsPanel";
 import { DISPLAY_LOCALE } from "@/lib/constants";
@@ -163,37 +163,6 @@ export function StatsCategoryForecast({
         </Button>
       ) : null}
 
-      {forecast.upcoming.length > 0 ? (
-        <div className="space-y-2 border-t border-border pt-4">
-          <p className={textRoleClassName("bodyStrong")}>{forecastCopy.upcomingTitle}</p>
-          <ul className="space-y-2">
-            {forecast.upcoming.map((bill) => (
-              <li
-                key={`${bill.date}-${bill.label}-${bill.id ?? ""}`}
-                className="grid grid-cols-[2rem_minmax(0,1fr)] items-center gap-3"
-              >
-                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-surface2">
-                  <CategoryIcon iconName={bill.icon} className="h-4 w-4 text-text/80" />
-                </span>
-                <span className="min-w-0">
-                  <span className={textRoleClassName("body", "block truncate")}>
-                    {forecastCopy.upcomingItem({
-                      date: shortDate(bill.date),
-                      label: bill.label,
-                      amount: money(bill.amount),
-                    })}
-                  </span>
-                  <span className={textRoleClassName("meta", "block")}>
-                    {cadenceOf(bill)}
-                    {bill.inPeriod ? null : forecastCopy.afterPeriod}
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
       {forecast.judgment != null ? (
         <div className="space-y-1">
           <p className={textRoleClassName("meta")}>
@@ -245,30 +214,13 @@ export function StatsCategoryForecast({
   );
 }
 
-function cadenceOf(bill: ForecastUpcomingDto): string {
-  if (bill.streak == null) {
-    return forecastCopy.seen({ cadence: cadenceName(bill.cadence), count: bill.seen ?? 0 });
-  }
-  // Each key is spelled out so the catalogue check can find it.
-  switch (bill.cadence) {
-    case "weekly":
-      return forecastCopy.weeklyStreak({ count: bill.streak });
-    case "biweekly":
-      return forecastCopy.biweeklyStreak({ count: bill.streak });
-    case "monthly":
-      return forecastCopy.monthlyStreak({ count: bill.streak });
-    default:
-      return cadenceName(bill.cadence);
-  }
-}
-
 /** How often something comes back, in words. */
-export function cadenceName(cadence: ForecastUpcomingDto["cadence"]): string {
+export function cadenceName(
+  cadence: NonNullable<ForecastJudgmentDto["documents"][number]["cadence"]>
+): string {
   switch (cadence) {
     case "weekly":
       return forecastCopy.weekly;
-    case "biweekly":
-      return forecastCopy.biweekly;
     case "monthly":
       return forecastCopy.monthly;
     case "semester":

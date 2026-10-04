@@ -177,18 +177,6 @@ describe("the AI analyst's nightly judgment", () => {
       dailyAfter: "30.00",
     });
     expect(forecast.largePurchaseFrom).toBeNull();
-    expect(forecast.upcoming).toEqual([
-      expect.objectContaining({
-        date: "2026-12-20",
-        label: "学费",
-        name: "教育",
-        amount: "4000.00",
-        cadence: "semester",
-        streak: null,
-        seen: 1,
-        inPeriod: false,
-      }),
-    ]);
     // Ten past days have had their fortnight; the two around the tuition missed it.
     expect(forecast.judgment!.accuracy).toMatchObject({ origins: 10, horizonDays: 14 });
     expect(forecast.judgment!.accuracy!.error).toBeGreaterThan(0);

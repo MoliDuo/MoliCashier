@@ -26,24 +26,6 @@ interface ForecastCategoryRef {
   icon: string | null;
 }
 
-/**
- * A charge expected after today: a bill the statistical model saw come back
- * on a schedule, before the period ends, or what the AI expects over the
- * next three months.
- */
-export interface ForecastUpcomingDto extends ForecastCategoryRef {
-  date: string;
-  label: string;
-  amount: string;
-  cadence: "weekly" | "biweekly" | "monthly" | "semester" | "yearly" | "irregular";
-  /** How many came in a row on schedule, as the statistical model counts; null for the AI's. */
-  streak: number | null;
-  /** How many past purchases the AI's expectation rests on; null for the statistical model's. */
-  seen: number | null;
-  /** Whether it falls before the period ends, and so counts in the forecast. */
-  inPeriod: boolean;
-}
-
 /** A stretch of life as the AI split the ledger. */
 export interface ForecastPhaseDto {
   from: string;
@@ -132,8 +114,6 @@ export interface ForecastDto {
    * no change. Days before it counted for less.
    */
   lifeChange: { date: string; dailyBefore: string; dailyAfter: string } | null;
-  /** What is expected after today, soonest first. */
-  upcoming: ForecastUpcomingDto[];
   /**
    * A single purchase of at least this much counts as a large one-off: it is
    * left out of the days ahead and counts only once recorded. Null with no
