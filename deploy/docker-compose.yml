@@ -13,7 +13,7 @@ services:
     stop_grace_period: 30s
     env_file: .env
     environment:
-      TZ: Asia/Kuala_Lumpur
+      TZ: Asia/Singapore
     depends_on:
       postgres:
         condition: service_healthy
@@ -45,7 +45,7 @@ services:
     restart: unless-stopped
     env_file: .env # POSTGRES_PASSWORD
     environment:
-      TZ: Asia/Kuala_Lumpur
+      TZ: Asia/Singapore
       POSTGRES_DB: cashier
       POSTGRES_USER: cashier
     volumes:
@@ -66,7 +66,7 @@ services:
     command: ["posix", "/data"]
     env_file: .env # ROOT_ACCESS_KEY_ID, ROOT_SECRET_ACCESS_KEY
     environment:
-      TZ: Asia/Kuala_Lumpur
+      TZ: Asia/Singapore
       VGW_PORT: ":7070"
       VGW_REGION: auto
       VGW_HEALTH: /health
