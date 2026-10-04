@@ -17,6 +17,7 @@ export interface StructuredRequest<T> {
   signal?: AbortSignal;
   maxAttempts?: number;
   timeoutMs?: number;
+  reasoningEffort?: "low" | "medium" | "high";
   /** One repair round when the reply is not valid JSON or fails the schema. Defaults to true. */
   repair?: boolean;
   /** Called once with the tokens the call spent, repair included, when the provider reported any. */
@@ -72,6 +73,7 @@ export async function generateStructured<T>(
     ...(rest.signal === undefined ? {} : { signal: rest.signal }),
     ...(rest.maxAttempts === undefined ? {} : { maxAttempts: rest.maxAttempts }),
     ...(rest.timeoutMs === undefined ? {} : { timeoutMs: rest.timeoutMs }),
+    ...(rest.reasoningEffort === undefined ? {} : { reasoningEffort: rest.reasoningEffort }),
   };
 
   const first = await transport.complete({

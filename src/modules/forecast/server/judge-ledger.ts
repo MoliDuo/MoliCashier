@@ -7,6 +7,7 @@ import {
   FORECAST_AI_INPUT_TEXT_CHARS,
   FORECAST_AI_MAX_ATTEMPTS,
   FORECAST_AI_MAX_TOKENS,
+  FORECAST_AI_REASONING_EFFORT,
   FORECAST_AI_REFRESH_MINUTES,
   FORECAST_AI_RETENTION_DAYS,
   FORECAST_AI_TIMEOUT_MS,
@@ -158,6 +159,7 @@ async function judge(input: {
     temperature: TEMPERATURE,
     timeoutMs: FORECAST_AI_TIMEOUT_MS,
     maxAttempts: FORECAST_AI_MAX_ATTEMPTS,
+    reasoningEffort: FORECAST_AI_REASONING_EFFORT,
   });
   const judgment = resolveJudgment(response, digest.refs, {
     earliest: digest.earliest ?? asOf,
