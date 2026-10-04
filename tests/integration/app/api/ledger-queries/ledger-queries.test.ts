@@ -76,6 +76,7 @@ describe("session ledger query transport", () => {
       "settings",
       "source-document-input",
       "convert-currency",
+      "forecast",
     ]) {
       const response = await POST(request(query, [{ unexpected: true }]));
       expect(response.status).toBe(400);

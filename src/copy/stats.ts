@@ -49,6 +49,9 @@ export const statsTabCopy = {
   previousSamePeriod: "上期同期",
   previousPeriod: "上期",
   forecastLine: "预计",
+  forecastRange: (v: { low: string | number; high: string | number }) => `${v.low}–${v.high}`,
+  forecastModelHint: (v: { low: string | number; high: string | number }) =>
+    `八成可能落在 ${v.low}–${v.high}`,
   forecastEnd: (v: { amount: string | number }) => `预计 ${v.amount}`,
   previousEnd: (v: { period: string | number; amount: string | number }) =>
     `${v.period} ${v.amount}`,
@@ -79,4 +82,18 @@ export const statsChartCopy = {
   expense: "支出",
   exceedsLimit: "（超出显示上限）",
   noData: "这个时间段暂无图表数据",
+};
+
+export const forecastCopy = {
+  title: "分类预测",
+  spent: (v: { amount: string | number }) => `已花 ${v.amount}`,
+  expected: (v: { amount: string | number }) => `预计 ${v.amount}`,
+  range: (v: { low: string | number; high: string | number }) => `八成在 ${v.low}–${v.high}`,
+  exceedPrevious: (v: {
+    period: string | number;
+    amount: string | number;
+    percent: string | number;
+  }) => `超过${v.period}（${v.amount}）的可能约 ${v.percent}%`,
+  basis: (v: { halfLife: string | number }) =>
+    `按每个分类过去的花钱节奏模拟剩下的日子；${v.halfLife} 天前的一天只算昨天的一半。`,
 };

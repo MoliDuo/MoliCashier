@@ -1,6 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fetchForecast } from "@/modules/forecast/queries";
+import type { ForecastDto } from "@/modules/forecast/contracts";
 import { fetchEnhancedStats } from "@/modules/stats/queries";
 import { StatsTab } from "@/modules/workspace/ui/StatsTab";
 import type { Ledger } from "@/modules/ledger/contracts";
@@ -20,6 +22,10 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/modules/stats/queries", () => ({
   fetchEnhancedStats: vi.fn(),
+}));
+
+vi.mock("@/modules/forecast/queries", () => ({
+  fetchForecast: vi.fn(),
 }));
 
 const ledgerFixture: Ledger = {
@@ -58,6 +64,70 @@ describe("StatsTab", () => {
         total: input.bookId === "book-1" ? "40" : input.bookId === "book-2" ? "80" : "120",
       },
     }));
+    vi.mocked(fetchForecast).mockResolvedValue(null);
+  });
+
+  it("shows the forecast made for the figures on screen, and only for a running period", async () => {
+    const running = {
+      ...statsFixture,
+      range: { from: "2026-08-01", to: "2026-08-24" },
+      periodEnd: "2026-08-31",
+    };
+    const forecast: ForecastDto = {
+      asOf: "2026-08-24",
+      periodEnd: "2026-08-31",
+      currency: "CNY",
+      historyFrom: "2026-01-01",
+      halfLifeDays: 30,
+      spent: "120",
+      total: { p10: "150.00", p50: "170.00", p90: "200.00" },
+      running: [],
+      categories: [
+        {
+          id: "food",
+          name: "餐饮",
+          icon: null,
+          spent: "120",
+          forecast: { p10: "150.00", p50: "170.00", p90: "200.00" },
+        },
+      ],
+      exceedPrevious: null,
+    };
+    vi.mocked(fetchEnhancedStats).mockResolvedValue(running);
+    vi.mocked(fetchForecast).mockResolvedValue(forecast);
+    renderStatsTab();
+
+    expect(await screen.findByRole("heading", { name: "分类预测" })).toBeInTheDocument();
+    expect(fetchForecast).toHaveBeenCalledWith({ period: { range: "month", offset: 0 } });
+    expect(screen.getByText("预计本期").nextElementSibling).toHaveTextContent("¥170.00");
+  });
+
+  it("does not show a forecast made for other days", async () => {
+    vi.mocked(fetchForecast).mockResolvedValue({
+      asOf: "2026-08-23",
+      periodEnd: "2026-08-31",
+      currency: "CNY",
+      historyFrom: "2026-01-01",
+      halfLifeDays: 30,
+      spent: "0",
+      total: { p10: "0", p50: "0", p90: "0" },
+      running: [],
+      categories: [
+        {
+          id: null,
+          name: null,
+          icon: null,
+          spent: "0",
+          forecast: { p10: "1", p50: "1", p90: "1" },
+        },
+      ],
+      exceedPrevious: null,
+    });
+    renderStatsTab();
+
+    await waitFor(() => expect(fetchForecast).toHaveBeenCalled());
+    await screen.findByText("¥120.00");
+    expect(screen.queryByRole("heading", { name: "分类预测" })).not.toBeInTheDocument();
   });
 
   it("charts the book the page picked", async () => {
@@ -120,6 +190,8 @@ describe("StatsTab", () => {
     await waitFor(() =>
       expect(fetchEnhancedStats).toHaveBeenCalledWith({ period: { range: "week", offset: -1 } })
     );
+    // A past week has nowhere left to head.
+    expect(fetchForecast).not.toHaveBeenCalled();
   });
 
   it("prints its own period and total in the phone's top bar, and folds the period bar there", async () => {

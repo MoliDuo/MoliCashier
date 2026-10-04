@@ -3,12 +3,15 @@ import { textRoleClassName } from "@/components/typography";
 import { formatCurrencyAmount } from "@/lib/format/currency";
 import { cn } from "@/lib/utils";
 import { AmountText } from "@/modules/currency/ui/amount-text";
+import type { ForecastRangeDto } from "@/modules/forecast/contracts";
 import type { StatsInsights } from "@/modules/stats/lib/derived-insights";
 import { DISPLAY_LOCALE } from "@/lib/constants";
 import { statsTabCopy } from "@/copy/stats";
 
 interface StatsMetricStripProps {
   insights: StatsInsights;
+  /** The simulated forecast; when present it replaces the typical-day projection in `insights`. */
+  forecast?: ForecastRangeDto | null;
   dailyAverage: string;
   currencySymbol: string;
 }
@@ -20,6 +23,7 @@ interface StatsMetricStripProps {
  */
 export function StatsMetricStrip({
   insights,
+  forecast = null,
   dailyAverage,
   currencySymbol,
 }: StatsMetricStripProps) {
@@ -40,15 +44,26 @@ export function StatsMetricStrip({
       label: statsTabCopy.entries,
       value: <AmountText variant="summary">{insights.entryCount}</AmountText>,
     },
-    ...(insights.forecast == null
-      ? []
-      : [
+    ...(forecast != null
+      ? [
           {
             label: statsTabCopy.forecast,
-            hint: statsTabCopy.forecastHint,
-            value: <AmountText variant="summary">{money(insights.forecast)}</AmountText>,
+            hint: statsTabCopy.forecastModelHint({
+              low: money(forecast.p10),
+              high: money(forecast.p90),
+            }),
+            value: <AmountText variant="summary">{money(forecast.p50)}</AmountText>,
           },
-        ]),
+        ]
+      : insights.forecast == null
+        ? []
+        : [
+            {
+              label: statsTabCopy.forecast,
+              hint: statsTabCopy.forecastHint,
+              value: <AmountText variant="summary">{money(insights.forecast)}</AmountText>,
+            },
+          ]),
   ];
 
   return (

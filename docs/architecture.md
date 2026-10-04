@@ -54,7 +54,7 @@ src/app/                  路由与 API handler：认证、校验、调用、映
   api/stored-files        带授权的图片上传（POST）和文件读取（GET）
   healthz                 容器健康检查，返回 {ok, version}（version 是构建的提交哈希）
   login、api/auth         登录说明页，以及 OIDC 登录与回调
-src/modules/<m>/          auth、currency、ledger、source-document、stats、workspace
+src/modules/<m>/          auth、currency、forecast、ledger、source-document、stats、workspace
   server-actions/         Zod 校验 + withLedgerAccess，然后直接调用 server/ 的函数；只用于命令
   queries.ts              本模块的类型化读取，建立在无类型的 postLedgerQuery 传输层之上
   server/                 drizzle 数据访问与事务（"server-only"）
@@ -347,9 +347,15 @@ UTC 18:00（ECB 已发布当天汇率）运行一次 `runDailyMaintenance`（`sr
   账目、明细和账单详情共用同一套选择呈现（`SelectionBar` 的全选框和计数，还有未加载的页时计数写成"已加载"；手机上全选和计数在顶栏，动作在操作栏），各自只提供自己有的批量动作；
   批量改日期的影响预览（`useBatchDatePreview`）和翻页去重（`uniquePagedItems`）也只有一份。
 - **统计的口径。** 总额、分类的"较上期"都和上期的同一段日子比（进行中的周期截到今天，上期截到同一天）；
-  图表和预测读上期的整期（`previousWholeTo`），所以累计图能画出上期最后花到哪里。预测只给进行中的周期：
-  已花加上剩余天数乘以典型日支出（每日支出的中位数，没记账的天算 0），一笔房租不会把它拉偏。
+  图表和预测读上期的整期（`previousWholeTo`），所以累计图能画出上期最后花到哪里。
   周期的完整终点（`periodEnd`）同样由服务端解析，浏览器不自己算。
+- **预测。** 只给进行中的自然周、月、年。它是独立的 `forecast` 读取（`src/modules/forecast`），不并进统计的
+  payload，统计先显示，预测随后到。服务端读两年内每天、每个分类换算成主币种后的花费，在纯函数里拟合每个分类
+  "这天花不花"（按星期）和"花的话花多少"（直接从花过钱的日子里抽），过去的日子按半衰期递减权重，不设固定窗口；
+  今天算已花，但不当作学习样本。再用固定种子把剩下的日子模拟一千遍，给出每个分类和总额的 P10 / P50 / P90、
+  每天的累计区间和超过上期整期的概率。种子由今天、分账和周期决定，同一天刷新得到同样的数字。
+  模型和结果都不落库，每次读取时现算。预测还没到或不可用时，摘要和累计图退回统计 payload 自带的
+  典型日推算：已花加上剩余天数乘以典型日支出（每日支出的中位数，没记账的天算 0），一笔房租不会把它拉偏。
 - **页面各管自己的加载和错误状态。** 统计在刷新期间保留上一次成功的数据和对应周期；同一代的账单列表刷新保留已加载的页。
   页面不等分类加载完：分类还没到时，行上的分类图标先用占位。
 - **账目（按账单）。** 显示处理中、失败和已完成的全部票据。服务端 keyset 分页按

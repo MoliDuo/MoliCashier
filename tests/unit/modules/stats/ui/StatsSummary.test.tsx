@@ -62,6 +62,19 @@ describe("StatsSummary", () => {
     expect(screen.getByText("预计本期").nextElementSibling).toHaveTextContent("¥900.00");
   });
 
+  it("shows the simulated forecast and its spread when there is one", () => {
+    render(
+      <StatsSummary
+        {...propsFor(augustWithOneBigDay())}
+        forecast={{ p10: "820.00", p50: "880.50", p90: "990.00" }}
+      />
+    );
+
+    const label = screen.getByText("预计本期");
+    expect(label.nextElementSibling).toHaveTextContent("¥880.50");
+    expect(label).toHaveAttribute("title", "八成可能落在 ¥820.00–¥990.00");
+  });
+
   it("does not forecast a period that is over", () => {
     const base = augustWithOneBigDay();
     const stats = {

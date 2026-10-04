@@ -68,6 +68,12 @@ export const queryKeys = {
     mainCurrency?: string | null | undefined;
   }) => ["ledger", "enhanced-stats", normalizeQueryParams(params)] as const,
   enhancedStatsPrefix: () => ["ledger", "enhanced-stats"] as const,
+  /** 统计's forecast, keyed like the statistics it is shown beside. */
+  forecast: (params?: {
+    bookId?: string | null | undefined;
+    period?: string | null | undefined;
+    mainCurrency?: string | null | undefined;
+  }) => ["ledger", "forecast", normalizeQueryParams(params)] as const,
 
   // === Currency ===
   convert: (amount: string, from: string, to: string, date: string) =>

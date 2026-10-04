@@ -86,6 +86,9 @@ describe("ledger tab query descriptors", () => {
     expect(descriptor.queryKey).toEqual(
       queryKeys.enhancedStats({ bookId: null, period: "week:-1", mainCurrency: "USD" })
     );
+    expect(descriptor.forecastQueryKey).toEqual(
+      queryKeys.forecast({ bookId: null, period: "week:-1", mainCurrency: "USD" })
+    );
   });
 
   it("omits amount filters the reader cleared from the stream requests", () => {

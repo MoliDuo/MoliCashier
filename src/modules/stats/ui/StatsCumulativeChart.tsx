@@ -18,6 +18,12 @@ interface StatsCumulativeChartProps {
   periodEnd: string;
   /** Where the period is heading, drawn from today to `periodEnd`; null draws nothing. */
   forecast: string | null;
+  /**
+   * The forecast's low, middle and high running total for each day after
+   * today. With it the chart draws the spread as a band and the middle as the
+   * line, ending at the last day's middle instead of `forecast`.
+   */
+  forecastBand?: readonly { p10: string; p50: string; p90: string }[] | null;
   /** The comparison period whole, and what it came to; null when there is nothing to compare. */
   previous: {
     data: { date: string; total: string }[];
@@ -59,6 +65,7 @@ export function StatsCumulativeChart({
   range,
   periodEnd,
   forecast,
+  forecastBand = null,
   previous,
   currencySymbol,
 }: StatsCumulativeChartProps) {
@@ -75,10 +82,29 @@ export function StatsCumulativeChart({
     () => (previous == null ? [] : runningTotals(previous.data, previous.from, previous.to)),
     [previous]
   );
-  const forecastValue = forecast == null ? null : Number(forecast);
   const today = current.length - 1;
+  // A band that does not cover exactly the days after today belongs to other
+  // figures (a refetch in flight) and is not drawn.
+  const band = useMemo(
+    () =>
+      forecastBand == null || forecastBand.length === 0 || forecastBand.length !== days - 1 - today
+        ? null
+        : forecastBand.map((day) => ({
+            p10: Number(day.p10),
+            p50: Number(day.p50),
+            p90: Number(day.p90),
+          })),
+    [days, forecastBand, today]
+  );
+  const forecastValue =
+    band != null ? band.at(-1)!.p50 : forecast == null ? null : Number(forecast);
 
-  const values = [...current, ...previousTotals, ...(forecastValue == null ? [] : [forecastValue])];
+  const values = [
+    ...current,
+    ...previousTotals,
+    ...(forecastValue == null ? [] : [forecastValue]),
+    ...(band == null ? [] : band.flatMap((day) => [day.p10, day.p90])),
+  ];
   const scale = niceScale(Math.max(0, ...values));
   const minValue = Math.min(0, ...values);
   const span = scale.max - minValue;
@@ -127,9 +153,13 @@ export function StatsCumulativeChart({
     );
   }
 
+  const bandEnd = band?.at(-1) ?? null;
   const summary = [
     `${statsTabCopy.thisPeriod} ${money(spent)}`,
     forecastEnd != null ? statsTabCopy.forecastEnd({ amount: money(forecastEnd) }) : null,
+    bandEnd != null
+      ? statsTabCopy.forecastRange({ low: money(bandEnd.p10), high: money(bandEnd.p90) })
+      : null,
     previous == null
       ? null
       : statsTabCopy.previousEnd({ period: previous.label, amount: money(previous.total) }),
@@ -141,9 +171,13 @@ export function StatsCumulativeChart({
       ? null
       : active <= today
         ? current[active]!
-        : forecastEnd != null
-          ? spent + ((forecastEnd - spent) * (active - today)) / (days - 1 - today)
-          : null;
+        : band != null
+          ? band[active - today - 1]!.p50
+          : forecastEnd != null
+            ? spent + ((forecastEnd - spent) * (active - today)) / (days - 1 - today)
+            : null;
+  const activeBand =
+    active == null || band == null || active <= today ? null : band[active - today - 1]!;
   const activePrevious = active == null ? null : previousAt(active);
   const activeLeft = active == null ? 0 : x(active, days);
 
@@ -162,6 +196,11 @@ export function StatsCumulativeChart({
             <span aria-hidden="true" className="w-4 border-t-2 border-dashed border-primary" />
             {statsTabCopy.forecastLine}
             <span className="font-medium tabular-nums text-text">{money(forecastEnd)}</span>
+            {bandEnd != null ? (
+              <span className="tabular-nums">
+                {statsTabCopy.forecastRange({ low: money(bandEnd.p10), high: money(bandEnd.p90) })}
+              </span>
+            ) : null}
           </li>
         ) : null}
         {previous != null ? (
@@ -220,7 +259,36 @@ export function StatsCumulativeChart({
               vectorEffect="non-scaling-stroke"
             />
           ) : null}
-          {forecastEnd != null ? (
+          {band != null ? (
+            <>
+              <polygon
+                points={[
+                  `${x(today, days)},${y(spent)}`,
+                  ...band.map((day, index) => `${x(today + 1 + index, days)},${y(day.p90)}`),
+                  ...band
+                    .map((day, index) => `${x(today + 1 + index, days)},${y(day.p10)}`)
+                    .reverse(),
+                ].join(" ")}
+                fill="currentColor"
+                className="text-primary"
+                opacity="0.12"
+              />
+              <polyline
+                points={[
+                  `${x(today, days)},${y(spent)}`,
+                  ...band.map((day, index) => `${x(today + 1 + index, days)},${y(day.p50)}`),
+                ].join(" ")}
+                fill="none"
+                stroke="currentColor"
+                className="text-primary"
+                strokeWidth="2"
+                strokeDasharray="5 4"
+                strokeLinejoin="round"
+                opacity="0.6"
+                vectorEffect="non-scaling-stroke"
+              />
+            </>
+          ) : forecastEnd != null ? (
             <polyline
               points={`${x(today, days)},${y(spent)} 100,${y(forecastEnd)}`}
               fill="none"
@@ -277,6 +345,14 @@ export function StatsCumulativeChart({
                 <div className="tabular-nums">
                   {active > today ? statsTabCopy.forecastLine : statsTabCopy.thisPeriod}{" "}
                   {money(activeCurrent.toFixed(2))}
+                </div>
+              ) : null}
+              {activeBand != null ? (
+                <div className="tabular-nums text-muted-foreground">
+                  {statsTabCopy.forecastRange({
+                    low: money(activeBand.p10.toFixed(2)),
+                    high: money(activeBand.p90.toFixed(2)),
+                  })}
                 </div>
               ) : null}
               {activePrevious != null && previous != null ? (
