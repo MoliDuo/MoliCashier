@@ -39,7 +39,6 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .nvmrc
-          cache: npm
       - name: Install dependencies
         run: npm ci
       - name: Run the full gate
@@ -104,7 +103,6 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version-file: .nvmrc
-          cache: npm
       - name: Install dependencies
         run: npm ci
       - name: Install the browser
