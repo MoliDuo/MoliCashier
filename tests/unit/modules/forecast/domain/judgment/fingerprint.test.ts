@@ -12,8 +12,7 @@ async function fingerprintUnder(version: number) {
     ...(await importOriginal<typeof import("@/config/tuning")>()),
     FORECAST_AI_JUDGMENT_VERSION: version,
   }));
-  const { historyFingerprint } = await import("@/modules/forecast/domain/judgment/fingerprint");
-  return historyFingerprint;
+  return import("@/modules/forecast/domain/judgment/fingerprint");
 }
 
 describe("historyFingerprint", () => {
@@ -23,7 +22,7 @@ describe("historyFingerprint", () => {
   });
 
   it("is the same whatever order the rows come in, and ignores rows after the day", async () => {
-    const fingerprint = await fingerprintUnder(1);
+    const { historyFingerprint: fingerprint } = await fingerprintUnder(1);
 
     expect(fingerprint([...rows].reverse(), "2026-10-02")).toBe(fingerprint(rows, "2026-10-02"));
     expect(fingerprint(rows, "2026-10-01")).toBe(fingerprint(rows.slice(0, 1), "2026-10-01"));
@@ -31,9 +30,14 @@ describe("historyFingerprint", () => {
   });
 
   it("changes with the judgment version, so a judgment made under an older prompt is redone", async () => {
-    const before = (await fingerprintUnder(1))(rows, "2026-10-02");
-    const after = (await fingerprintUnder(2))(rows, "2026-10-02");
+    const before = (await fingerprintUnder(1)).historyFingerprint(rows, "2026-10-02");
+    const { historyFingerprint, isCurrentJudgmentVersion } = await fingerprintUnder(2);
+    const after = historyFingerprint(rows, "2026-10-02");
 
     expect(after).not.toBe(before);
+    expect(isCurrentJudgmentVersion(after)).toBe(true);
+    expect(isCurrentJudgmentVersion(before)).toBe(false);
+    // Stored before the version led the fingerprint.
+    expect(isCurrentJudgmentVersion(after.slice(after.indexOf(":") + 1))).toBe(false);
   });
 });

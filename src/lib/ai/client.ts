@@ -19,6 +19,17 @@ export interface AiMessage {
 export interface AiUsage {
   promptTokens: number;
   completionTokens: number;
+  /** Of the prompt, what the provider served from its cache, when it says. */
+  cachedPromptTokens?: number;
+  /** Of the completion, what a reasoning model spent thinking, when it says. */
+  reasoningTokens?: number;
+}
+
+/** What OpenAI-compatible providers add to `usage`: DeepSeek its cache hits, OpenAI its details. */
+interface ProviderUsage {
+  prompt_cache_hit_tokens?: number;
+  prompt_tokens_details?: { cached_tokens?: number } | null;
+  completion_tokens_details?: { reasoning_tokens?: number } | null;
 }
 
 export interface CompleteRequest {
@@ -223,11 +234,17 @@ export class OpenAiTransport implements AiTransport {
           return { content };
         }
 
+        const extra = response.usage as ProviderUsage;
+        const cachedPromptTokens =
+          extra.prompt_cache_hit_tokens ?? extra.prompt_tokens_details?.cached_tokens;
+        const reasoningTokens = extra.completion_tokens_details?.reasoning_tokens;
         return {
           content,
           usage: {
             promptTokens: response.usage.prompt_tokens,
             completionTokens: response.usage.completion_tokens,
+            ...(cachedPromptTokens == null ? {} : { cachedPromptTokens }),
+            ...(reasoningTokens == null ? {} : { reasoningTokens }),
           },
         };
       } catch (error) {

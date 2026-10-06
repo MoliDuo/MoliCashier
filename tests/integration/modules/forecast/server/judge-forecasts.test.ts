@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { getTestDb } from "tests/setup";
 import { createTestBooks } from "tests/helpers/schema-setup";
 import { createLedgerData } from "tests/helpers/factories";
@@ -30,6 +30,15 @@ vi.mock("@/lib/storage/s3", () => ({ getS3Storage: () => new MemoryObjectStore()
 import { runDailyMaintenance } from "@/server/maintenance/daily";
 
 const THIS_MONTH = { range: "month", offset: 0 } as const;
+const REGISTRY_KEY = Symbol.for("cashier.forecast.judgments");
+
+/** Waits for any judgment a read started in the background. */
+async function settleJudgments(): Promise<void> {
+  const registry = (
+    globalThis as Record<symbol, { running: Map<string, Promise<void>> } | undefined>
+  )[REGISTRY_KEY];
+  await Promise.allSettled(registry?.running.values() ?? []);
+}
 
 function digestOf(request: CompleteRequest): string {
   const content = request.messages.at(-1)!.content;
@@ -80,7 +89,7 @@ describe("the AI analyst's nightly judgment", () => {
   ) => Promise<void>;
 
   beforeEach(async () => {
-    delete (globalThis as Record<symbol, unknown>)[Symbol.for("cashier.forecast.judgments")];
+    delete (globalThis as Record<symbol, unknown>)[REGISTRY_KEY];
     const db = getTestDb();
     await db.insert(ledgers).values(createLedgerData({ timeZone: "Asia/Shanghai" }));
     const books = await createTestBooks(db, ["共同支出"]);
@@ -125,7 +134,7 @@ describe("the AI analyst's nightly judgment", () => {
     setAiTransportForTests(null);
   });
 
-  it("judges today and the past twelve weeks, and the forecast is computed from it", async () => {
+  it("judges today and the Mondays of the past twelve weeks, and the forecast is computed from it", async () => {
     const outcomes = await runDailyMaintenance({ now: new Date() });
     expect(outcomes.forecast_judgments).toBe("done");
 
@@ -142,13 +151,15 @@ describe("the AI analyst's nightly judgment", () => {
       reasoningEffort: FORECAST_AI_REASONING_EFFORT,
     });
     expect(rows.at(-1)).toEqual({ asOf: "2026-10-10", backfilled: false });
-    expect(rows[0]).toEqual({ asOf: "2026-07-18", backfilled: true });
+    // The 10th is a Saturday; the backfill counts back from Monday the 5th.
+    expect(rows[0]).toEqual({ asOf: "2026-07-13", backfilled: true });
+    expect(rows.at(-2)).toEqual({ asOf: "2026-09-28", backfilled: true });
     // A past day is judged from only what was recorded by then.
     const july = transport.complete.mock.calls
       .map(([request]) => digestOf(request))
-      .find((digest) => digest.startsWith("Today: 2026-07-18."))!;
+      .find((digest) => digest.startsWith("Today: 2026-07-13."))!;
     expect(july).not.toContain("学费");
-    expect(july).not.toContain("2026-07-19");
+    expect(july).not.toContain("2026-07-14");
 
     const forecast = (await getPeriodForecast({ period: THIS_MONTH }, "Asia/Shanghai"))!;
 
@@ -177,8 +188,8 @@ describe("the AI analyst's nightly judgment", () => {
       dailyAfter: "30.00",
     });
     expect(forecast.largePurchaseFrom).toBeNull();
-    // Ten past days have had their fortnight; the two around the tuition missed it.
-    expect(forecast.judgment!.accuracy).toMatchObject({ origins: 10, horizonDays: 14 });
+    // Eleven past Mondays have had their fortnight; September 28th has not.
+    expect(forecast.judgment!.accuracy).toMatchObject({ origins: 11, horizonDays: 14 });
     expect(forecast.judgment!.accuracy!.error).toBeGreaterThan(0);
 
     // A second night has nothing new to judge.
@@ -187,21 +198,53 @@ describe("the AI analyst's nightly judgment", () => {
     expect(transport.complete.mock.calls.length).toBe(calls);
   });
 
-  it("judges again in the background once entries change and half an hour has passed", async () => {
+  it("judges once a day: the next night judges only that day, with nothing to backfill", async () => {
+    await runDailyMaintenance({ now: new Date() });
+    const calls = transport.complete.mock.calls.length;
+
+    // A restart the same day has nothing to judge either.
+    await runDailyMaintenance({ now: new Date() });
+    expect(transport.complete.mock.calls.length).toBe(calls);
+
+    vi.setSystemTime(new Date("2026-10-11T04:00:00Z"));
+    await runDailyMaintenance({ now: new Date() });
+    expect(transport.complete.mock.calls.length).toBe(calls + 1);
+    expect(digestOf(transport.complete.mock.calls.at(-1)![0])).toMatch(/^Today: 2026-10-11\./);
+  });
+
+  it("leaves the day's new entries to the next day's judgment", async () => {
     await runDailyMaintenance({ now: new Date() });
     const calls = transport.complete.mock.calls.length;
     await record("2026-10-10", "88", "food", "火锅");
 
-    // Too soon after the last judgment: the page uses it, with the new spending counted.
-    const soon = (await getPeriodForecast({ period: THIS_MONTH }, "Asia/Shanghai"))!;
-    expect(soon.spent).toBe("358");
-    expect(soon.judgment!.asOf).toBe("2026-10-10");
+    // Hours later the page still uses the morning's judgment, with the new spending counted.
+    vi.setSystemTime(new Date("2026-10-10T10:00:00Z"));
+    const later = (await getPeriodForecast({ period: THIS_MONTH }, "Asia/Shanghai"))!;
+    expect(later.spent).toBe("358");
+    expect(later.judgment!.asOf).toBe("2026-10-10");
+    await settleJudgments();
     expect(transport.complete.mock.calls.length).toBe(calls);
+
+    // The next day's first read judges again in the background, the new entry included.
+    vi.setSystemTime(new Date("2026-10-11T04:00:00Z"));
+    await getPeriodForecast({ period: THIS_MONTH }, "Asia/Shanghai");
+    await vi.waitFor(() => expect(transport.complete.mock.calls.length).toBe(calls + 1));
+    expect(digestOf(transport.complete.mock.calls.at(-1)![0])).toContain("火锅");
+  });
+
+  it("judges today again once the analyst's prompt has changed", async () => {
+    await runDailyMaintenance({ now: new Date() });
+    const calls = transport.complete.mock.calls.length;
+    // As stored before the version led the fingerprint.
+    await getTestDb()
+      .update(forecastJudgments)
+      .set({ inputFingerprint: "0123456789abcdef0123456789abcdef" })
+      .where(eq(forecastJudgments.asOf, "2026-10-10"));
 
     vi.setSystemTime(new Date("2026-10-10T04:31:00Z"));
     await getPeriodForecast({ period: THIS_MONTH }, "Asia/Shanghai");
     await vi.waitFor(() => expect(transport.complete.mock.calls.length).toBe(calls + 1));
-    expect(digestOf(transport.complete.mock.calls.at(-1)![0])).toContain("火锅");
+    expect(digestOf(transport.complete.mock.calls.at(-1)![0])).toMatch(/^Today: 2026-10-10\./);
   });
 
   it("falls back to the statistical model when the AI cannot be reached", async () => {

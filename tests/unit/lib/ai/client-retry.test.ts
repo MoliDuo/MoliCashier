@@ -123,6 +123,46 @@ describe("OpenAiTransport Retry Logic", () => {
     expect(Object.hasOwn(result, "usage")).toBe(false);
   });
 
+  it("reads DeepSeek's cache hits and a reasoning model's thinking from the usage", async () => {
+    mockCreate.mockResolvedValueOnce({
+      choices: [{ message: { content: "Success" } }],
+      usage: {
+        prompt_tokens: 1000,
+        completion_tokens: 300,
+        prompt_cache_hit_tokens: 640,
+        completion_tokens_details: { reasoning_tokens: 200 },
+      },
+    });
+
+    const result = await client.complete(baseRequest);
+
+    expect(result.usage).toEqual({
+      promptTokens: 1000,
+      completionTokens: 300,
+      cachedPromptTokens: 640,
+      reasoningTokens: 200,
+    });
+  });
+
+  it("reads OpenAI's cached tokens, and leaves out what the provider does not say", async () => {
+    mockCreate.mockResolvedValueOnce({
+      choices: [{ message: { content: "Success" } }],
+      usage: {
+        prompt_tokens: 1000,
+        completion_tokens: 300,
+        prompt_tokens_details: { cached_tokens: 512 },
+      },
+    });
+
+    const result = await client.complete(baseRequest);
+
+    expect(result.usage).toEqual({
+      promptTokens: 1000,
+      completionTokens: 300,
+      cachedPromptTokens: 512,
+    });
+  });
+
   it("sends the configured model with the caller's output budget", async () => {
     mockCreate.mockResolvedValueOnce({
       choices: [{ message: { content: "Success" } }],

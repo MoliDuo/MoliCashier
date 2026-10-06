@@ -116,15 +116,15 @@ export const FORECAST_AI_INPUT_TEXT_CHARS = 160;
 /** How far ahead the AI lists what it expects to come. */
 export const FORECAST_AI_EXPECTED_DAYS = 90;
 /**
- * Part of what a judgment is stored against. Raise it whenever the analyst's prompt or what it is asked for
- * changes, so today's judgment, made the old way, is redone on the next read or night instead of tomorrow.
+ * Leads the fingerprint a judgment is stored with. Raise it whenever the analyst's prompt or what it is asked
+ * for changes, so today's judgment, made the old way, is redone on the next read or night instead of tomorrow.
  */
 export const FORECAST_AI_JUDGMENT_VERSION = 2;
-/** A judgment is not asked again sooner than this after the last attempt, new entries or not. */
+/** A scope still without today's judgment, say after a failure, is not asked again sooner than this after the last attempt. */
 export const FORECAST_AI_REFRESH_MINUTES = 30;
 /** A judgment older than this many days is not used for the page's forecast. */
 export const FORECAST_AI_MAX_AGE_DAYS = 2;
-/** The past days judged once the AI analyst starts: this many, a week apart, so its record is known from the first day. */
+/** The past Mondays judged once the AI analyst starts, so its record is known from the first day. */
 export const FORECAST_AI_BACKFILL_WEEKS = 12;
 /** How far ahead a past judgment is scored against what was then spent. */
 export const FORECAST_AI_ACCURACY_HORIZON_DAYS = 14;
