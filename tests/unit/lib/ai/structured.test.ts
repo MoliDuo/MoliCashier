@@ -127,6 +127,32 @@ describe("generateStructured", () => {
     expect(onUsage).toHaveBeenCalledWith({ promptTokens: 30, completionTokens: 12 });
   });
 
+  it("sums cache hits and reasoning across the repair when either reply has them", async () => {
+    const onUsage = vi.fn();
+    const transport = fakeAiTransport((request) =>
+      request.system === base.system
+        ? {
+            content: "nope",
+            usage: {
+              promptTokens: 10,
+              completionTokens: 5,
+              cachedPromptTokens: 4,
+              reasoningTokens: 3,
+            },
+          }
+        : { content: '{"name":"a","count":1}', usage: { promptTokens: 20, completionTokens: 7 } }
+    );
+
+    await generateStructured({ ...base, onUsage }, transport);
+
+    expect(onUsage).toHaveBeenCalledWith({
+      promptTokens: 30,
+      completionTokens: 12,
+      cachedPromptTokens: 4,
+      reasoningTokens: 3,
+    });
+  });
+
   it("does not report usage when the provider gave none", async () => {
     const onUsage = vi.fn();
     const transport = fakeAiTransport(() => '{"name":"a","count":1}');

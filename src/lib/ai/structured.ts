@@ -49,9 +49,13 @@ function validate<T>(schema: z.ZodType<T>, content: string): Attempt<T> {
 function addUsage(total: AiUsage | undefined, next: AiUsage | undefined): AiUsage | undefined {
   if (next == null) return total;
   if (total == null) return { ...next };
+  const sum = (key: "cachedPromptTokens" | "reasoningTokens") =>
+    total[key] == null && next[key] == null ? {} : { [key]: (total[key] ?? 0) + (next[key] ?? 0) };
   return {
     promptTokens: total.promptTokens + next.promptTokens,
     completionTokens: total.completionTokens + next.completionTokens,
+    ...sum("cachedPromptTokens"),
+    ...sum("reasoningTokens"),
   };
 }
 
@@ -101,7 +105,8 @@ export async function generateStructured<T>(
   }
 
   if (usage != null) onUsage?.(usage);
-  logger.debug(
+  // At info, so what each call spends shows in production. Counts only, never content.
+  logger.info(
     {
       correlationId,
       task,

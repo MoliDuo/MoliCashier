@@ -38,7 +38,10 @@ import {
   resolveJudgment,
   type Judgment,
 } from "@/modules/forecast/domain/judgment/schema";
-import { historyFingerprint } from "@/modules/forecast/domain/judgment/fingerprint";
+import {
+  historyFingerprint,
+  isCurrentJudgmentVersion,
+} from "@/modules/forecast/domain/judgment/fingerprint";
 import { seedOf } from "@/modules/forecast/domain/random";
 import type { HistoryRow } from "@/modules/forecast/domain/series";
 import { addCivilDays, calendarRangeOf } from "@/modules/ledger/domain/period";
@@ -195,23 +198,20 @@ function judgeOnce(scope: string, run: () => Promise<void>): Promise<void> {
   return promise;
 }
 
-/** Whether `latest` no longer stands for the history: none, of another day, or read before entries changed. */
-function isStale(
-  latest: StoredJudgment | null,
-  rows: readonly HistoryRow[],
-  today: string
-): boolean {
+/**
+ * Whether today still lacks a judgment: none, one of another day, or one made under an older prompt.
+ * Entries recorded since do not count; each judgment reads the whole ledger and costs real money, so
+ * a scope is judged once a day and the day's new entries wait for the next one.
+ */
+function isStale(latest: StoredJudgment | null, today: string): boolean {
   return (
-    latest == null ||
-    latest.asOf !== today ||
-    latest.inputFingerprint !== historyFingerprint(rows, today)
+    latest == null || latest.asOf !== today || !isCurrentJudgmentVersion(latest.inputFingerprint)
   );
 }
 
 /**
- * Starts a fresh judgment of `scope` in the background when the latest no
- * longer stands for the history and none was asked for in the last half
- * hour — so a burst of new entries is judged once, and a failing provider is
+ * Starts today's judgment of `scope` in the background when there is none
+ * yet and none was asked for in the last half hour, so a failing provider is
  * not asked on every read. The read goes on with what it has.
  */
 export function refreshJudgmentInBackground(input: {
@@ -222,8 +222,8 @@ export function refreshJudgmentInBackground(input: {
   latest: StoredJudgment | null;
   language: string | undefined;
 }): void {
-  const { scope, history, today, latest } = input;
-  if (!isStale(latest, history.rows, today)) return;
+  const { scope, today, latest } = input;
+  if (!isStale(latest, today)) return;
   const last = Math.max(registry().attemptedAt.get(scope) ?? 0, latest?.createdAt.getTime() ?? 0);
   if (Date.now() - last < FORECAST_AI_REFRESH_MINUTES * MINUTE_MS) return;
   judgeOnce(scope, async () => {
@@ -304,10 +304,12 @@ function scoreScope(scope: string, rows: readonly HistoryRow[], today: string): 
 }
 
 /**
- * The nightly judgment of every book together: today's, unless one already
- * stands for today's history; then the past days a week apart over the last
- * twelve weeks that were never judged, each from only what was recorded by
- * then, so the AI's record can be scored from the first day; then the score.
+ * The nightly judgment of every book together: today's, unless today already
+ * has one; then the Mondays of the last twelve weeks that were never judged,
+ * each from only what was recorded by then, so the AI's record can be scored
+ * from the first day; then the score. Mondays, not the days a whole number of
+ * weeks before today, so the set moves only once a week and its new day was
+ * judged when it was today: after the first night nothing is left to backfill.
  * A failure stops the run and fails the step; what was judged by then is kept.
  */
 export async function judgeForecasts(): Promise<void> {
@@ -328,11 +330,12 @@ export async function judgeForecasts(): Promise<void> {
 
   await judgeOnce(scope, async () => {
     const [latest] = await judgmentsSince(scope, today);
-    if (isStale(latest ?? null, history.rows, today)) {
+    if (isStale(latest ?? null, today)) {
       await judge({ ...base, asOf: today, backfilled: false });
     }
+    const monday = calendarRangeOf("week", today).from;
     const pastDays = Array.from({ length: FORECAST_AI_BACKFILL_WEEKS }, (_, index) =>
-      addCivilDays(today, -7 * (index + 1))
+      addCivilDays(monday, -7 * (index + 1))
     ).filter((day) => day > addCivilDays(earliest, FORECAST_MIN_HISTORY_DAYS));
     const judged = await judgedDays(scope, pastDays);
     for (const day of pastDays.filter((candidate) => !judged.has(candidate)).reverse()) {
