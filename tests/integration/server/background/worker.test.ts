@@ -96,6 +96,58 @@ describe("background worker", () => {
     await vi.waitFor(async () => expect((await findAttempt(attemptId))?.status).toBe("failed"));
   });
 
+  it("runs the attempts that are due side by side", async () => {
+    await pendingAttempt();
+    await pendingAttempt();
+    await pendingAttempt();
+    const allStarted = Promise.withResolvers<void>();
+    let started = 0;
+    let waitedAlone = false;
+    setAiTransportForTests(
+      fakeAiTransport(async () => {
+        started += 1;
+        if (started === 3) allStarted.resolve();
+        // One at a time, the first attempt would wait here for the other two in vain.
+        await Promise.race([
+          allStarted.promise,
+          new Promise((resolve) => setTimeout(resolve, 2_000)).then(() => {
+            waitedAlone = true;
+          }),
+        ]);
+        return "not json";
+      })
+    );
+
+    await expect(worker().drain()).resolves.toBe(3);
+    expect(waitedAlone).toBe(false);
+  });
+
+  it("starts a newly submitted attempt while an earlier one is still running", async () => {
+    const slowId = await pendingAttempt();
+    const slowStarted = Promise.withResolvers<void>();
+    let calls = 0;
+    setAiTransportForTests(
+      fakeAiTransport(({ signal }) => {
+        calls += 1;
+        if (calls > 1) return "not json";
+        slowStarted.resolve();
+        return new Promise((_resolve, reject) => {
+          signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+        });
+      })
+    );
+    const running = worker();
+    running.start();
+    requestBackgroundWork();
+    await slowStarted.promise;
+
+    const quickId = await pendingAttempt();
+    requestBackgroundWork();
+
+    await vi.waitFor(async () => expect((await findAttempt(quickId))?.status).toBe("failed"));
+    expect((await findAttempt(slowId))?.status).toBe("processing");
+  });
+
   it("hands the attempt back uncounted when stopped mid-run", async () => {
     const attemptId = await pendingAttempt();
     const started = hangingModel();

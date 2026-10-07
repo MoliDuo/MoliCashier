@@ -57,8 +57,8 @@ export const SOURCE_DOC_STALE_TIME_MS = 120_000;
 /** How long a signed-in session survives without being renewed. */
 export const SESSION_MAX_AGE_DAYS = 14;
 
-/** How many due extraction attempts the worker looks at per pass. */
-export const PROCESSING_BATCH_SIZE = 5;
+/** How many due extraction attempts the worker starts per look; each runs alongside the others. */
+export const PROCESSING_BATCH_SIZE = 50;
 
 /** How far back a parse looks for entries the new evidence may repeat. */
 export const RECENT_ENTRIES_WINDOW_DAYS = 14;
