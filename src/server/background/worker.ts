@@ -27,31 +27,42 @@ export interface BackgroundWorker {
 const MAX_DRAIN_PASSES = 1000;
 const ABORT_SETTLE_MS = 5_000;
 
+/** One piece of claimed work: `key` names it so a lane does not start it twice, `done` says whether it ran. */
+interface Unit {
+  key: string;
+  done: Promise<boolean>;
+}
+
 interface Lane {
   name: string;
-  /** Runs the due work this lane can claim right now; returns how many units ran. */
-  runUnits(shutdown: AbortSignal): Promise<number>;
+  /**
+   * When true the lane keeps looking for new work while what it started runs, so each unit runs
+   * alongside the others; when false it waits for its units to finish before it looks again.
+   */
+  overlaps: boolean;
+  /** Starts the due work this lane can claim right now, leaving out the keys in `running`. */
+  startUnits(shutdown: AbortSignal, running: ReadonlySet<string>): Promise<Unit[]>;
 }
 
 const processingLane: Lane = {
   name: "processing",
-  async runUnits(shutdown) {
+  overlaps: true,
+  async startUnits(shutdown, running) {
     // An attempt is its own queue entry; claiming it is a compare-and-swap, so losing the race to a
     // second process is harmless.
     const due = await recoverProcessingJobs(PROCESSING_BATCH_SIZE);
-    let ran = 0;
-    for (const job of due) {
-      if (shutdown.aborted) break;
-      if (await executeProcessingJob(job, { shutdown })) ran += 1;
-    }
-    return ran;
+    if (shutdown.aborted) return [];
+    return due
+      .filter((job) => !running.has(job.attemptId))
+      .map((job) => ({ key: job.attemptId, done: executeProcessingJob(job, { shutdown }) }));
   },
 };
 
 const categoryLane: Lane = {
   name: "category",
-  async runUnits(shutdown) {
-    return (await runNextCategoryAssignmentJob(shutdown)) ? 1 : 0;
+  overlaps: false,
+  async startUnits(shutdown) {
+    return [{ key: "category", done: runNextCategoryAssignmentJob(shutdown) }];
   },
 };
 
@@ -66,8 +77,8 @@ function delay(ms: number): { promise: Promise<void>; cancel(): void } {
 
 /**
  * Claims due work and runs it to completion, one lane for extraction and one for batch category
- * assignment, so a category job waiting out a retry never holds up extraction. Within a lane work runs
- * one unit at a time, which is also how the AI client already serializes requests.
+ * assignment, so a category job waiting out a retry never holds up extraction. Extraction attempts run
+ * side by side, each from the moment it is due; category jobs run one at a time.
  */
 export function createBackgroundWorker(options: BackgroundWorkerOptions = {}): BackgroundWorker {
   const pollIntervalMs = options.pollIntervalMs ?? BACKGROUND_POLL_INTERVAL_MS;
@@ -103,17 +114,35 @@ export function createBackgroundWorker(options: BackgroundWorkerOptions = {}): B
       pending = false;
     };
 
+    const inFlight = new Map<string, Promise<boolean>>();
+
+    const track = (unit: Unit): Promise<boolean> => {
+      const done = unit.done
+        .catch((error: unknown) => {
+          logger.error({ error, lane: lane.name }, "Background lane failed");
+          return false;
+        })
+        .finally(() => inFlight.delete(unit.key));
+      inFlight.set(unit.key, done);
+      return done;
+    };
+
     const done = (async () => {
       while (!stopping) {
         let ran = 0;
         try {
-          ran = await lane.runUnits(shutdown.signal);
+          const units = await lane.startUnits(shutdown.signal, new Set(inFlight.keys()));
+          const tracked = units.map(track);
+          ran = lane.overlaps
+            ? tracked.length
+            : (await Promise.all(tracked)).filter(Boolean).length;
         } catch (error) {
           logger.error({ error, lane: lane.name }, "Background lane failed");
         }
         if (stopping) break;
         if (ran === 0) await sleep();
       }
+      await Promise.all(inFlight.values());
     })();
 
     return { wake, done };
@@ -121,7 +150,10 @@ export function createBackgroundWorker(options: BackgroundWorkerOptions = {}): B
 
   async function runOnce(): Promise<number> {
     let ran = 0;
-    for (const lane of lanes) ran += await lane.runUnits(shutdown.signal);
+    for (const lane of lanes) {
+      const units = await lane.startUnits(shutdown.signal, new Set());
+      ran += (await Promise.all(units.map((unit) => unit.done))).filter(Boolean).length;
+    }
     return ran;
   }
 

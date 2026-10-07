@@ -122,7 +122,7 @@ describe("ai client", () => {
       ).toBeGreaterThan(119_000);
     });
 
-    it("serializes requests and cancels a queued request without opening another slot", async () => {
+    it("sends requests side by side and never sends one that was cancelled first", async () => {
       const client = await loadClient();
       let finish!: (value: unknown) => void;
       const response = { choices: [{ message: { content: "ok" } }] };
@@ -141,22 +141,16 @@ describe("ai client", () => {
       const first = client.complete({ ...base, system: "first", messages: [] });
       await vi.waitFor(() => expect(create).toHaveBeenCalledTimes(1));
       const abort = new AbortController();
-      const cancelled = client.complete({
-        ...base,
-        system: "cancelled",
-        messages: [],
-        signal: abort.signal,
-      });
-      const rejection = expect(cancelled).rejects.toMatchObject({ code: "REQUEST_ABORTED" });
       abort.abort();
-      await rejection;
-      const third = client.complete({ ...base, system: "third", messages: [] });
-      await Promise.resolve();
-      expect(create).toHaveBeenCalledTimes(1);
+      await expect(
+        client.complete({ ...base, system: "cancelled", messages: [], signal: abort.signal })
+      ).rejects.toMatchObject({ code: "REQUEST_ABORTED" });
+      await expect(
+        client.complete({ ...base, system: "second", messages: [] })
+      ).resolves.toMatchObject({ content: "ok" });
+      expect(create).toHaveBeenCalledTimes(2);
       finish(response);
       await expect(first).resolves.toMatchObject({ content: "ok" });
-      await expect(third).resolves.toMatchObject({ content: "ok" });
-      expect(create).toHaveBeenCalledTimes(2);
     });
 
     it("delays the next caller until the provider cooldown expires", async () => {

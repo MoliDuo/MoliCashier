@@ -212,8 +212,9 @@ src/copy/                 全部界面文案，按界面区域分文件
 - **一个进程内的 worker，没有外部队列。** 队列就是数据库行（`extraction_attempts`、
   `category_assignment_jobs`）。进程启动时（`src/instrumentation.ts`，只在 Node 运行时）启动
   `src/server/background/` 里的 worker 和调度器；测试环境不启动，测试直接调用 `drainBackground()`。
-- **Worker 有提取和分类两条独立的 lane。** 每条 lane 认领一个到期的工作、跑到完成、再认领下一个，认领不到就
-  等待。提交事务写完持久记录后调用 `requestBackgroundWork()` 唤醒它（进程内信号，挂在 `globalThis` 上）；
+- **Worker 有提取和分类两条独立的 lane。** 提取 lane 每次醒来取出到期的尝试，跳过本进程已在运行的，其余各自
+  启动、并发运行，不设上限，也不等前面的跑完才看新的；分类 lane 认领一个 job、跑到完成、再认领下一个。认领不到
+  就等待。提交事务写完持久记录后调用 `requestBackgroundWork()` 唤醒它（进程内信号，挂在 `globalThis` 上）；
   另有 5 秒的轮询兜底，用来接住重试退避到期的工作、崩溃后租约过期的工作，以及另一个实例写入的工作。
   不再有 `after()`，也不再靠客户端轮询来恢复中断的任务。
 - **租约。** 只有提取和分类两个流程需要租约，共用 `src/lib/db/lease.ts`，只认数据库时钟：
@@ -238,9 +239,9 @@ src/copy/                 全部界面文案，按界面区域分文件
 - 重试创建请求要复用同一个 `Idempotency-Key`。key 存在它创建的票据上，按账本和发送方限定，永久有效：
   重复请求直接返回那张票据，内容不同返回 `409`，并发的重复请求在账本锁上等第一个提交。
 - AI 的文本、图片和 JSON 修复请求都用配置的单一模型。AI 调用分两层，都在 `src/lib/ai/`，别处不直接依赖
-  `openai`：传输层（`client.ts`，`AiTransport.complete`）在进程内串行化请求、遵守 Retry-After、退避重试，并把
-  服务商错误统一成 `ai_rate_limited`、`ai_provider_unavailable`、`ai_timeout`、`ai_configuration_invalid`；
-  结构化输出层（`structured.ts`，`generateStructured`）取 JSON、用 Zod 校验，回复不是合法 JSON 或不符合
+  `openai`：传输层（`client.ts`，`AiTransport.complete`）让请求并发发出，遇到 429 时按 Retry-After 让
+  之后发出的所有请求一起等待，退避重试，并把服务商错误统一成 `ai_rate_limited`、`ai_provider_unavailable`、
+  `ai_timeout`、`ai_configuration_invalid`；结构化输出层（`structured.ts`，`generateStructured`）取 JSON、用 Zod 校验，回复不是合法 JSON 或不符合
   schema 时做一轮修复，仍失败就抛 `ai_schema_invalid`。解析、批量分类、分类图标和描述都只通过
   `generateStructured` 调用模型，参数（token 上限、温度、超时、尝试次数）由各调用方自己定。这不是跨实例的服务商配额。
 

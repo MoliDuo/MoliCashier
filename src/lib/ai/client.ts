@@ -80,34 +80,21 @@ function isSdkError<T extends Error>(
 
 export class OpenAiTransport implements AiTransport {
   private client: OpenAI;
-  private requestTail: Promise<void> = Promise.resolve();
   private cooldownUntil = 0;
 
-  private async withRequestSlot<T>(
+  /**
+   * Sends once any provider cooldown is over. Requests run side by side; a 429 with Retry-After holds
+   * back every request sent after it, so running in parallel does not keep hitting the limit.
+   */
+  private async afterCooldown<T>(
     signal: AbortSignal | undefined,
     run: () => Promise<T>
   ): Promise<T> {
-    const previous = this.requestTail;
-    let release!: () => void;
-    const held = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    this.requestTail = previous.then(() => held);
-    let abort: (() => void) | undefined;
-    try {
-      await new Promise<void>((resolve, reject) => {
-        abort = () => reject(new AppError("Request was aborted", "REQUEST_ABORTED"));
-        signal?.addEventListener("abort", abort, { once: true });
-        if (signal?.aborted) abort();
-        previous.then(resolve, reject);
-      });
-      signal?.throwIfAborted();
+    for (;;) {
+      if (signal?.aborted) throw new AppError("Request was aborted", "REQUEST_ABORTED");
       const waitMs = this.cooldownUntil - Date.now();
-      if (waitMs > 0) await delay(waitMs, undefined, { signal });
-      return await run();
-    } finally {
-      if (abort != null) signal?.removeEventListener("abort", abort);
-      release();
+      if (waitMs <= 0) return await run();
+      await delay(waitMs, undefined, { signal }).catch(() => undefined);
     }
   }
 
@@ -180,7 +167,7 @@ export class OpenAiTransport implements AiTransport {
             : { reasoning_effort: request.reasoningEffort }),
         };
         const requestOptions = { ...(signal !== undefined ? { signal } : {}), timeout: timeoutMs };
-        const response = await this.withRequestSlot(signal, async () => {
+        const response = await this.afterCooldown(signal, async () => {
           try {
             return await this.client.chat.completions.create(body, requestOptions);
           } catch (error) {
