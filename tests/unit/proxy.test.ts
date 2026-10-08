@@ -9,18 +9,18 @@ function createRequest(path: string, sessionToken?: string, origin = "http://loc
   return new NextRequest(new URL(path, origin), { headers });
 }
 
+// Which paths reach the proxy at all is the matcher's business, tested in
+// tests/unit/repo/body-limit.test.ts.
 describe("proxy", () => {
   describe("public routes", () => {
     it("lets public pages through without a session", () => {
-      for (const path of ["/login", "/s/some-share-id"]) {
+      for (const path of ["/login", "/s/some-share-id", "/auth/callback"]) {
         expect(proxy(createRequest(path)).status).toBe(200);
       }
     });
 
-    it("lets the sign-in routes through without a session, since that is how one starts", () => {
-      for (const path of ["/api/auth/login", "/auth/callback"]) {
-        expect(proxy(createRequest(path)).status).toBe(200);
-      }
+    it("answers the health check without a session", () => {
+      expect(proxy(createRequest("/healthz")).status).toBe(200);
     });
   });
 
@@ -42,38 +42,5 @@ describe("proxy", () => {
     it("sets no cookie for a browser that has none", () => {
       expect(proxy(createRequest("/")).cookies.get(SESSION_COOKIE_NAME)).toBeUndefined();
     });
-  });
-
-  describe("API routes", () => {
-    it("returns 401 without a session cookie", async () => {
-      const res = proxy(createRequest("/api/protected"));
-
-      expect(res.status).toBe(401);
-      expect(await res.json()).toEqual({ error: "Unauthorized" });
-    });
-
-    it("lets a request with a session cookie through for the route to check", () => {
-      expect(proxy(createRequest("/api/protected", "token")).status).toBe(200);
-    });
-
-    it("leaves API v1 to authenticate itself", () => {
-      expect(proxy(createRequest("/api/v1/documents")).status).toBe(200);
-    });
-
-    it("answers the health check without a session", () => {
-      expect(proxy(createRequest("/healthz")).status).toBe(200);
-    });
-
-    it("does not treat the retired cron route as public", () => {
-      expect(proxy(createRequest("/api/cron/daily")).status).toBe(401);
-    });
-
-    it("does not let a dot bypass API authentication", () => {
-      expect(proxy(createRequest("/api/private/file.json")).status).toBe(401);
-    });
-  });
-
-  it("skips _next paths", () => {
-    expect(proxy(createRequest("/_next/static/chunk.js")).status).toBe(200);
   });
 });

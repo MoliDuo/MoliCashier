@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { AppError, NotFoundError } from "@/lib/errors";
+import { AppError, NotFoundError, ValidationError } from "@/lib/errors";
 import { logError } from "@/lib/error-handlers";
+import { readBoundedBody } from "@/lib/http/bounded-body";
 import { omitUndefinedProperties, UUID_REGEX } from "@/lib/validation";
+import { requireAuth } from "@/modules/auth/server/session-guards";
 import { requireLedgerAccess } from "@/modules/ledger/access";
 import { getSourceDocumentDetailAction } from "@/modules/source-document/server/get-document-detail";
 import { listStreamPage } from "@/modules/source-document/server/list-stream-page";
@@ -73,6 +75,21 @@ const statsScopeSchema = z.looseObject({
 /** The reads that take no input: the ledger itself is resolved from the session. */
 const noArgumentsSchema = z.array(z.unknown()).length(0);
 
+/** A query envelope is a name and a small input; the server-action limit is ample. */
+const MAX_BODY_BYTES = 1024 * 1024;
+
+async function readEnvelope(request: Request): Promise<unknown> {
+  const body = await readBoundedBody(request, MAX_BODY_BYTES);
+  if (body == null) throw new ValidationError("Request body is empty");
+  let text: string;
+  try {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(body.bytes);
+  } catch {
+    throw new ValidationError("Request body is not UTF-8");
+  }
+  return JSON.parse(text) as unknown;
+}
+
 export async function POST(request: Request) {
   const headers = { "Cache-Control": "private, no-store" };
   if (request.headers.get("sec-fetch-site") === "cross-site") {
@@ -80,7 +97,10 @@ export async function POST(request: Request) {
   }
   let queryName: string | undefined;
   try {
-    const payload = requestSchema.parse(await request.json());
+    // Who is asking is settled before the body is read, so a request without a
+    // session is turned away without its body ever being buffered.
+    await requireAuth();
+    const payload = requestSchema.parse(await readEnvelope(request));
     queryName = payload.query;
     const input = payload.args[0];
     let result: unknown;
