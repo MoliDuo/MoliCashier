@@ -88,7 +88,10 @@
 
 每个测试 worker 安装 MSW 网络守卫。共享的确定性 handler 覆盖后台 OpenAI 的失败路径和 Frankfurter 汇率
 fixture；测试可以另加针对用例的 handler。其他任何未处理的 HTTP 请求都会让测试失败，即使应用代码捕获了
-这个错误。诊断信息只含 `TEST_UNEXPECTED_HTTP`、方法和 origin，不含路径、查询参数、凭证和请求体。
+这个错误。诊断信息只含 `TEST_UNEXPECTED_HTTP`、方法和 origin，不含路径、查询参数、凭证和请求体；未处理的
+WebSocket 等其他连接同样失败。MSW 在 socket 层拦截，数据库连接也先经过它，确认不是 HTTP 后在下一次
+`setImmediate` 交还真实连接，所以碰数据库的测试用假计时器时不要假 `setImmediate`（只假 `setTimeout`、
+`setInterval` 或 `Date`），否则新连接会一直挂起。
 
 ### 后台工作
 
