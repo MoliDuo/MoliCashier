@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -346,8 +347,10 @@ export function useLedgerEntriesTab({
   });
   const retryMutationRef = useRef(retryMutation.mutateAsync);
   const cancelMutationRef = useRef(cancelMutation.mutateAsync);
-  retryMutationRef.current = retryMutation.mutateAsync;
-  cancelMutationRef.current = cancelMutation.mutateAsync;
+  useLayoutEffect(() => {
+    retryMutationRef.current = retryMutation.mutateAsync;
+    cancelMutationRef.current = cancelMutation.mutateAsync;
+  });
 
   const runRecovery = useCallback(
     async (

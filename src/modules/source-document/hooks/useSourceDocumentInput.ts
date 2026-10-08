@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type SetStateAction } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type SetStateAction } from "react";
 import type { ChangeEvent, ClipboardEvent } from "react";
 import { toast } from "sonner";
 import { useIsTouchInput } from "@/hooks/use-is-touch-input";
@@ -410,8 +410,10 @@ export function useSourceDocumentInput(props: SourceDocumentInputProps) {
   const mountedRef = useRef(true);
   const compressionAbortRef = useRef<AbortController | null>(null);
   const [pendingFileCount, setPendingFileCount] = useState(0);
-  const imageCountRef = useRef(0);
-  imageCountRef.current = images.length;
+  const imageCountRef = useRef(images.length);
+  useLayoutEffect(() => {
+    imageCountRef.current = images.length;
+  }, [images.length]);
   useEffect(() => {
     const compressionAbort = new AbortController();
     compressionAbortRef.current = compressionAbort;
