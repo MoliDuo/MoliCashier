@@ -31,6 +31,12 @@ const nextConfig: NextConfig = {
     unoptimized: true, // Disable Next.js image optimization - images are pre-processed on upload
     remotePatterns,
   },
+  // 账目 is the app's front page. Redirecting here answers `/` with a plain 307 before anything
+  // renders; a redirect() inside the page came after the streamed shell had started, so the
+  // browser had to follow it with a second, client-side navigation.
+  async redirects() {
+    return [{ source: "/", destination: "/records", permanent: false }];
+  },
   async headers() {
     return [
       {
