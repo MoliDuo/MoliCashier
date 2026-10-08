@@ -7,7 +7,7 @@
 import { cn } from "@/lib/utils";
 import { getHeatmapColor, formatCellAmount } from "../../lib/heatmap-colors";
 import { formatRelativeDateLabel } from "@/lib/date-utils";
-import { useLedgerTimeZone } from "@/lib/ledger-time-zone";
+import { useLedgerTimeZone } from "@/components/providers/ledger-time-zone";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { HeatmapLevel } from "../../types";
 import { compare } from "@/lib/money/decimal";

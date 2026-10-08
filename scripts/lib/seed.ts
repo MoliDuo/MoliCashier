@@ -13,7 +13,7 @@ import crypto from "node:crypto";
 import { eq, sql, type SQL } from "drizzle-orm";
 import type { NodePgQueryResultHKT } from "drizzle-orm/node-postgres";
 import type { PgDatabase } from "drizzle-orm/pg-core";
-import type { DateOrganizationSuggestion } from "@/lib/ai/date-organization";
+import type { DateOrganizationSuggestion } from "@/lib/source-document/suggestions";
 import * as schema from "@/persistence";
 import { durableKey } from "@/server/stored-files/shared";
 

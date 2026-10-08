@@ -14,7 +14,7 @@ import {
   parseDateString,
 } from "@/lib/date-utils";
 import { DISPLAY_LOCALE } from "@/lib/constants";
-import { useLedgerTimeZone } from "@/lib/ledger-time-zone";
+import { useLedgerTimeZone } from "@/components/providers/ledger-time-zone";
 import { dateFilterCopy } from "@/copy/controls";
 
 interface DateFilterProps {

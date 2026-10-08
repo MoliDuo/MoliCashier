@@ -13,3 +13,11 @@ export interface AddEntryData {
   categoryId?: string;
   description?: string | null;
 }
+
+export interface EntryEditData {
+  itemName: string;
+  amount: string;
+  currency: string;
+  categoryId: string | null;
+  description: string | null;
+}

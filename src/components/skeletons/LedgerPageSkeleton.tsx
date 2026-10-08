@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { LedgerTab } from "@/lib/ledger-tabs";
+import type { LedgerTab } from "@/modules/workspace/ledger-tabs";
 import {
   DetailsTabSkeleton,
   EntriesTabSkeleton,

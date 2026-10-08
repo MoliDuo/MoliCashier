@@ -1,6 +1,6 @@
 import { inArray, eq } from "drizzle-orm";
-import type { DuplicateSuggestion } from "@/lib/ai/duplicate-suggestion";
-import type { DuplicateSuggestionDto } from "@/modules/source-document/document-contracts";
+import type { DuplicateSuggestion } from "@/lib/source-document/suggestions";
+import type { DuplicateSuggestionDto } from "@/modules/source-document/contracts";
 import type { PostgresTransaction } from "@/lib/db/transaction-locks";
 import { ledgerEntries, sourceDocuments } from "@/persistence";
 

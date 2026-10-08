@@ -4,7 +4,7 @@ import { cursorTimestampSql } from "@/lib/db/cursor-timestamp";
 import {
   decodeSourceDocumentPageCursor,
   encodeSourceDocumentPageCursor,
-} from "../../stream-cursor";
+} from "../../domain/stream-cursor";
 
 /**
  * The cursor's creation time, selected next to each list row. It is formatted

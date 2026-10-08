@@ -6,7 +6,7 @@ import type { BookDto, EntryCategoryDto } from "@/modules/ledger/contracts";
 import {
   closeLedgerDetail,
   restoreDetailReturnFocus,
-} from "@/lib/navigation/ledger-detail-navigation";
+} from "@/modules/ledger/navigation/ledger-detail-navigation";
 import { DetailSheetLoadingFallback } from "./DetailSheetLoadingFallback";
 
 const SourceDocumentDetailModal = dynamic(

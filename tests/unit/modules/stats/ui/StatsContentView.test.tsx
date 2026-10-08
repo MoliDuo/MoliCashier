@@ -6,7 +6,7 @@ const { openLedgerEntrySourceDocumentMock } = vi.hoisted(() => ({
   openLedgerEntrySourceDocumentMock: vi.fn(),
 }));
 
-vi.mock("@/lib/navigation/ledger-detail-navigation", () => ({
+vi.mock("@/modules/ledger/navigation/ledger-detail-navigation", () => ({
   openLedgerEntrySourceDocument: openLedgerEntrySourceDocumentMock,
 }));
 

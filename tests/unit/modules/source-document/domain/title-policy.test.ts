@@ -3,7 +3,7 @@ import {
   MAX_TITLE_LENGTH,
   normalizeTitle,
   TITLE_POLICY_PROMPT,
-} from "@/modules/source-document/title-policy";
+} from "@/modules/source-document/domain/title-policy";
 
 describe("title-policy", () => {
   it("trims and collapses consecutive whitespace", () => {

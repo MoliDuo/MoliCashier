@@ -24,9 +24,6 @@ vi.mock("@/modules/ledger/queries", () => ({
   fetchCategoryAssignmentEntryStates: getEntryStates,
   fetchCategoryAssignmentResults: vi.fn(async () => ({ items: [], nextCursor: null })),
 }));
-vi.mock("@/lib/mutations/ledger-invalidation", () => ({
-  invalidateLedgerQueries: vi.fn(async () => undefined),
-}));
 vi.mock("sonner", () => ({
   toast: {
     success: toastSuccess,

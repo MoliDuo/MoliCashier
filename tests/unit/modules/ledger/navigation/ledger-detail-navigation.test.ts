@@ -4,7 +4,7 @@ import {
   openLedgerDetail,
   openLedgerEntrySourceDocument,
   restoreDetailReturnFocus,
-} from "@/lib/navigation/ledger-detail-navigation";
+} from "@/modules/ledger/navigation/ledger-detail-navigation";
 
 const pushed = { cashier: { ledgerNavigation: true, kind: "detail" } };
 

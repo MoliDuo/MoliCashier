@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { SUPPORTED_CURRENCIES } from "@/config/currencies";
 import { ChevronDown, Trash2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import type { EntryEditData } from "@/modules/source-document/types";
+import type { EntryEditData } from "@/modules/source-document/detail-types";
 import { getCurrencySymbol } from "@/lib/format/currency";
 import { amountTextClassName } from "@/modules/currency/ui/amount-text";
 import { AmountDisplay } from "@/modules/currency/ui/AmountDisplay";

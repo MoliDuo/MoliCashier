@@ -3,7 +3,7 @@ import {
   INVALID_REASON_PROMPT,
   MAX_FAILURE_REASON_LENGTH,
   normalizeFailureReason,
-} from "@/modules/source-document/failure-reason-policy";
+} from "@/modules/source-document/domain/failure-reason-policy";
 
 describe("failure-reason-policy", () => {
   it("trims and collapses consecutive whitespace", () => {

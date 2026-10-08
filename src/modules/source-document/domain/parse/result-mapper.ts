@@ -1,7 +1,7 @@
 import { compare } from "@/lib/money/decimal";
-import type { ParsedLedgerEntry } from "@/lib/ai/types";
 import {
   ProcessingCancelledError,
+  type ParsedLedgerEntry,
   type ParsePipelineResult,
   type ParseSourceDocumentOutput,
 } from "./contracts";
@@ -10,9 +10,9 @@ import type {
   NormalizedOrderAdjustment,
   NormalizedParseOutput,
 } from "./parser-schema";
-import { normalizeFailureReason } from "@/modules/source-document/failure-reason-policy";
+import { normalizeFailureReason } from "@/modules/source-document/domain/failure-reason-policy";
 import { roundToCurrency } from "@/lib/money/currency-precision";
-import type { DateHint } from "@/lib/ai/date-organization";
+import type { DateHint } from "@/lib/source-document/suggestions";
 
 export function convertToParsedEntries({
   ledgerEntries,

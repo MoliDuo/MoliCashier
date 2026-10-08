@@ -1,6 +1,6 @@
 import type { SourceDocumentInputInitialData } from "./source-document-input.types";
 import type { SourceDocumentStoredFileDto } from "@/modules/source-document/contracts";
-import { storedFileReadUrl } from "../stored-file-read";
+import { storedFileReadUrl } from "./stored-file-read";
 
 export interface RetrySeedSourceDocument {
   id: string;

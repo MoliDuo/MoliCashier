@@ -2,7 +2,7 @@ import "server-only";
 import { calculateCompletedSourceDocumentTotal } from "./reads/filters";
 import type { GetStreamTotalInput, StreamTotalDto } from "../contracts";
 import { normalizeSearchTerm } from "@/lib/search";
-import { streamCategoryFilter } from "../stream-filter-policy";
+import { streamCategoryFilter } from "../domain/stream-filter-policy";
 
 export async function getStreamTotal(input: GetStreamTotalInput = {}): Promise<StreamTotalDto> {
   if (

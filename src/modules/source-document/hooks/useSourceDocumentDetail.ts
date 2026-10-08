@@ -7,9 +7,12 @@ import { useSelection } from "@/hooks/use-selection";
 import type { BookDto, LedgerEntryDto } from "@/modules/ledger/contracts";
 import { fetchBook } from "@/modules/ledger/queries";
 import type { SourceDocumentDetailDto } from "@/modules/source-document/contracts";
-import type { AddEntryData, DocumentPatch } from "@/modules/source-document/detail-types";
+import type {
+  AddEntryData,
+  DocumentPatch,
+  EntryEditData,
+} from "@/modules/source-document/detail-types";
 import { fetchSourceDocumentDetail } from "@/modules/source-document/queries";
-import type { EntryEditData } from "@/modules/source-document/types";
 import { commonCopy } from "@/copy/common";
 import { useSourceDocumentEntryCommands } from "./useSourceDocumentEntryCommands";
 import { useSourceDocumentFieldWrites } from "./useSourceDocumentFieldWrites";

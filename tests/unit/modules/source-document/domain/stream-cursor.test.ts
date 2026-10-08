@@ -3,7 +3,7 @@ import {
   decodeSourceDocumentStreamCursor,
   encodeSourceDocumentPageCursor,
   encodeSourceDocumentStreamCursor,
-} from "@/modules/source-document/stream-cursor";
+} from "@/modules/source-document/domain/stream-cursor";
 
 const page = {
   documentDate: "2026-08-05",

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SourceDocumentListItemDto } from "@/modules/source-document/contracts";
-import { filterStreamEntries } from "@/modules/source-document/stream-filter-policy";
+import { filterStreamEntries } from "@/modules/source-document/domain/stream-filter-policy";
 
 function makeItem(overrides: Partial<SourceDocumentListItemDto> = {}): SourceDocumentListItemDto {
   return {

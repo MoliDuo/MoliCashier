@@ -4,7 +4,7 @@ import Image from "next/image";
 import { FileText, ImagePlay, Maximize2 } from "lucide-react";
 import type { SourceDocumentDetailDto } from "@/modules/source-document/contracts";
 import { textRoleClassName } from "@/components/typography";
-import { storedFileReadUrl } from "../../../stored-file-read";
+import { storedFileReadUrl } from "../../stored-file-read";
 import { SourceDocumentImageModal } from "../../SourceDocumentImageModal";
 import { sourceDocumentCardCopy, sourceDocumentDetailCopy } from "@/copy/source-document";
 

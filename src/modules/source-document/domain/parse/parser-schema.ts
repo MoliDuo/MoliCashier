@@ -3,9 +3,9 @@ import Decimal from "decimal.js";
 import { isValidDecimal, compare } from "@/lib/money/decimal";
 import { roundToCurrency } from "@/lib/money/currency-precision";
 import { getAiOutputCopy } from "@/config/ai-output-locales";
-import { normalizeTitle } from "@/modules/source-document/title-policy";
+import { normalizeTitle } from "@/modules/source-document/domain/title-policy";
 import { SUPPORTED_CURRENCIES } from "@/config/currencies";
-import { dateHintSchema } from "@/lib/ai/date-organization";
+import { dateHintSchema } from "@/lib/source-document/suggestions";
 
 // ===== Decimal string validation =====
 
@@ -117,7 +117,7 @@ export type NormalizedLedgerEntry = Omit<
 > & {
   amount: string;
   notes: string | null;
-  date_hint?: import("@/lib/ai/date-organization").DateHint;
+  date_hint?: import("@/lib/source-document/suggestions").DateHint;
 };
 
 export type NormalizedOrderAdjustment = Omit<

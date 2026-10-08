@@ -6,14 +6,14 @@ import { normalizeSearchTerm } from "@/lib/search";
 import { getLedgerRefreshBaseline, getLedgerVersion } from "./ledger-changes";
 import { listTargetSourceDocuments } from "./reads/list";
 import { listLedgerEntryViewsBySourceDocumentIds } from "@/modules/ledger/server/entry-reads/list-ledger-entry-views-by-source-document-ids";
-import { filterStreamEntries, streamCategoryFilter } from "../stream-filter-policy";
+import { filterStreamEntries, streamCategoryFilter } from "../domain/stream-filter-policy";
 import { createHash } from "node:crypto";
 import { STREAM_PAGE_LIMIT } from "@/config/tuning";
 import {
   decodeSourceDocumentStreamCursor,
   encodeSourceDocumentPageCursor,
   encodeSourceDocumentStreamCursor,
-} from "../stream-cursor";
+} from "../domain/stream-cursor";
 
 // ---------------------------------------------------------------------------
 // Stream cursor helpers

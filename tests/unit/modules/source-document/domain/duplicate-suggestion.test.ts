@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createDuplicateSuggestion } from "@/modules/source-document/duplicate-suggestion";
+import { createDuplicateSuggestion } from "@/modules/source-document/domain/duplicate-suggestion";
 
 const targets = new Map([
   ["R1", { ledgerEntryId: "old-1", sourceDocumentId: "doc-old" }],

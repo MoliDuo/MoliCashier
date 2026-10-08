@@ -1,4 +1,7 @@
-import type { DuplicateSuggestion, DuplicateSuggestionItem } from "@/lib/ai/duplicate-suggestion";
+import type {
+  DuplicateSuggestion,
+  DuplicateSuggestionItem,
+} from "@/lib/source-document/suggestions";
 
 /** Where a handle given to the parse points; the model never sees the ids. */
 export interface RecentEntryTarget {

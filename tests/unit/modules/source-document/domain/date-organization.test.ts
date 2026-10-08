@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createDateOrganizationSuggestion,
   resolveDateHint,
-} from "@/modules/source-document/date-organization";
+} from "@/modules/source-document/domain/date-organization";
 
 describe("date organization", () => {
   it("resolves relative dates from the persisted reference date", () => {

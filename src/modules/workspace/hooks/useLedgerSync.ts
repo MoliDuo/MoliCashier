@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import { invalidateVisibleLedger } from "@/lib/mutations/ledger-sync";
 import { fetchStreamRefresh } from "@/modules/source-document/queries";
-import type { LedgerRefreshResult } from "@/modules/source-document/contract-refresh";
+import type { LedgerRefreshResult } from "@/modules/source-document/contracts";
 
 const REFRESH_INTERVAL_MS = 3_000;
 /**

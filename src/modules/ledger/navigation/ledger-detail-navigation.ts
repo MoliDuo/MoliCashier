@@ -1,7 +1,7 @@
 "use client";
 
-import { writeLedgerHistory } from "@/lib/navigation/ledger-history";
-import { LEDGER_NEW_RECORD_PARAM } from "@/lib/navigation/ledger-new-record-navigation";
+import { writeLedgerHistory } from "@/modules/ledger/navigation/ledger-history";
+import { LEDGER_NEW_RECORD_PARAM } from "@/modules/ledger/navigation/ledger-new-record-navigation";
 import { leavePastOverlays } from "@/lib/navigation/overlay-history";
 
 /** The open record, as `?detail=<id>` on whichever ledger route it was opened from. */

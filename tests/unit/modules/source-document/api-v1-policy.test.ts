@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeBase64Image } from "@/modules/source-document/base64-image";
+import { decodeBase64Image } from "@/modules/source-document/api-v1-policy";
 
 describe("decodeBase64Image", () => {
   it("normalizes raw, whitespace, data URL, and omitted padding representations", () => {

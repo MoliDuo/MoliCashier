@@ -4,7 +4,7 @@ import type { DuplicateSuggestionDto } from "@/modules/source-document/contracts
 import { SourceDocumentDuplicateSuggestion } from "@/modules/source-document/ui/SourceDocumentDuplicateSuggestion";
 
 const { openLedgerDetail } = vi.hoisted(() => ({ openLedgerDetail: vi.fn() }));
-vi.mock("@/lib/navigation/ledger-detail-navigation", () => ({ openLedgerDetail }));
+vi.mock("@/modules/ledger/navigation/ledger-detail-navigation", () => ({ openLedgerDetail }));
 
 const suggestion: DuplicateSuggestionDto = {
   id: "11111111-1111-4111-8111-111111111111",

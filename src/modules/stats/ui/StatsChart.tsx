@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import { textRoleClassName } from "@/components/typography";
 import { cn } from "@/lib/utils";
-import { useLedgerTimeZone } from "@/lib/ledger-time-zone";
+import { useLedgerTimeZone } from "@/components/providers/ledger-time-zone";
 import { type DateRangeType, formatRelativeDateLabel } from "@/lib/date-utils";
 import { formatCompactCurrencyAmount, formatCurrencyAmount } from "@/lib/format/currency";
 import { buildChartPoints } from "@/modules/stats/lib/chart-points";

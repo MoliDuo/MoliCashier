@@ -12,6 +12,7 @@ import {
   numeric,
   uuid,
   varchar,
+  bigint,
 } from "drizzle-orm/pg-core";
 import { type InferSelectModel, sql } from "drizzle-orm";
 import { rowTimestamp } from "./columns";
@@ -242,3 +243,20 @@ export const aiCorrections = pgTable(
 );
 
 export type AiCorrection = InferSelectModel<typeof aiCorrections>;
+
+/** The ledger's one row of change watermarks, kept by the change-log triggers. */
+export const ledgerSyncState = pgTable(
+  "ledger_sync_state",
+  {
+    id: boolean("id").primaryKey().default(true),
+    version: bigint("version", { mode: "bigint" })
+      .notNull()
+      .default(sql`0`),
+    transactionId: bigint("transaction_id", { mode: "bigint" }),
+    updatedAt: rowTimestamp("updated_at"),
+  },
+  (table) => [
+    check("ck_ledger_sync_state_version", sql`${table.version} >= 0`),
+    check("ck_ledger_sync_state_singleton", sql`${table.id}`),
+  ]
+);

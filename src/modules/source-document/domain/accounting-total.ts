@@ -1,5 +1,5 @@
-import { add } from "./decimal";
-import { roundToCurrency } from "./currency-precision";
+import { add } from "@/lib/money/decimal";
+import { roundToCurrency } from "@/lib/money/currency-precision";
 
 /**
  * Sums entries converted to the ledger's main currency. Null when an entry

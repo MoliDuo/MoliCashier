@@ -17,7 +17,7 @@ import { ledgerToday } from "@/modules/ledger/server/query-period";
 import { DEFAULT_PERIOD, type Period } from "@/modules/ledger/domain/period";
 import type { StreamPage } from "@/modules/source-document/contracts";
 import type { LedgerAdvancedFilters } from "@/modules/ledger/ledger-query";
-import type { LedgerTab } from "@/lib/ledger-tabs";
+import type { LedgerTab } from "@/modules/workspace/ledger-tabs";
 import { buildDetailsQueryDescriptor } from "@/modules/ledger/ledger-query-descriptor";
 import {
   buildStatsQueryDescriptor,

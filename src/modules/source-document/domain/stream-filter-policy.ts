@@ -1,7 +1,7 @@
 import { compare } from "@/lib/money/decimal";
 import { normalizeSearchTerm } from "@/lib/search";
 import { UNCATEGORIZED_SENTINEL } from "@/modules/ledger/contract-schemas";
-import type { SourceDocumentListItemDto } from "./contracts";
+import type { SourceDocumentListItemDto } from "@/modules/source-document/contracts";
 
 /** The entry filters a stream card's rows are narrowed by, as the stream SQL applies them. */
 interface StreamFilterPolicy {

@@ -1,5 +1,5 @@
-import { compare } from "./decimal";
-import { roundToCurrency } from "./currency-precision";
+import { compare } from "@/lib/money/decimal";
+import { roundToCurrency } from "@/lib/money/currency-precision";
 import { ValidationError } from "@/lib/errors";
 
 export function assertExpenseAmountDirection(

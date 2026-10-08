@@ -67,9 +67,11 @@ src/modules/workspace/server/ledger-queries.ts
 src/server/               跨模块的后台流程：background（worker、调度器、唤醒信号）、processing（含解析
                           管线 parse.ts）、category-assignment（commands、lease、reads）、maintenance、
                           stored-files、api-v1 请求管线
-src/lib/                  共享基础设施：db（含租约帮手）、s3、ai、logger、env、money、format、
-                          security、drafts、queries 传输层
-src/persistence/          schema（按领域拆文件）和迁移
+src/lib/                  共享基础设施：db（含租约帮手）、s3、ai、logger、env、money（十进制运算与币种精度）、
+                          format、security、drafts、queries 传输层；persistence 也要用的票据建议形状放在
+                          source-document/suggestions.ts，业务规则不放这里
+src/persistence/          schema（按领域拆文件：auth、ledger、source-document、stored-files、
+                          category-assignment、forecast、currency，新文件要加进 drizzle.config.ts）和迁移
 src/copy/                 全部界面文案，按界面区域分文件
 ```
 
@@ -81,10 +83,10 @@ src/copy/                 全部界面文案，按界面区域分文件
 3. server action 和 API 路由不直接碰数据库或服务商 SDK。
 4. 只改名转发参数的函数不应该存在，直接调用目标。
 5. `domain/` 只放纯函数：不得 import 数据库、服务商 SDK、`src/lib/logger`、AI 运行时（`src/lib/ai` 里只有
-   `types`、`date-organization`、`duplicate-suggestion` 这几个数据形状可以用）、Node 内置模块（`node:crypto`、
-   计时器之类）、React 或 Next，也不得 import `server/` 和 `src/server`。要计时、调模型、记日志或算哈希的编排放在
-   `server/` 或 `src/server`，例如解析管线在 `src/server/processing/parse.ts`，`domain/parse` 只留提示词、输入和
-   结果映射；历史指纹的文本在 `domain/judgment/fingerprint.ts`，哈希在 `forecast/server/history-fingerprint.ts`。
+   `types` 这个数据形状可以用）、Node 内置模块（`node:crypto`、计时器之类）、React 或 Next，也不得 import
+   `server/` 和 `src/server`。要计时、调模型、记日志或算哈希的编排放在 `server/` 或 `src/server`，例如解析管线在
+   `src/server/processing/parse.ts`，`domain/parse` 只留提示词、输入和结果映射；历史指纹的文本在
+   `domain/judgment/fingerprint.ts`，哈希在 `forecast/server/history-fingerprint.ts`。
 6. 客户端代码不得 import 服务端代码（数据库、`server/`、`src/server`、对象存储、AI 运行时）。客户端代码按路径认定：
    `src/modules/*/ui`、`src/modules/*/hooks`、`src/components`、`src/hooks`，再加上任何以 `"use client"` 开头的文件。
 7. 只有 `src/lib/ai` 可以 import `openai`，只有 `src/lib/storage` 可以 import `@aws-sdk/*`。

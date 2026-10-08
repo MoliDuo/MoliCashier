@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { openLedgerDetail } from "@/lib/navigation/ledger-detail-navigation";
-import { closeNewRecord, openNewRecord } from "@/lib/navigation/ledger-new-record-navigation";
+import { openLedgerDetail } from "@/modules/ledger/navigation/ledger-detail-navigation";
+import {
+  closeNewRecord,
+  openNewRecord,
+} from "@/modules/ledger/navigation/ledger-new-record-navigation";
 
 const pushed = { cashier: { ledgerNavigation: true, kind: "new-record" } };
 

@@ -6,7 +6,7 @@ import {
   SettingsTabSkeleton,
   StatsTabSkeleton,
 } from "@/components/skeletons/TabSkeletons";
-import { ledgerTabFromPathname } from "@/lib/ledger-tabs";
+import { ledgerTabFromPathname } from "@/modules/workspace/ledger-tabs";
 
 /** The skeleton of whichever route is loading, while its first data is fetched. */
 export function LedgerRouteFallback() {

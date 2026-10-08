@@ -19,7 +19,7 @@ import {
 } from "@/modules/workspace/server/ledger-page-bootstrap";
 import { buildStatsQueryDescriptor } from "@/modules/workspace/ledger-tab-query-descriptors";
 import { resolveAuthenticatedHome } from "@/modules/workspace/server/resolve-authenticated-home";
-import type { LedgerTab } from "@/lib/ledger-tabs";
+import type { LedgerTab } from "@/modules/workspace/ledger-tabs";
 import type { Period } from "@/modules/ledger/domain/period";
 import type { LedgerAdvancedFilters } from "@/modules/ledger/ledger-query";
 

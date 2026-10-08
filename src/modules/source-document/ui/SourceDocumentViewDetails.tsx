@@ -3,7 +3,7 @@ import type { LedgerEntryEmbeddedViewDto, EntryCategoryDto } from "@/modules/led
 import type { SourceDocumentDetailDto } from "@/modules/source-document/contracts";
 import { type ReactNode, memo } from "react";
 import { cn } from "@/lib/utils";
-import type { EntryEditData } from "@/modules/source-document/types";
+import type { EntryEditData } from "@/modules/source-document/detail-types";
 import { SourceDocumentEntriesHeader } from "./SourceDocumentViewDetails/components/SourceDocumentEntriesHeader";
 import { SourceDocumentEntriesList } from "./SourceDocumentViewDetails/components/SourceDocumentEntriesList";
 import { SourceDocumentRawEvidence } from "./SourceDocumentViewDetails/components/SourceDocumentRawEvidence";

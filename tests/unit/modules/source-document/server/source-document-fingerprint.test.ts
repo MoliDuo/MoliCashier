@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sourceDocumentFingerprint } from "@/modules/source-document/source-document-fingerprint";
+import { sourceDocumentFingerprint } from "@/modules/source-document/server/source-document-fingerprint";
 
 describe("sourceDocumentFingerprint", () => {
   it("sorts object keys, removes undefined fields, and preserves array order", () => {

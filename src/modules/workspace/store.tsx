@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import { createStore, useStore, type StoreApi } from "zustand";
-import { LEDGER_PERIOD_TABS, type LedgerTab } from "@/lib/ledger-tabs";
+import { LEDGER_PERIOD_TABS, type LedgerTab } from "@/modules/workspace/ledger-tabs";
 
 interface WorkspaceState {
   /** False until the ledger's content has mounted; the navigation waits for it. */

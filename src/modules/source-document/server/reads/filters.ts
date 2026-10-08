@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { escapedLikeContains } from "@/lib/db/like-pattern";
-import type { SourceDocumentProcessingStatus } from "@/modules/source-document/contracts";
+import type { SourceDocumentProcessingStatus } from "@/modules/source-document/types";
 import { normalize as decimalNormalize } from "@/lib/money/decimal";
 import { ledgerEntries, extractionAttempts, sourceDocuments } from "@/persistence";
 import { convertedAmountSql } from "@/modules/currency/server/conversion-sql";

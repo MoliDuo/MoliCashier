@@ -2,7 +2,7 @@
 import { BarChart3, ClipboardList, Plus, ReceiptText, RefreshCw, Settings } from "lucide-react";
 import { textRoleClassName } from "@/components/typography";
 import { cn } from "@/lib/utils";
-import { LEDGER_ROUTES, type LedgerTab } from "@/lib/ledger-tabs";
+import { LEDGER_ROUTES, type LedgerTab } from "@/modules/workspace/ledger-tabs";
 import { ledgerPageCopy } from "@/copy/app";
 import { commonCopy } from "@/copy/common";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { writeLedgerHistory } from "@/lib/navigation/ledger-history";
+import { writeLedgerHistory } from "@/modules/ledger/navigation/ledger-history";
 import { leavePastOverlays } from "@/lib/navigation/overlay-history";
 
 /** The open 记账 sheet, as `?new=1` on whichever ledger route it was opened from. */

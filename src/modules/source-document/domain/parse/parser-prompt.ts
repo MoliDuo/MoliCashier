@@ -12,8 +12,8 @@ import { buildLedgerInstructionSections } from "@/modules/ledger/domain/ledger-i
 import type { EvidenceImage } from "@/lib/ai/types";
 import { fenceAsData } from "@/lib/prompt-fence";
 import type { ParseSourceDocumentInput, RecentEntryForParse } from "./contracts";
-import { TITLE_POLICY_PROMPT } from "@/modules/source-document/title-policy";
-import { INVALID_REASON_PROMPT } from "@/modules/source-document/failure-reason-policy";
+import { TITLE_POLICY_PROMPT } from "@/modules/source-document/domain/title-policy";
+import { INVALID_REASON_PROMPT } from "@/modules/source-document/domain/failure-reason-policy";
 import { SUPPORTED_CURRENCIES } from "@/config/currencies";
 
 export interface ParserInput {

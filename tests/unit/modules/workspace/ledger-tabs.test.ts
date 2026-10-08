@@ -4,7 +4,7 @@ import {
   isLedgerTab,
   ledgerTabFromPathname,
   ledgerTabHref,
-} from "@/lib/ledger-tabs";
+} from "@/modules/workspace/ledger-tabs";
 
 describe("ledger tabs helpers", () => {
   it("lists the four tabs in navigation order", () => {

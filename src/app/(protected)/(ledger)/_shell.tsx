@@ -9,8 +9,8 @@ import { useLedgerNavigation } from "@/modules/workspace/hooks/useLedgerNavigati
 import { useTabScrollRestoration } from "@/modules/workspace/hooks/useTabScrollRestoration";
 import { useTabRefresh } from "@/modules/workspace/hooks/useTabRefresh";
 import { useWorkspaceStore } from "@/modules/workspace/store";
-import { openNewRecord } from "@/lib/navigation/ledger-new-record-navigation";
-import { LEDGER_ROUTES, type LedgerTab } from "@/lib/ledger-tabs";
+import { openNewRecord } from "@/modules/ledger/navigation/ledger-new-record-navigation";
+import { LEDGER_ROUTES, type LedgerTab } from "@/modules/workspace/ledger-tabs";
 import { readLedgerFilterParams } from "@/modules/workspace/ledger-url-params";
 import { readPeriodParams } from "@/modules/workspace/period-url-params";
 import {

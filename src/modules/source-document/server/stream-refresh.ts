@@ -1,5 +1,5 @@
 import "server-only";
-import type { LedgerRefreshRequest, LedgerRefreshResult } from "../contract-refresh";
+import type { LedgerRefreshRequest, LedgerRefreshResult } from "../contracts";
 import { summarizeLedgerChanges } from "./ledger-changes";
 
 const MAX_BIGINT_VERSION = BigInt("9223372036854775807");

@@ -2,8 +2,8 @@ import { act, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { closeLedgerDetail } from "@/lib/navigation/ledger-detail-navigation";
-import { writeLedgerHistory } from "@/lib/navigation/ledger-history";
+import { closeLedgerDetail } from "@/modules/ledger/navigation/ledger-detail-navigation";
+import { writeLedgerHistory } from "@/modules/ledger/navigation/ledger-history";
 
 function TestDialog({ initiallyOpen = true, closeOnBack = true, locked = false }) {
   const [open, setOpen] = useState(initiallyOpen);

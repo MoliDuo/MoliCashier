@@ -7,7 +7,7 @@ import { DeleteObjectsCommand, PutObjectCommand, S3Client } from "@aws-sdk/clien
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
-import type { DateOrganizationSuggestion } from "@/lib/ai/date-organization";
+import type { DateOrganizationSuggestion } from "@/lib/source-document/suggestions";
 import { computeHash, prefixSuffix } from "@/lib/security/service-credential-token";
 import * as schema from "@/persistence";
 import { durableKey } from "@/server/stored-files/shared";

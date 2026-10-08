@@ -7,7 +7,7 @@ import {
   toStableFailureCode,
 } from "@/modules/source-document/lifecycle";
 import { roundToCurrency } from "@/lib/money/currency-precision";
-import { accountingTotal } from "@/lib/money/accounting-total";
+import { accountingTotal } from "@/modules/source-document/domain/accounting-total";
 import type { CredentialSourceDocumentStatusResult } from "@/modules/source-document/contracts";
 
 /**

@@ -15,7 +15,7 @@ import {
 } from "@/modules/ledger/ui/batch-action-toolbar";
 import type { Period } from "@/modules/ledger/domain/period";
 import { formatCurrencyAmount } from "@/lib/format/currency";
-import { openLedgerEntrySourceDocument } from "@/lib/navigation/ledger-detail-navigation";
+import { openLedgerEntrySourceDocument } from "@/modules/ledger/navigation/ledger-detail-navigation";
 import { DISPLAY_LOCALE } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
