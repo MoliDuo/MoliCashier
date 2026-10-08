@@ -5,7 +5,7 @@ import {
   type S3Client,
 } from "@aws-sdk/client-s3";
 import { describe, expect, it, vi } from "vitest";
-import { S3StorageProvider } from "@/lib/storage/s3";
+import { createS3ClientConfig, S3StorageProvider } from "@/lib/storage/s3";
 
 function provider(send: ReturnType<typeof vi.fn>): S3StorageProvider {
   return new S3StorageProvider({ send } as unknown as Pick<S3Client, "send">, "cashier-images");
@@ -70,6 +70,32 @@ describe("S3StorageProvider", () => {
 
     await expect(provider(send).download("stored/file")).resolves.toEqual(Buffer.from([1, 2, 3]));
     expect(send.mock.calls[0]?.[0]).toBeInstanceOf(GetObjectCommand);
+  });
+
+  it("hands the caller's abort signal to the SDK", async () => {
+    const send = vi.fn().mockResolvedValue({
+      Body: { transformToByteArray: vi.fn(async () => new Uint8Array([1])) },
+    });
+    const controller = new AbortController();
+
+    await provider(send).download("stored/file", { signal: controller.signal });
+
+    expect(send.mock.calls[0]?.[1]).toEqual({ abortSignal: controller.signal });
+  });
+
+  it("keeps the status of a failed download, so an outage tells apart from a refusal", async () => {
+    const outage = Object.assign(new Error("unavailable"), { $metadata: { httpStatusCode: 503 } });
+    await expect(
+      provider(vi.fn().mockRejectedValue(outage)).download("stored/file")
+    ).rejects.toMatchObject({ code: "S3_DOWNLOAD_FAILED", details: { httpStatusCode: 503 } });
+  });
+
+  it("gives up on an object store that does not connect or answer in time", () => {
+    expect(createS3ClientConfig().requestHandler).toEqual({
+      connectionTimeout: 5_000,
+      requestTimeout: 30_000,
+      throwOnRequestTimeout: true,
+    });
   });
 
   it("rejects unsafe object keys before calling S3", async () => {
