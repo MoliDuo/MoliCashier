@@ -1,5 +1,6 @@
 import "server-only";
 import {
+  FORECAST_AI_AMOUNT_CAP_MULTIPLE,
   FORECAST_AI_MAX_AGE_DAYS,
   FORECAST_CHANGE_DISCOUNT,
   FORECAST_HALF_LIFE_DAYS,
@@ -10,16 +11,18 @@ import {
 import { ValidationError } from "@/lib/errors";
 import { forecastInputSchema } from "@/modules/forecast/contract-schemas";
 import type { ForecastDto, ForecastRangeDto } from "@/modules/forecast/contracts";
-import { forecastPeriod } from "@/modules/forecast/domain/forecast";
-import { prepareHistory } from "@/modules/forecast/domain/history";
+import { forecastPeriod, type PeriodForecast } from "@/modules/forecast/domain/forecast";
+import { prepareHistory, type PreparedHistory } from "@/modules/forecast/domain/history";
 import { applyJudgment } from "@/modules/forecast/domain/judgment/apply";
+import { boundJudgment } from "@/modules/forecast/domain/judgment/bounds";
 import { seedOf } from "@/modules/forecast/domain/random";
 import { UNCATEGORIZED_KEY } from "@/modules/forecast/domain/series";
 import type { Quantiles } from "@/modules/forecast/domain/simulate";
+import type { TrainedForecast } from "@/modules/forecast/domain/training";
 import { addCivilDays, periodKey, resolveComparison } from "@/modules/ledger/domain/period";
 import { ledgerToday } from "@/modules/ledger/server/query-period";
 import { getLedgerSettings } from "@/modules/ledger/server/settings";
-import { readForecastHistory } from "./forecast-history";
+import { readForecastHistory, readHistoryMark, type ForecastHistory } from "./forecast-history";
 import { judgmentAccuracy, refreshJudgmentInBackground } from "./judge-ledger";
 import { latestJudgment } from "./judgments";
 import { currentTraining, forecastScope, trainScopeInBackground } from "./model-registry";
@@ -31,6 +34,30 @@ function money(value: number): string {
 
 function rangeDto(quantiles: Quantiles): ForecastRangeDto {
   return { p10: money(quantiles.p10), p50: money(quantiles.p50), p90: money(quantiles.p90) };
+}
+
+/**
+ * What a read of one scope's period worked out, kept for the reads after it:
+ * the history, prepared, and the statistical forecast with the trained model
+ * it was played with. The judgment, its score and the model in use are read
+ * afresh every time, since they change in the background; the forecast is
+ * played again only when the model in use is not the one it was played with.
+ */
+interface MemoEntry {
+  history: ForecastHistory;
+  prepared: PreparedHistory | null;
+  trained: TrainedForecast | null;
+  forecast: PeriodForecast | null;
+}
+
+/** The most reads remembered; a couple of people switching between books and periods need few. */
+const MEMO_MAX_ENTRIES = 16;
+const memo = new Map<string, MemoEntry>();
+
+function remember(key: string, entry: MemoEntry): void {
+  memo.delete(key);
+  memo.set(key, entry);
+  while (memo.size > MEMO_MAX_ENTRIES) memo.delete(memo.keys().next().value!);
 }
 
 /**
@@ -64,12 +91,50 @@ export async function getPeriodForecast(
   if (window.mode !== "same_period") return null;
 
   const previous = { from: window.compareRange.from, to: window.previousWholeTo };
-  const historyStart = addCivilDays(today, -(FORECAST_HISTORY_DAYS - 1));
-  const history = await readForecastHistory(
-    { from: previous.from < historyStart ? previous.from : historyStart, to: today },
-    bookId
-  );
   const scope = forecastScope(bookId);
+  // Read before the history, so a change landing in between is only ever remembered under the older mark.
+  const memoKey = `${scope}|${periodKey(period)}|${today}|${await readHistoryMark()}`;
+  const remembered = memo.get(memoKey);
+  const historyStart = addCivilDays(today, -(FORECAST_HISTORY_DAYS - 1));
+  const history =
+    remembered?.history ??
+    (await readForecastHistory(
+      { from: previous.from < historyStart ? previous.from : historyStart, to: today },
+      bookId
+    ));
+  const prepared =
+    remembered == null
+      ? prepareHistory(history.rows, today, FORECAST_MIN_HISTORY_DAYS)
+      : remembered.prepared;
+  const changeDate =
+    prepared?.change == null ? null : addCivilDays(prepared.earliest, prepared.change.day);
+  const trained = currentTraining(scope, today, changeDate);
+  if (trained == null && prepared != null) trainScopeInBackground(scope, history.rows, today);
+  const halfLifeDays = trained?.halfLifeDays ?? FORECAST_HALF_LIFE_DAYS;
+
+  const forecast =
+    remembered != null && remembered.trained === trained
+      ? remembered.forecast
+      : forecastPeriod({
+          rows: history.rows,
+          today,
+          period: { from: window.range.from, end: window.periodEnd },
+          previous,
+          prepared,
+          options: {
+            halfLifeDays,
+            changeDiscount: FORECAST_CHANGE_DISCOUNT,
+            paths: FORECAST_SIMULATION_PATHS,
+            seed: seedOf(`${today}:${bookId ?? "all"}:${periodKey(period)}`),
+            minHistoryDays: FORECAST_MIN_HISTORY_DAYS,
+            network: trained?.network ?? null,
+            networkShare: trained?.networkShare ?? 0,
+          },
+        });
+  remember(memoKey, { history, prepared, trained, forecast });
+  // Too little history, or no days left: nothing to forecast, and nothing for the analyst to judge.
+  if (prepared == null || forecast == null) return null;
+
   const [latest, settings] = await Promise.all([
     latestJudgment(scope, { from: addCivilDays(today, -FORECAST_AI_MAX_AGE_DAYS), to: today }),
     getLedgerSettings(),
@@ -82,34 +147,16 @@ export async function getPeriodForecast(
     latest,
     language: settings?.aiLanguage,
   });
-  const prepared = prepareHistory(history.rows, today, FORECAST_MIN_HISTORY_DAYS);
-  const changeDate =
-    prepared?.change == null ? null : addCivilDays(prepared.earliest, prepared.change.day);
-  const trained = currentTraining(scope, today, changeDate);
-  if (trained == null && prepared != null) trainScopeInBackground(scope, history.rows, today);
-  const halfLifeDays = trained?.halfLifeDays ?? FORECAST_HALF_LIFE_DAYS;
-
-  const forecast = forecastPeriod({
-    rows: history.rows,
-    today,
-    period: { from: window.range.from, end: window.periodEnd },
-    previous,
-    options: {
-      halfLifeDays,
-      changeDiscount: FORECAST_CHANGE_DISCOUNT,
-      paths: FORECAST_SIMULATION_PATHS,
-      seed: seedOf(`${today}:${bookId ?? "all"}:${periodKey(period)}`),
-      minHistoryDays: FORECAST_MIN_HISTORY_DAYS,
-      network: trained?.network ?? null,
-      networkShare: trained?.networkShare ?? 0,
-    },
-  });
-  if (forecast == null) return null;
   const judged =
     latest == null
       ? null
       : applyJudgment({
-          judgment: latest.judgment,
+          judgment: boundJudgment(
+            latest.judgment,
+            history.rows,
+            today,
+            FORECAST_AI_AMOUNT_CAP_MULTIPLE
+          ),
           rows: history.rows,
           today,
           period: { from: window.range.from, end: window.periodEnd },
@@ -170,11 +217,13 @@ export async function getPeriodForecast(
     judgment: null,
   };
   if (judged == null || latest == null) return statistical;
+  const accuracy = judgmentAccuracy(scope, history.rows, today);
+  // The analyst's past judgments, scored, did worse than the statistical model on the same days.
+  if (accuracy != null && accuracy.error > accuracy.statisticalError) return statistical;
 
   const phases = judged.phases;
   const current = phases.at(-1);
   const before = phases.at(-2);
-  const accuracy = judgmentAccuracy(scope, history.rows, today);
   return {
     ...statistical,
     spent: judged.spent,

@@ -1,6 +1,7 @@
 import "server-only";
 import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { isCurrentJudgmentVersion } from "@/modules/forecast/domain/judgment/fingerprint";
 import { storedJudgmentSchema, type Judgment } from "@/modules/forecast/domain/judgment/schema";
 import { forecastJudgments } from "@/persistence";
 
@@ -53,14 +54,16 @@ export async function judgmentsSince(scope: string, from: string): Promise<Store
   return rows.flatMap((row) => toStored(row) ?? []);
 }
 
-/** Which of `days` already have a judgment of `scope`. */
+/** Which of `days` already have a judgment of `scope` made under the current prompt; one made the old way is judged again. */
 export async function judgedDays(scope: string, days: readonly string[]): Promise<Set<string>> {
   if (days.length === 0) return new Set();
   const rows = await db
-    .select({ asOf: forecastJudgments.asOf })
+    .select({ asOf: forecastJudgments.asOf, inputFingerprint: forecastJudgments.inputFingerprint })
     .from(forecastJudgments)
     .where(and(eq(forecastJudgments.scope, scope), inArray(forecastJudgments.asOf, [...days])));
-  return new Set(rows.map((row) => row.asOf));
+  return new Set(
+    rows.filter((row) => isCurrentJudgmentVersion(row.inputFingerprint)).map((row) => row.asOf)
+  );
 }
 
 /** Keeps a judgment, replacing one of the same scope and day. */

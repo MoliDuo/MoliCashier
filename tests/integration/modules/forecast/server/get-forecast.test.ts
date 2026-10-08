@@ -3,32 +3,51 @@ import { getTestDb } from "tests/setup";
 import { createTestBooks } from "tests/helpers/schema-setup";
 import { createLedgerData } from "tests/helpers/factories";
 import { insertExchangeRates } from "tests/helpers/exchange-rates";
-import { entryCategories, ledgerEntries, ledgers, sourceDocuments } from "@/persistence";
+import {
+  entryCategories,
+  forecastJudgments,
+  ledgerEntries,
+  ledgers,
+  sourceDocuments,
+} from "@/persistence";
+import { historyFingerprint } from "@/modules/forecast/domain/judgment/fingerprint";
 import { getPeriodForecast } from "@/modules/forecast/server/get-forecast";
 import { addCivilDays } from "@/modules/ledger/domain/period";
 import { setAiTransportForTests } from "@/lib/ai/client";
-import { fakeAiTransport } from "tests/helpers/fake-ai";
+import { fakeAiTransport, type FakeAiTransport } from "tests/helpers/fake-ai";
 
 const THIS_MONTH = { range: "month", offset: 0 } as const;
+const REGISTRY_KEY = Symbol.for("cashier.forecast.judgments");
+
+function judgmentRegistry() {
+  return (globalThis as Record<symbol, { attemptedAt: Map<string, number> } | undefined>)[
+    REGISTRY_KEY
+  ];
+}
 
 describe("getPeriodForecast", () => {
   let books = new Map<string, string>();
+  let foodId = "";
+  let transport: FakeAiTransport;
+  let record: (
+    date: string,
+    amount: string,
+    currency: string,
+    options?: { categoryId?: string; book?: string }
+  ) => Promise<void>;
 
   beforeEach(async () => {
     const db = getTestDb();
     await db.insert(ledgers).values(createLedgerData({ timeZone: "Asia/Shanghai" }));
-    books = await createTestBooks(db, ["共同支出", "旅行"]);
+    books = await createTestBooks(db, ["共同支出", "旅行", "新分账"]);
     const [food] = await db
       .insert(entryCategories)
       .values({ name: "餐饮", icon: "utensils", sortOrder: 1 })
       .returning({ id: entryCategories.id });
+    foodId = food!.id;
+    delete (globalThis as Record<symbol, unknown>)[REGISTRY_KEY];
 
-    const record = async (
-      date: string,
-      amount: string,
-      currency: string,
-      options: { categoryId?: string; book?: string } = {}
-    ) => {
+    record = async (date, amount, currency, options = {}) => {
       const [document] = await db
         .insert(sourceDocuments)
         .values({ documentDate: date, bookId: books.get(options.book ?? "共同支出")! })
@@ -56,11 +75,10 @@ describe("getPeriodForecast", () => {
 
     // Noon on the 10th in Shanghai.
     // No AI analyst here: the statistical model answers, as it does when the provider is down.
-    setAiTransportForTests(
-      fakeAiTransport(() => {
-        throw new Error("no AI in this test");
-      })
-    );
+    transport = fakeAiTransport(() => {
+      throw new Error("no AI in this test");
+    });
+    setAiTransportForTests(transport);
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-10T04:00:00Z"));
   });
@@ -117,5 +135,55 @@ describe("getPeriodForecast", () => {
     await expect(
       getPeriodForecast({ period: THIS_MONTH, extra: 1 }, "Asia/Shanghai")
     ).rejects.toThrow("Validation failed");
+  });
+
+  it("asks for no judgment of a book with too little history to forecast", async () => {
+    const book = books.get("新分账")!;
+    await record("2026-10-09", "20", "CNY", { book: "新分账" });
+
+    expect(
+      await getPeriodForecast({ bookId: book, period: THIS_MONTH }, "Asia/Shanghai")
+    ).toBeNull();
+
+    expect(judgmentRegistry()?.attemptedAt.has(book) ?? false).toBe(false);
+    expect(transport.complete).not.toHaveBeenCalled();
+  });
+
+  it("answers a repeated read alike, and the next read after a change with it", async () => {
+    const input = { bookId: books.get("共同支出"), period: THIS_MONTH };
+    const first = await getPeriodForecast(input, "Asia/Shanghai");
+    expect(await getPeriodForecast(input, "Asia/Shanghai")).toEqual(first);
+
+    await record("2026-10-10", "100", "CNY", { categoryId: foodId });
+
+    const after = (await getPeriodForecast(input, "Asia/Shanghai"))!;
+    expect(after.spent).toBe("386");
+    expect(Number(after.total.p50)).toBeGreaterThan(Number(first!.total.p50));
+  });
+
+  it("holds the analyst's levels to what the history has seen", async () => {
+    // Today's judgment, as if a month's food had been read as a day's.
+    await getTestDb()
+      .insert(forecastJudgments)
+      .values({
+        scope: "all",
+        asOf: "2026-10-10",
+        inputFingerprint: historyFingerprint([], "2026-10-10"),
+        model: "test-model",
+        backfilled: false,
+        judgment: {
+          phases: [{ from: "2026-09-01", label: "在家" }],
+          documents: [],
+          expected: [],
+          categories: [{ key: foodId, low: 25, mid: 900, high: 1000, trend: "steady" }],
+        },
+      });
+
+    const forecast = (await getPeriodForecast({ period: THIS_MONTH }, "Asia/Shanghai"))!;
+
+    // Food days run at ¥30 (one at ¥46), so a day is held to one and a half times that.
+    const food = forecast.categories.find((category) => category.name === "餐饮")!;
+    expect(Number(food.forecast.p50)).toBeLessThanOrEqual(286 + 21 * 46 * 1.5);
+    expect(forecast.judgment).not.toBeNull();
   });
 });

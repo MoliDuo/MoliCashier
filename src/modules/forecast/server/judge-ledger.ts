@@ -1,6 +1,7 @@
 import "server-only";
 import {
   FORECAST_AI_ACCURACY_HORIZON_DAYS,
+  FORECAST_AI_AMOUNT_CAP_MULTIPLE,
   FORECAST_AI_BACKFILL_WEEKS,
   FORECAST_AI_EXPECTED_DAYS,
   FORECAST_AI_INPUT_MAX_CHARS,
@@ -32,6 +33,7 @@ import {
   buildJudgmentDigest,
   type DigestReference,
 } from "@/modules/forecast/domain/judgment/digest";
+import { boundJudgment } from "@/modules/forecast/domain/judgment/bounds";
 import { buildJudgmentPrompt } from "@/modules/forecast/domain/judgment/prompt";
 import {
   judgmentResponseSchema,
@@ -199,6 +201,20 @@ function judgeOnce(scope: string, run: () => Promise<void>): Promise<void> {
 }
 
 /**
+ * Runs `run` as the judgment of `scope` once any already running for it is
+ * over, whatever became of that one. The nightly run has more to do than a
+ * read's judgment of today — the backfill — so waiting on a read's run and
+ * calling it done would skip the backfill until the next night.
+ */
+async function judgeAfterRunning(scope: string, run: () => Promise<void>): Promise<void> {
+  for (;;) {
+    const existing = registry().running.get(scope);
+    if (existing == null) return judgeOnce(scope, run);
+    await existing.catch(() => undefined);
+  }
+}
+
+/**
  * Whether today still lacks a judgment: none, one of another day, or one made under an older prompt.
  * Entries recorded since do not count; each judgment reads the whole ledger and costs real money, so
  * a scope is judged once a day and the day's new entries wait for the next one.
@@ -279,7 +295,8 @@ function scoreScope(scope: string, rows: readonly HistoryRow[], today: string): 
       scores.push(
         scoreJudgment({
           asOf,
-          judgment,
+          // Scored as the page would have shown it: held to what had been seen by then.
+          judgment: boundJudgment(judgment, rows, asOf, FORECAST_AI_AMOUNT_CAP_MULTIPLE),
           rows,
           horizon: FORECAST_AI_ACCURACY_HORIZON_DAYS,
           statistical: STATISTICAL,
@@ -328,7 +345,7 @@ export async function judgeForecasts(): Promise<void> {
   );
   const base = { scope, bookId: undefined, history, language: settings.aiLanguage };
 
-  await judgeOnce(scope, async () => {
+  await judgeAfterRunning(scope, async () => {
     const [latest] = await judgmentsSince(scope, today);
     if (isStale(latest ?? null, today)) {
       await judge({ ...base, asOf: today, backfilled: false });
