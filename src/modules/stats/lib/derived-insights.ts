@@ -98,16 +98,27 @@ function pickTopMover(stats: EnhancedStatsDto): StatsInsights["topMover"] {
   if (compare(stats.summary.comparison.previousTotal, "0") === 0) return null;
 
   const threshold = multiply(abs(stats.summary.total), TOP_MOVER_MINIMUM_SHARE);
-  const leader = stats.categories.reduce<EnhancedStatsDto["categories"][number] | null>(
-    (best, category) =>
-      best == null || compare(abs(category.trend.amount), abs(best.trend.amount)) > 0
-        ? category
-        : best,
+  // A category that went to nothing this period has fallen by all it was.
+  const movers = [
+    ...stats.categories.map((category) => ({
+      id: category.id,
+      name: category.name,
+      delta: category.trend.amount,
+    })),
+    ...stats.previousOnlyCategories.map((category) => ({
+      id: category.id,
+      name: category.name,
+      delta: multiply(category.previousTotal, "-1"),
+    })),
+  ];
+  const leader = movers.reduce<(typeof movers)[number] | null>(
+    (best, mover) =>
+      best == null || compare(abs(mover.delta), abs(best.delta)) > 0 ? mover : best,
     null
   );
   if (leader == null) return null;
 
-  const delta = leader.trend.amount;
+  const delta = leader.delta;
   if (compare(abs(delta), threshold) < 0) return null;
   return {
     id: leader.id,

@@ -137,4 +137,34 @@ describe("buildEnhancedStatsDto", () => {
     expect(dto.summary.comparison.wholeTo).toBe("2026-08-03");
     expect(dto.largestEntries).toEqual([]);
   });
+
+  it("gives growth from nothing no percentage, only its amount", () => {
+    const result = build({
+      current: bucket({}, { food: { name: "Food", total: "120" } }),
+      previous: bucket(),
+    });
+
+    expect(result.summary.comparison).toMatchObject({ amountDelta: "120", percent: null });
+    expect(result.categories[0]!.trend).toEqual({ percent: null, amount: "120" });
+  });
+
+  it("names the categories the comparison period spent on and this one did not", () => {
+    const result = build({
+      current: bucket({}, { food: { name: "Food", total: "120" } }),
+      previous: bucket(
+        {},
+        {
+          food: { name: "Food", total: "100" },
+          rent: { name: "Rent", total: "3000" },
+          gift: { name: "Gift", total: "50" },
+        }
+      ),
+    });
+
+    expect(result.categories[0]!.trend.percent).toBe(20);
+    expect(result.previousOnlyCategories).toEqual([
+      { id: "rent", name: "Rent", icon: null, previousTotal: "3000" },
+      { id: "gift", name: "Gift", icon: null, previousTotal: "50" },
+    ]);
+  });
 });

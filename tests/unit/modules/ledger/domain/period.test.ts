@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  addCivilDays,
   calendarRangeOf,
   canStepPeriod,
+  MAX_PERIOD_DAYS,
   monthPeriod,
   parsePeriod,
   periodKey,
@@ -158,6 +160,19 @@ describe("parsePeriod", () => {
     expect(parsePeriod({ range: "custom", from: "2026-02-30", to: "2026-03-01" })).toEqual({
       range: "month",
       offset: 0,
+    });
+  });
+
+  it("keeps the last days of a custom span longer than one read may cover", () => {
+    expect(parsePeriod({ range: "custom", from: "1990-01-01", to: "2026-09-30" })).toEqual({
+      range: "custom",
+      from: addCivilDays("2026-09-30", -(MAX_PERIOD_DAYS - 1)),
+      to: "2026-09-30",
+    });
+    expect(parsePeriod({ range: "custom", from: "2026-01-01", to: "2026-09-30" })).toEqual({
+      range: "custom",
+      from: "2026-01-01",
+      to: "2026-09-30",
     });
   });
 

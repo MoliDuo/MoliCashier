@@ -19,6 +19,9 @@ import {
 import { currencyCodeSchema as supportedCurrencyCodeSchema } from "@/modules/currency/contract-schemas";
 import {
   CALENDAR_RANGES,
+  civilDaysBetween,
+  isCivilDate,
+  MAX_PERIOD_DAYS,
   MAX_PERIOD_OFFSET,
   MIN_PERIOD_OFFSET,
 } from "@/modules/ledger/domain/period";
@@ -97,7 +100,17 @@ export const periodInputSchema = z.discriminatedUnion("range", [
   z
     .object({ range: z.literal("custom"), from: dateStringSchema, to: dateStringSchema })
     .strict()
-    .refine((value) => value.from <= value.to, { message: "Invalid date range", path: ["to"] }),
+    .refine((value) => value.from <= value.to, { message: "Invalid date range", path: ["to"] })
+    .refine(
+      (value) =>
+        !isCivilDate(value.from) ||
+        !isCivilDate(value.to) ||
+        civilDaysBetween(value.from, value.to) < MAX_PERIOD_DAYS,
+      {
+        message: `A period can cover at most ${MAX_PERIOD_DAYS} days`,
+        path: ["from"],
+      }
+    ),
 ]);
 
 export const categoryFilterSchema = z

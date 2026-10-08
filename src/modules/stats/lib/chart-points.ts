@@ -6,7 +6,7 @@ export interface ChartPoint {
   label: string;
   value: number;
   total: string;
-  /** YYYY-MM-DD for daily granularity, YYYY-MM for yearly granularity. */
+  /** YYYY-MM-DD for daily granularity, YYYY-MM for yearly granularity, YYYY past ten years of months. */
   fullDate: string;
 }
 
@@ -72,7 +72,9 @@ export function buildChartPoints({
     const endYear = Number(endDate.slice(0, 4));
     const endMonth = Number(endDate.slice(5, 7));
     const monthCount = (endYear - startYear) * 12 + (endMonth - startMonth) + 1;
-    if (monthCount <= 0 || monthCount > MAX_CHART_POINTS) return [];
+    if (monthCount <= 0) return [];
+    // Past ten years of months the bars grow too thin to read; a bar a year keeps the span whole.
+    if (monthCount > MAX_CHART_POINTS) return yearlyPoints(data, startYear, endYear);
 
     const points: ChartPoint[] = [];
     for (let index = 0; index < monthCount; index++) {
@@ -111,6 +113,26 @@ export function buildChartPoints({
         : String(Number(cursor.slice(8, 10)));
     points.push({ label, value: finiteCoordinate(total), total, fullDate: cursor });
     cursor = addCivilDays(cursor, 1);
+  }
+  return points;
+}
+
+/** One point a year from `startYear` through `endYear`, each the sum of its days. */
+function yearlyPoints(
+  data: BuildChartPointsInput["data"],
+  startYear: number,
+  endYear: number
+): ChartPoint[] {
+  const totals = new Map<string, Decimal>();
+  for (const point of data) {
+    const year = point.date.slice(0, 4);
+    totals.set(year, (totals.get(year) ?? new Decimal(0)).plus(point.total));
+  }
+  const points: ChartPoint[] = [];
+  for (let year = startYear; year <= endYear; year++) {
+    const key = String(year);
+    const total = (totals.get(key) ?? new Decimal(0)).toFixed();
+    points.push({ label: key, value: finiteCoordinate(total), total, fullDate: key });
   }
   return points;
 }

@@ -88,4 +88,28 @@ describe("StatsSummary", () => {
 
     expect(screen.queryByText("预计本期")).not.toBeInTheDocument();
   });
+
+  it("compares with the change and its percentage", () => {
+    render(<StatsSummary {...propsFor()} />);
+
+    expect(screen.getByText("较上月同期多 ¥60.00（+100.0%）")).toBeInTheDocument();
+  });
+
+  it("gives no percentage against a period that came to nothing", () => {
+    const base = buildEnhancedStatsFixture();
+    const stats = buildEnhancedStatsFixture({
+      summary: {
+        ...base.summary,
+        comparison: {
+          ...base.summary.comparison,
+          previousTotal: "0",
+          amountDelta: "120",
+          percent: null,
+        },
+      },
+    });
+    render(<StatsSummary {...propsFor(stats)} />);
+
+    expect(screen.getByText("较上月同期多 ¥120.00")).toBeInTheDocument();
+  });
 });

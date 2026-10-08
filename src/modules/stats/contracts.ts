@@ -14,9 +14,19 @@ type EnhancedCategoryStatDto = {
   percent: number;
   count: number;
   trend: {
-    percent: number;
+    /** Null when the category had nothing in the comparison period: growth from nothing has no percentage. */
+    percent: number | null;
     amount: string;
   };
+};
+
+/** A category spent on in the comparison period and not at all in this one. */
+type PreviousOnlyCategoryDto = {
+  id: string | null;
+  name: string;
+  icon: string | null;
+  /** What it came to in the comparison period; it has fallen by all of it. */
+  previousTotal: string;
 };
 
 export type StatsComparisonMode = "same_period" | "full_period";
@@ -52,7 +62,8 @@ export interface EnhancedStatsDto {
       to: string;
       previousTotal: string;
       amountDelta: string;
-      percent: number;
+      /** Null when the comparison period came to nothing: growth from nothing has no percentage. */
+      percent: number | null;
       /** The comparison period's own last day; past `to` when only its first days are compared. */
       wholeTo: string;
       /** What the comparison period came to in the end, `from` through `wholeTo`. */
@@ -60,6 +71,8 @@ export interface EnhancedStatsDto {
     };
   };
   categories: EnhancedCategoryStatDto[];
+  /** The categories the comparison period spent on and this one did not, largest first. */
+  previousOnlyCategories: PreviousOnlyCategoryDto[];
   chart: { date: string; total: string }[];
   /**
    * The comparison period's daily totals, `comparison.from` through

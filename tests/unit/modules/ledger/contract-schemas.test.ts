@@ -4,7 +4,9 @@ import {
   parseBatchUpdateLedgerEntriesInput,
   parseCreateLedgerEntryInput,
   parseListLedgerEntriesInput,
+  periodInputSchema,
 } from "@/modules/ledger/contract-schemas";
+import { addCivilDays, MAX_PERIOD_DAYS } from "@/modules/ledger/domain/period";
 
 describe("search param validation", () => {
   it("normalizes search in listLedgerEntriesInputSchema", () => {
@@ -121,5 +123,25 @@ describe("entry write validation", () => {
     expect(parseBatchUpdateLedgerEntriesInput({ amount: `-${largest}` })).toMatchObject({
       amount: `-${largest}`,
     });
+  });
+});
+
+describe("periodInputSchema", () => {
+  it("accepts a custom period of at most the longest span one read may cover", () => {
+    const to = "2026-09-30";
+    const longest = { range: "custom", from: addCivilDays(to, -(MAX_PERIOD_DAYS - 1)), to };
+    expect(periodInputSchema.safeParse(longest).success).toBe(true);
+
+    const result = periodInputSchema.safeParse({
+      ...longest,
+      from: addCivilDays(longest.from, -1),
+    });
+    expect(result.success).toBe(false);
+    expect(result.error!.issues).toEqual([
+      expect.objectContaining({
+        path: ["from"],
+        message: `A period can cover at most ${MAX_PERIOD_DAYS} days`,
+      }),
+    ]);
   });
 });

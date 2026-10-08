@@ -19,24 +19,24 @@ export const statsTabCopy = {
   samePeriodMore: (v: {
     period: string | number;
     amount: string | number;
-    percent: string | number;
-  }) => `较${v.period}同期多 ${v.amount}（+${v.percent}%）`,
+    percent: string | number | null;
+  }) => `较${v.period}同期多 ${v.amount}${v.percent == null ? "" : `（+${v.percent}%）`}`,
   samePeriodLess: (v: {
     period: string | number;
     amount: string | number;
-    percent: string | number;
-  }) => `较${v.period}同期少 ${v.amount}（-${v.percent}%）`,
+    percent: string | number | null;
+  }) => `较${v.period}同期少 ${v.amount}${v.percent == null ? "" : `（-${v.percent}%）`}`,
   samePeriodEqual: (v: { period: string | number }) => `与${v.period}同期持平`,
   fullPeriodMore: (v: {
     period: string | number;
     amount: string | number;
-    percent: string | number;
-  }) => `较${v.period}多 ${v.amount}（+${v.percent}%）`,
+    percent: string | number | null;
+  }) => `较${v.period}多 ${v.amount}${v.percent == null ? "" : `（+${v.percent}%）`}`,
   fullPeriodLess: (v: {
     period: string | number;
     amount: string | number;
-    percent: string | number;
-  }) => `较${v.period}少 ${v.amount}（-${v.percent}%）`,
+    percent: string | number | null;
+  }) => `较${v.period}少 ${v.amount}${v.percent == null ? "" : `（-${v.percent}%）`}`,
   fullPeriodEqual: (v: { period: string | number }) => `与${v.period}持平`,
   loadFailed: "统计数据加载失败，请重试。",
   retry: "重试",
