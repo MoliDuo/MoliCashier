@@ -201,7 +201,8 @@ src/copy/                 全部界面文案，按界面区域分文件
   即便如此，退出后页面上还在途的请求或路由器的补救导航，仍可能在整页跳转落地前先到一次不带提示的 `/login`，
   所以退出路由还会留一个 60 秒的 `cashier_signed_out` cookie：`/login` 看到它就按 `signed_out` 处理、不自动跳转。
   用户点"重新登录"进入 `/api/auth/login` 时清掉它；会话自己过期时没有这个 cookie，仍然自动去提供方续上。
-  请求只靠 `SameSite=Lax` 的会话 cookie 识别要退出的会话，跨站的 POST 带不上它，所以不需要额外的来源检查。
+  `SameSite=Lax` 只挡住跨站（cross-site）的 POST，同站的兄弟子域名发来的 POST 仍会带上会话 cookie，所以退出路由
+  还要求 `Sec-Fetch-Site: same-origin`；没有这个头的旧浏览器，要求 `Origin` 等于 `APP_URL`；两者都没有就拒绝（403）。
 - **dev 旁路。** 开发和测试环境保留受 `isDevAuthBypassEnabled()` 限制的 dev 登录，demo 也靠它。
 - **建账本。** 没有网页 setup。用 `npm run ledger:create` 在一个事务里建好账本、默认分账和分类；
   没有账本时登录页会提示这条命令。
