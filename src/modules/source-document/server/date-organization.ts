@@ -12,6 +12,7 @@ import { ensureExchangeRates } from "@/modules/currency/server/exchange-rates";
 import { lockLedgerForUpdate, lockSourceDocumentForUpdate } from "@/lib/db/transaction-locks";
 import { assertSourceDocumentsNotProcessing } from "./write-guards";
 import { copyDocumentInput } from "./document-input";
+import { repointEntryCorrectionsInTransaction } from "@/modules/ledger/server/ai-corrections";
 import { getSourceDocumentInTransaction } from "./reads/list";
 
 function normalizeCurrency(value: string | null) {
@@ -153,6 +154,7 @@ export async function applyDateOrganization(
         WHERE entry.id = move.id
       `);
     }
+    await repointEntryCorrectionsInTransaction(tx, input.sourceDocumentId);
     const remainingItems = lockedDocument.dateOrganizationSuggestion.items.filter(
       (item) => !assigned.has(item.ledgerEntryId)
     );

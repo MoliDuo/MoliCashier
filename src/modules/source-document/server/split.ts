@@ -10,6 +10,7 @@ import { logIdentifier } from "@/lib/security/log-identifier";
 import { lockLedgerForUpdate, lockSourceDocumentForUpdate } from "@/lib/db/transaction-locks";
 import { assertSourceDocumentsNotProcessing } from "./write-guards";
 import { copyDocumentInput } from "./document-input";
+import { repointEntryCorrectionsInTransaction } from "@/modules/ledger/server/ai-corrections";
 
 export async function splitSourceDocumentAtomically(input: {
   sourceDocumentId: string;
@@ -107,6 +108,7 @@ export async function splitSourceDocumentAtomically(input: {
     if (updatedEntries.rows.length !== currentEntries.length) {
       throw new ConflictError("Source document entries changed during the split");
     }
+    await repointEntryCorrectionsInTransaction(tx, input.sourceDocumentId);
     // Only the flags on entries that moved go; the rest still describe rows
     // that stay on this record.
     const remainingDuplicateItems = (lockedDocument.duplicateSuggestion?.items ?? []).filter(
