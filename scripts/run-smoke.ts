@@ -59,6 +59,10 @@ const stop = async (child: ChildProcess | undefined): Promise<void> => {
   clearTimeout(timer);
 };
 
+// The signal that stopped the run, so the exit code says so (130 for SIGINT, 143 for SIGTERM) the
+// way run-check and run-vitest report it.
+let interruptedBy: NodeJS.Signals | undefined;
+
 async function main(): Promise<void> {
   const adminUrl = new URL(
     process.env.TEST_DATABASE_URL ?? "postgresql://cashier:cashier@127.0.0.1:55432/cashier_test"
@@ -136,15 +140,16 @@ async function main(): Promise<void> {
         throw new Error("Next.js exited before the smoke server became ready");
       }
       try {
-        const response = await fetch(`${baseURL}/login`);
+        const response = await fetch(`${baseURL}/login`, { signal: AbortSignal.timeout(5_000) });
         if (response.ok) return;
       } catch {}
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
     throw new Error("Smoke server did not become ready within 60 seconds");
   };
-  const interrupt = () => {
+  const interrupt = (signal: NodeJS.Signals) => {
     interrupted = true;
+    interruptedBy = signal;
     activeChild?.kill("SIGTERM");
   };
   process.on("SIGINT", interrupt);
@@ -214,5 +219,5 @@ async function main(): Promise<void> {
 
 main().catch((error: unknown) => {
   console.error(error);
-  process.exitCode = 1;
+  process.exitCode = interruptedBy === "SIGINT" ? 130 : interruptedBy === "SIGTERM" ? 143 : 1;
 });

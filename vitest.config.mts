@@ -21,15 +21,17 @@ const coverageConfig = {
    * Module UI used to be excluded, although 59 test files cover it: the
    * thresholds neither credited those tests nor noticed an untested component.
    * Including it moved every figure up rather than down, so the exclusion was
-   * only hiding work that was already being done. The numbers below sit a few
-   * points under the measured ones, which is room for ordinary movement and
-   * not room for a feature to arrive untested.
+   * only hiding work that was already being done. The numbers below sit two
+   * points under the measured ones (lines 87.8, statements 86.1, functions
+   * 83.1, branches 78.6 in October 2026), which is room for ordinary movement
+   * and not room for a feature to arrive untested. Raise them as the measured
+   * figures rise.
    */
   thresholds: {
-    lines: 76,
-    statements: 74,
-    functions: 73,
-    branches: 66,
+    lines: 85,
+    statements: 84,
+    functions: 81,
+    branches: 76,
   },
   exclude: [
     "node_modules",

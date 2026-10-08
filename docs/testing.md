@@ -27,7 +27,7 @@
 `npx playwright install chromium`。
 
 数据库相关的命令只需要一个运行中的 Docker daemon，不需要 `.env`、真实凭证、固定端口或手动迁移。
-测试容器用 `postgres:18-alpine`，与生产的大版本一致，随机主机端口，Vitest 跑完即释放。首次运行会拉取镜像，比较慢。
+测试容器用 `postgres:17-alpine`，与生产的大版本一致，随机主机端口，Vitest 跑完即释放。首次运行会拉取镜像，比较慢。
 
 ## 分层
 

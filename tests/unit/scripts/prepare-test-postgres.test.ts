@@ -88,7 +88,7 @@ describe("test PostgreSQL preparation", () => {
     await resource.cleanup();
 
     expect(containerFactory).toHaveBeenCalledWith({
-      image: "postgres:18-alpine",
+      image: "postgres:17-alpine",
       database: "cashier_test",
       username: "cashier",
       password: "cashier",

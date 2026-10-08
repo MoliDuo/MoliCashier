@@ -4,7 +4,7 @@ import pg from "pg";
 import { z } from "zod";
 
 const DATABASE_NAME = "cashier_test";
-const IMAGE = "postgres:18-alpine";
+const IMAGE = "postgres:17-alpine";
 const STARTUP_TIMEOUT_MS = 120_000;
 
 /** The slice of a `pg.Pool` this module uses, so tests can stand in for it. */
