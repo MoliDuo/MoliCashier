@@ -209,7 +209,9 @@ src/copy/                 全部界面文案，按界面区域分文件
   签名的授权码。
 - **密钥。** 每一种摘要都用 `deriveKey` / `keyedDigest`（`src/lib/security/keys.ts`），一种用途一把密钥，
   全部由 `AUTH_SECRET` 经 HKDF 派生。
-- **API v1 凭证。** 256 位随机值（早期签发的 192 位凭证仍然有效），HMAC 存储，绑定到分账。
+- **API v1 凭证。** 256 位随机值（早期签发的 192 位凭证仍然有效），HMAC 存储，绑定到分账。创建单据按凭证限流
+  （进程内存里的令牌桶，`src/server/api-v1/rate-limit.ts`，额度在 `src/config/tuning.ts`），在读请求体之前判断，
+  超出返回 429 和 `Retry-After`。只有一个进程，所以不需要共享存储；记住的凭证数有上限。
 - **日志。** 只记关联 id 和经 `logIdentifier` 标记的标识，邮箱一律哈希。不记原始邮箱、bearer token、
   授权码、令牌、图片内容或服务商负载。
 - 外部调用（汇率、AI、对象存储、OIDC 提供方）放在数据库事务和账本锁之外。一次性和带租约的流程用条件写、

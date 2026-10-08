@@ -3,6 +3,7 @@ import { createSourceDocumentFromCredentialRequest } from "@/modules/source-docu
 import { ValidationError } from "@/lib/errors";
 import { readBoundedBody, RequestBodyTooLargeError } from "@/lib/http/bounded-body";
 import { ApiV1HandlerFailure, handleApiV1Route } from "@/server/api-v1/request-pipeline";
+import { takeSourceDocumentCreation } from "@/server/api-v1/rate-limit";
 import { toApiV1SourceDocumentCreateResponse } from "@/app/api/v1/_shared/compatibility";
 import {
   apiV1IdempotencyKeySchema,
@@ -34,6 +35,10 @@ export async function POST(request: NextRequest) {
       let imageCount = 0;
       let decodedBytes = 0;
       try {
+        // Counted before anything is read, so a credential over its allowance
+        // costs no body read or image decoding.
+        takeSourceDocumentCreation(credential.id);
+
         // Validate Idempotency-Key before reading or decoding the request
         // body, so an invalid key can never trigger image decoding or uploads.
         const idempotencyHeader = authorizedRequest.headers.get("Idempotency-Key");

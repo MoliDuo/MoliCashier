@@ -279,6 +279,70 @@ describe("API v1 source-documents route", () => {
     expect(response.headers.get("x-request-id")).toMatch(/^[0-9a-f-]{36}$/);
   });
 
+  it("refuses a credential past its per-minute allowance with 429 and Retry-After, unread", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const submit = (body: BodyInit) =>
+        POST(
+          new NextRequest("http://localhost/api/v1/source-documents", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${credentialKey}` },
+            body,
+            duplex: "half",
+          } as ConstructorParameters<typeof NextRequest>[1])
+        );
+      // Every request counts, the ones that then fail validation included.
+      for (let i = 0; i < 30; i++) expect((await submit("{}")).status).toBe(400);
+
+      let pulled = false;
+      const response = await submit(
+        new ReadableStream<Uint8Array>(
+          {
+            pull() {
+              pulled = true;
+              throw new Error("request body was consumed");
+            },
+          },
+          { highWaterMark: 0 }
+        )
+      );
+
+      expect(response.status).toBe(429);
+      expect(response.headers.get("retry-after")).toBe("2");
+      expect(response.headers.get("x-request-id")).toMatch(/^[0-9a-f-]{36}$/);
+      await expect(response.json()).resolves.toMatchObject({ error: { code: "RATE_LIMITED" } });
+      expect(pulled).toBe(false);
+
+      vi.setSystemTime(Date.now() + 2_000);
+      expect((await submit("{}")).status).toBe(400);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("refuses a request without a valid credential before reading its body", async () => {
+    let pulled = false;
+    const response = await POST(
+      new NextRequest("http://localhost/api/v1/source-documents", {
+        method: "POST",
+        headers: { Authorization: "Bearer not-a-credential" },
+        body: new ReadableStream<Uint8Array>(
+          {
+            pull() {
+              pulled = true;
+              throw new Error("request body was consumed");
+            },
+          },
+          { highWaterMark: 0 }
+        ),
+        duplex: "half",
+      } as ConstructorParameters<typeof NextRequest>[1])
+    );
+
+    expect(response.status).toBe(401);
+    expect(pulled).toBe(false);
+  });
+
   it("maps storage failures to 503 and still returns X-Request-Id", async () => {
     const image = await validJpegBase64();
     mockR2.setUploadError(new AppError("Failed to upload file to S3", "S3_UPLOAD_FAILED", 503));

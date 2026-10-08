@@ -60,6 +60,13 @@ export const SESSION_MAX_AGE_DAYS = 14;
 export const SESSION_ABSOLUTE_MAX_AGE_DAYS = 30;
 
 /**
+ * How many source documents one API v1 credential may create: a burst of this many a minute, and
+ * this many a day. Each allowance refills evenly over its period (a token bucket).
+ */
+export const API_V1_CREATES_PER_MINUTE = 30;
+export const API_V1_CREATES_PER_DAY = 300;
+
+/**
  * How many extraction attempts run at once. Each holds its images decoded and base64-encoded in
  * memory and one model request open, and the provider's rate limit is shared; more due attempts
  * wait their turn in the queue.
