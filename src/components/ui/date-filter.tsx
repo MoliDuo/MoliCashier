@@ -9,10 +9,12 @@ import { textRoleClassName } from "@/components/typography";
 import {
   formatDateTimeForApi,
   formatRelativeDateLabel,
+  getDateInTimezone,
   isValidDateString,
   parseDateString,
 } from "@/lib/date-utils";
 import { DISPLAY_LOCALE } from "@/lib/constants";
+import { useLedgerTimeZone } from "@/lib/ledger-time-zone";
 import { dateFilterCopy } from "@/copy/controls";
 
 interface DateFilterProps {
@@ -51,6 +53,7 @@ interface DateFilterProps {
   /**
    * Ledger timezone: 今天/昨天 must name the day the ledger is on, not the day
    * the device is on, or the same field reads differently in the two tabs.
+   * Defaults to the zone the ledger layout provides.
    */
   timeZone?: string;
   /**
@@ -79,6 +82,8 @@ export function DateFilter({
   ariaLabel,
 }: DateFilterProps) {
   const locale = DISPLAY_LOCALE;
+  const ledgerTimeZone = useLedgerTimeZone();
+  const zone = timeZone ?? ledgerTimeZone;
   const [open, setOpen] = React.useState(false);
 
   const civilDateString = React.useMemo(() => {
@@ -91,7 +96,7 @@ export function DateFilter({
 
   // The field paints its value the way the rest of the app writes a day.
   const dateLabel =
-    civilDateString == null ? null : formatRelativeDateLabel(civilDateString, locale, timeZone);
+    civilDateString == null ? null : formatRelativeDateLabel(civilDateString, locale, zone);
 
   const dateValue = React.useMemo(
     () => (civilDateString == null ? null : parseDateString(civilDateString)),
@@ -173,6 +178,8 @@ export function DateFilter({
           value={dateValue}
           onChange={handleDateChange}
           onEscape={() => setOpen(false)}
+          // Read as the picker opens, so a page left open overnight offers the new day.
+          today={getDateInTimezone(zone)}
           showShortcuts
           // Fields whose value can never be empty pass false, so the calendar
           // does not offer a 清除 that silently does nothing.

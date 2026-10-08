@@ -26,7 +26,6 @@ export const calendarCopy = {
   clear: "清除",
   previousMonth: "上个月",
   nextMonth: "下个月",
-  weekDays: ["日", "一", "二", "三", "四", "五", "六"],
   weekDaysMon: ["一", "二", "三", "四", "五", "六", "日"],
   currency: "货币",
   noData: "暂无数据",
