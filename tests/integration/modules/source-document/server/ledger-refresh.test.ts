@@ -11,11 +11,19 @@ describe("ledger refresh", () => {
   });
 
   const refresh = (afterVersion: string) => getStreamRefresh({ afterVersion });
+  // Pages loaded before this release still read these flags; they stay, all false, for one more.
+  const retired = { categories: false, settings: false, stats: false };
 
   async function version(): Promise<bigint> {
     const state = await getTestDb().query.ledgerSyncState.findFirst();
     return state?.version ?? BigInt(0);
   }
+
+  it("still answers the retired invalidation flags, all false, for pages from the last release", async () => {
+    const result = await refresh("0");
+
+    expect(result.invalidations).toEqual(retired);
+  });
 
   it("returns no change at the current version", async () => {
     const currentVersion = await version();
@@ -23,6 +31,7 @@ describe("ledger refresh", () => {
       version: currentVersion.toString(),
       changed: false,
       hasTransitionalWork: false,
+      invalidations: retired,
     });
   });
 
@@ -35,6 +44,7 @@ describe("ledger refresh", () => {
       version: (await version()).toString(),
       changed: true,
       hasTransitionalWork: false,
+      invalidations: retired,
     });
   });
 
