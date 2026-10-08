@@ -5,11 +5,23 @@ if (demoProject != null && !/^[a-z][a-z0-9-]{0,40}$/.test(demoProject)) {
   throw new Error("CASHIER_DEMO_PROJECT must be a lowercase Compose project name");
 }
 
+// `npm run test:smoke` builds and serves from its own directory, so a smoke run
+// and `npm run check` in the same checkout never overwrite each other's `.next`.
+// Its tsconfig lists that directory's route types instead of `.next`'s: one that
+// `extends` another is never rewritten by `next build`, which would otherwise
+// add the smoke directory to tsconfig.json.
+const smokeBuild = process.env.CASHIER_SMOKE_BUILD === "1";
+const distDir = smokeBuild
+  ? ".next-smoke"
+  : demoProject == null
+    ? undefined
+    : `.next-${demoProject}`;
+
 // Build remotePatterns from environment
 const remotePatterns: Array<{ protocol: "https" | "http"; hostname: string }> = [];
 
 const nextConfig: NextConfig = {
-  ...(demoProject == null ? {} : { distDir: `.next-${demoProject}` }),
+  ...(distDir == null ? {} : { distDir }),
   // instrumentation.ts is enabled by default in Next.js 16+
   // The dev tools badge is fixed to a viewport corner, where it covers the
   // ledger's own footer controls at phone widths — the source-document modal's
@@ -18,7 +30,10 @@ const nextConfig: NextConfig = {
   devIndicators: false,
   // `npm run check` type-checks with `next typegen && tsc` before it builds,
   // so its build skips Next's second, identical pass.
-  ...(process.env.CASHIER_CHECK_BUILD === "1" ? { typescript: { ignoreBuildErrors: true } } : {}),
+  typescript: {
+    ...(process.env.CASHIER_CHECK_BUILD === "1" ? { ignoreBuildErrors: true } : {}),
+    ...(smokeBuild ? { tsconfigPath: "tsconfig.smoke.json" } : {}),
+  },
   experimental: {
     // No `proxyClientMaxBodySize`: the proxy does not match API routes, where the large bodies
     // (uploads, API v1) go, so it never buffers one. A repository test holds the matcher to it.

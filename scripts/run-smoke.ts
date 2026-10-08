@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import type { AddressInfo } from "node:net";
 import net from "node:net";
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -117,6 +118,8 @@ async function main(): Promise<void> {
     // tests/smoke/sign-in.ts instead.
     DEV_AUTH_BYPASS: "false",
     TZ: "UTC",
+    // next.config.ts builds and serves this run from `.next-smoke`, apart from the gate's `.next`.
+    CASHIER_SMOKE_BUILD: "1",
     SMOKE_BASE_URL: baseURL,
     SMOKE_EMAIL: smokeEmail,
     SMOKE_OIDC_URL: oidcEndpoint,
@@ -175,7 +178,15 @@ async function main(): Promise<void> {
     } finally {
       await client.end();
     }
-    await run(["node_modules/next/dist/bin/next", "build", "--webpack"]);
+    // The build points next-env.d.ts at `.next-smoke`'s route types; put it back
+    // so `tsc` and the editor keep reading `.next`'s.
+    const nextEnv = await readFile("next-env.d.ts", "utf8").catch(() => undefined);
+    try {
+      await run(["node_modules/next/dist/bin/next", "build", "--webpack"]);
+    } finally {
+      if (nextEnv == null) await rm("next-env.d.ts", { force: true });
+      else await writeFile("next-env.d.ts", nextEnv);
+    }
     await run(tsxArgs("scripts/check-protected-route-bundle.ts"));
     server = spawn(
       process.execPath,

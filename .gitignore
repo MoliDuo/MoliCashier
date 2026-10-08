@@ -12,6 +12,7 @@ test_output*.txt
 # next.js
 /.next/
 /.next-cashier-*/
+/.next-smoke/
 /out/
 
 # production

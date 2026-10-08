@@ -36,6 +36,7 @@ const coverageConfig = {
   exclude: [
     "node_modules",
     ".next",
+    ".next-smoke",
     "tests",
     "src/**/*.test.ts",
     "src/**/*.test.tsx",
@@ -48,7 +49,7 @@ const coverageConfig = {
   ],
 };
 
-const defaultProjectExcludes = ["node_modules", ".next"];
+const defaultProjectExcludes = ["node_modules", ".next", ".next-smoke"];
 const unitDomTypeScriptTests = [
   "tests/unit/lib/ai/client.test.ts",
   "tests/unit/lib/drafts.test.ts",

@@ -105,6 +105,8 @@ advisory lock 和停机交还各有自己的测试；调度器测试用 fake tim
 
 - 每次运行启动临时 PostgreSQL 容器，建一个唯一命名的 `smoke_<uuid>` 库，执行真实迁移，再用
   `scripts/lib/seed.ts` 写入一个账本、两个分账和几个分类。用例需要的账单和会话一样，直接写进这个库。不会迁移、写入或清空任何已有的库。
+- 构建输出在 `.next-smoke`（`run-smoke.ts` 设置 `CASHIER_SMOKE_BUILD=1`，类型检查用 `tsconfig.smoke.json`），
+  不碰门禁的 `.next`，所以同一份检出里可以同时跑 smoke 和 `npm run check`。
 - 桌面和移动场景串行运行，每个场景用新的浏览器上下文。
 - 没有 dev 旁路，也不连真实的认证服务、AI 或对象存储。认证服务是 `scripts/smoke-oidc-server.ts` 的本地假 OIDC 提供方
   （`OIDC_ISSUER_URL` 指向它）：有 discovery、JWKS、授权、令牌（校验客户端密钥和 PKCE）和 userinfo 端点，
