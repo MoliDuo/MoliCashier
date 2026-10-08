@@ -20,7 +20,8 @@
 `npm run check` 分两个阶段（`scripts/run-check.ts`）：先并行跑 `format:check`、`check:architecture`、
 `check:dead-code`、`lint` 和 `tsc`（`next typegen && tsc --noEmit`），任何一项失败就停，不再进入测试；全部通过后并行跑
 `test:coverage` 和 `build:check`。门禁构建设置 `CASHIER_CHECK_BUILD=1`，跳过 Next 自带的第二遍类型检查，
-因为 `tsc` 已经带着生成的路由类型检查过；Docker 镜像的构建不设置它，保留 Next 自带的类型检查。每个脚本的输出在它结束时整段打印，最后一张耗时表
+因为 `tsc` 已经带着生成的路由类型检查过；Docker 镜像的构建不设置它，保留 Next 自带的类型检查。构建完成后 `scripts/check-protected-route-bundle.ts`
+量出受保护路由的客户端包，超过 250 KB（gzip）就失败。每个脚本的输出在它结束时整段打印，最后一张耗时表
 指出慢在哪一步。ESLint 和 Prettier 的缓存放在 `node_modules/.cache/`。
 
 跑单个文件：`npx vitest run tests/unit/path/to/file.test.ts`。Playwright 首次使用前运行

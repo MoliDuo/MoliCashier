@@ -70,8 +70,8 @@ code is organized and tested.
 `npm run check` must pass before you push. It runs formatting (Prettier), the architecture
 check (dependency-cruiser), dead-code detection (knip), ESLint with zero warnings, `tsc`, the full
 test suite with the coverage thresholds in `vitest.config.mts`, and a production build against
-isolated placeholders that also reports the protected-route bundle size against its budget (a
-report, not a failure). The static checks run side by side and stop the gate on the first failure;
+isolated placeholders that also checks the protected-route client bundle against its 250 KB gzip
+budget (over budget fails the gate). The static checks run side by side and stop the gate on the first failure;
 the tests and the build then run side by side, and a summary lists each step's time. Integration tests need a running Docker daemon. Run `npm run test:smoke` as
 well when a change touches sign-in, routing, or the flows the smoke specs cover.
 

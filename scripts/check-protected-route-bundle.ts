@@ -17,12 +17,13 @@ const manifestPath = path.join(
   "server/app/(protected)/(ledger)/records/page_client-reference-manifest.js"
 );
 const routeKey = "/(protected)/(ledger)/records/page";
-// The protected route is the app's largest client bundle. This reports its
-// weight rather than gating on it: two readers on an installed PWA are not the
-// audience a byte budget protects, and keeping the number honest cost more
-// prose than the number was worth. The copy modules count here: before they
-// replaced next-intl, the same strings arrived in the page payload instead.
-const maximumGzipBytes = 233_000;
+// The protected route is the app's largest client bundle, and the gate fails
+// when it passes this budget. It measured about 215 KB in October 2026; the
+// room above that takes ordinary growth, not a new dependency that nobody
+// weighed. Raise it on purpose, in the same change that needs the bytes. The
+// copy modules count here: before they replaced next-intl, the same strings
+// arrived in the page payload instead.
+const maximumGzipBytes = 250_000;
 
 if (!fs.existsSync(manifestPath)) {
   throw new Error(`Protected-route client manifest is missing: ${manifestPath}`);
@@ -53,7 +54,8 @@ console.log(
   `Protected route client footprint: ${gzipBytes} gzip bytes across ${files.size} chunks (budget ${maximumGzipBytes})`
 );
 if (gzipBytes > maximumGzipBytes) {
-  console.warn(
-    `Warning: the protected route grew past ${maximumGzipBytes} gzip bytes. Worth a look, not a failure.`
+  console.error(
+    `The protected route is ${gzipBytes - maximumGzipBytes} gzip bytes over its ${maximumGzipBytes}-byte budget.`
   );
+  process.exitCode = 1;
 }
