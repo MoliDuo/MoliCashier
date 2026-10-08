@@ -3,6 +3,22 @@
 export type AttemptProcessingStatus = "processing" | "completed" | "failed" | "cancelled";
 export type AttemptFailureKind = "invalid_input" | "processing_error";
 
+/** What API v1 reports for a record. */
+export type CredentialDocumentStatus =
+  "processing" | "completed" | "invalid" | "failed" | "cancelled";
+
+/**
+ * The status of a record's latest parse as API v1 reports it: an unreadable
+ * input is "invalid", and a record with no parse (entered or split off by
+ * hand) is "completed".
+ */
+export function toCredentialDocumentStatus(
+  attempt: { status: AttemptProcessingStatus; failureKind: AttemptFailureKind | null } | null
+): CredentialDocumentStatus {
+  if (attempt == null) return "completed";
+  return attempt.failureKind === "invalid_input" ? "invalid" : attempt.status;
+}
+
 export type SupportedSourceDocumentAction =
   "retry" | "edit_retry" | "delete" | "cancel_processing" | "split_entries";
 

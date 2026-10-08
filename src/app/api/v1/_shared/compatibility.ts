@@ -1,11 +1,16 @@
 import type { SourceDocumentSubmissionContract } from "@/modules/source-document/server/submissions";
+import type { CredentialDocumentStatus } from "@/modules/source-document/lifecycle";
 
 export interface ApiV1SourceDocumentCreateResponse {
   sourceDocumentId: string;
-  /** Public name of the extraction attempt the request queued. */
-  revisionId: string;
-  revisionState: "processing";
-  status: "processing";
+  /**
+   * Public name of the extraction attempt the request queued. A replayed
+   * request reports the record's latest one, or null if it has none.
+   */
+  revisionId: string | null;
+  /** "processing" for a new record; a replay reports the record's current status. */
+  revisionState: CredentialDocumentStatus;
+  status: CredentialDocumentStatus;
 }
 
 export const apiV1Compatibility = {

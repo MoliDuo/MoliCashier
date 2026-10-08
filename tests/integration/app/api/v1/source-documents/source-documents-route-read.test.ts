@@ -8,7 +8,12 @@ import { GET } from "@/app/api/v1/source-documents/[sourceDocumentId]/route";
 import { getTestDb } from "tests/setup";
 import { drainBackground } from "tests/helpers/background";
 import { insertExchangeRates } from "tests/helpers/exchange-rates";
-import { createTestLedger, testBookId } from "tests/helpers/schema-setup";
+import {
+  createTestBooks,
+  createTestLedger,
+  createTestRecord,
+  testBookId,
+} from "tests/helpers/schema-setup";
 import {
   exchangeRates,
   ledgers,
@@ -173,7 +178,7 @@ describe("API v1 source-documents route", () => {
         {
           name: "Lunch",
           description: "Noodles",
-          amount: "12.500",
+          amount: "12.50",
           currency: "CNY",
           category: null,
         },
@@ -316,14 +321,14 @@ describe("API v1 source-documents route", () => {
       {
         name: "USD purchase",
         description: null,
-        amount: "10.000",
+        amount: "10.00",
         currency: "USD",
         category: null,
       },
       {
         name: "Local coffee",
         description: null,
-        amount: "5.000",
+        amount: "5.00",
         currency: "CNY",
         category: null,
       },
@@ -368,5 +373,55 @@ describe("API v1 source-documents route", () => {
     expect(body.result.entries).toEqual([
       expect.objectContaining({ name: "Dinar purchase", amount: "12.500", currency: "BHD" }),
     ]);
+  });
+
+  it("reports each amount with its currency's own precision", async () => {
+    const db = getTestDb();
+    const record = await createTestRecord(db, {
+      bookId: await testBookId(db),
+      entries: [
+        {
+          categoryId: null,
+          amount: "1000",
+          currency: "JPY",
+          itemName: "Onigiri",
+          description: null,
+        },
+        { categoryId: null, amount: "3.5", currency: "USD", itemName: "Soda", description: null },
+      ],
+    });
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/v1/source-documents/${record.sourceDocumentId}`, {
+        headers: { Authorization: `Bearer ${credentialKey}` },
+      }),
+      { params: Promise.resolve({ sourceDocumentId: record.sourceDocumentId }) }
+    );
+
+    const body = await response.json();
+    expect(body.result.entries.map((entry: { amount: string }) => entry.amount)).toEqual([
+      "1000",
+      "3.50",
+    ]);
+  });
+
+  it("hides a record filed under another book than the credential's", async () => {
+    const db = getTestDb();
+    const otherBookId = (await createTestBooks(db, ["Partner"])).get("Partner")!;
+    const record = await createTestRecord(db, {
+      bookId: otherBookId,
+      entries: [
+        { categoryId: null, amount: "12", currency: "CNY", itemName: "Gift", description: null },
+      ],
+    });
+
+    const response = await GET(
+      new NextRequest(`http://localhost/api/v1/source-documents/${record.sourceDocumentId}`, {
+        headers: { Authorization: `Bearer ${credentialKey}` },
+      }),
+      { params: Promise.resolve({ sourceDocumentId: record.sourceDocumentId }) }
+    );
+
+    expect(response.status).toBe(404);
   });
 });

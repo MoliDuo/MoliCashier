@@ -9,6 +9,10 @@ import {
   type SourceDocumentAttemptContract,
 } from "@/modules/source-document/server/extraction-attempts";
 import type { ProcessingJobContract } from "@/server/processing/types";
+import {
+  toCredentialDocumentStatus,
+  type CredentialDocumentStatus,
+} from "@/modules/source-document/lifecycle";
 import { lockLedgerForUpdate, type PostgresTransaction } from "@/lib/db/transaction-locks";
 
 async function submitInTransaction(
@@ -138,10 +142,21 @@ export async function findIdempotentSubmission(
   const document = await executor
     .select({
       id: sourceDocuments.id,
-      attemptId: sourceDocuments.latestAttemptId,
       fingerprint: sourceDocuments.idempotencyFingerprint,
+      attempt: {
+        id: extractionAttempts.id,
+        status: extractionAttempts.status,
+        failureKind: extractionAttempts.failureKind,
+      },
     })
     .from(sourceDocuments)
+    .leftJoin(
+      extractionAttempts,
+      and(
+        eq(extractionAttempts.id, sourceDocuments.latestAttemptId),
+        eq(extractionAttempts.sourceDocumentId, sourceDocuments.id)
+      )
+    )
     .where(
       and(
         eq(sourceDocuments.idempotencySource, idempotencySource(idempotency)),
@@ -153,11 +168,12 @@ export async function findIdempotentSubmission(
   if (document.fingerprint !== idempotency.contentFingerprint) {
     throw new ConflictError("Idempotency key was already used with different content");
   }
-  // Creating a document sets its latest submission in the same transaction.
+  // The replay reports the record as it is now: its parse may have finished,
+  // failed or been retried since the first request.
   return {
     sourceDocumentId: document.id,
-    attemptId: document.attemptId!,
-    processingStatus: "processing",
+    attemptId: document.attempt?.id ?? null,
+    processingStatus: toCredentialDocumentStatus(document.attempt),
   };
 }
 
@@ -190,8 +206,9 @@ export async function submitSourceDocumentIdempotently(
 
 export interface SourceDocumentSubmissionContract {
   sourceDocumentId: string;
-  attemptId: string;
-  processingStatus: "processing";
+  /** Null only for a replayed record that no longer has a parse. */
+  attemptId: string | null;
+  processingStatus: CredentialDocumentStatus;
 }
 
 export interface SourceDocumentSubmissionResult {
