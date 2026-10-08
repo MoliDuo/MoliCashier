@@ -22,7 +22,7 @@ import {
 import { resolveDuplicateSuggestion } from "./duplicate-suggestion";
 import type { TargetSourceDocumentListInput } from "./filters";
 import { baseConditions } from "./filters";
-import { cursorCondition, encodeCursor } from "./cursor";
+import { cursorCondition, cursorCreatedAtSql, encodeCursor } from "./cursor";
 import {
   mapListItem,
   mapSourceDocumentDetail,
@@ -150,6 +150,7 @@ export async function listTargetSourceDocuments(input: TargetSourceDocumentListI
       version: sourceDocuments.version,
       createdAt: sourceDocuments.createdAt,
       updatedAt: sourceDocuments.updatedAt,
+      cursorCreatedAt: cursorCreatedAtSql(),
       latestAttemptStatus: extractionAttempts.status,
       failureKind: extractionAttempts.failureKind,
       failureMessage: extractionAttempts.failureMessage,

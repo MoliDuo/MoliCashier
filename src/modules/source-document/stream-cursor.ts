@@ -14,8 +14,11 @@ function validDate(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
+// ISO-8601 with up to microseconds; older cursors carry milliseconds.
+const ISO_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})$/;
+
 function validTimestamp(value: string): boolean {
-  return !Number.isNaN(Date.parse(value));
+  return ISO_TIMESTAMP.test(value) && !Number.isNaN(Date.parse(value));
 }
 
 export function decodeSourceDocumentPageCursor(

@@ -25,6 +25,20 @@ describe("source document stream cursor", () => {
     });
   });
 
+  it("keeps microseconds and still accepts an older millisecond page", () => {
+    const micro = { ...page, createdAt: "2026-08-06T01:02:03.123456Z" };
+    const cursor = encodeSourceDocumentStreamCursor(
+      "42",
+      filterHash,
+      encodeSourceDocumentPageCursor(micro)
+    );
+
+    expect(decodeSourceDocumentStreamCursor(cursor)?.page).toEqual(micro);
+    expect(
+      decodeSourceDocumentStreamCursor(`v4|42|${filterHash}|${pageCursor}`)?.page.createdAt
+    ).toBe("2026-08-06T01:02:03.000Z");
+  });
+
   it("encodes nothing without a valid page cursor", () => {
     expect(encodeSourceDocumentStreamCursor("42", filterHash, null)).toBeNull();
     expect(encodeSourceDocumentStreamCursor("42", filterHash, "not-a-page")).toBeNull();
@@ -44,6 +58,7 @@ describe("source document stream cursor", () => {
     ["a malformed filter hash", `v4|42|XYZ|${pageCursor}`],
     ["a missing page", `v4|42|${filterHash}`],
     ["an invalid page date", `v4|42|${filterHash}|2026-8-5|${page.createdAt}|${page.id}`],
+    ["a non-ISO page timestamp", `v4|42|${filterHash}|${page.documentDate}|Aug 6 2026|${page.id}`],
     ["an extra page segment", `v4|42|${filterHash}|${pageCursor}|extra`],
     ["garbage", "not-a-cursor"],
   ])("rejects %s", (_label, cursor) => {
