@@ -22,7 +22,9 @@ describe("demo AI scenarios", () => {
 
       if (scenario === "unparsable") {
         expect(parsed.outcome, scenario).toBe("invalid");
-        expect(parsed.invalid_reason, scenario).toBeTruthy();
+        expect(parsed.invalid_reason, scenario).toBe(
+          "The document shows no price tied to a single transaction."
+        );
       } else {
         expect(parsed.outcome, scenario).toBe("success");
         expect(parsed.ledger_entries.length, scenario).toBeGreaterThan(0);
@@ -50,7 +52,7 @@ describe("demo AI scenarios", () => {
     const answer = answerFor(promptFor("provider-error"));
 
     expect(answer.status).toBe(503);
-    expect(answer.error?.message).toBeTruthy();
+    expect(answer.error).toEqual({ message: "Demo AI provider outage", type: "server_error" });
     expect(answer.body).toBeUndefined();
   });
 

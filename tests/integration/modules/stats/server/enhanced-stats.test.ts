@@ -327,13 +327,10 @@ describe("Enhanced Stats Actions", () => {
       const foodCategory = result.categories.find((c) => c.name === "餐饮");
       const transportCategory = result.categories.find((c) => c.name === "交通");
 
-      expect(foodCategory).toBeDefined();
-      expect(foodCategory?.totalConverted).toBe("100");
+      expect(foodCategory).toMatchObject({ totalConverted: "100", count: 1 });
       expect(foodCategory?.percent).toBeCloseTo((100 / 150) * 100, 10);
-      expect(foodCategory?.count).toBe(1);
 
-      expect(transportCategory).toBeDefined();
-      expect(transportCategory?.totalConverted).toBe("50");
+      expect(transportCategory).toMatchObject({ totalConverted: "50" });
       expect(transportCategory?.percent).toBeCloseTo((50 / 150) * 100, 10);
     });
 

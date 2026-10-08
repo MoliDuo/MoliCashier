@@ -4,6 +4,7 @@ import { getTestDb } from "tests/setup";
 import { createTestLedger, createTestRecord, testBookId } from "tests/helpers/schema-setup";
 import { listLedgerEntryPage } from "@/modules/ledger/server/entry-reads/list-ledger-entry-page";
 import { encodeLedgerEntryCursor } from "@/modules/ledger/server/entry-reads/build-ledger-entry-filters";
+import { must } from "tests/helpers/must";
 
 const entry = (itemName: string) => ({
   categoryId: null,
@@ -77,8 +78,10 @@ describe("listLedgerEntryPage cursor", () => {
       sql`UPDATE source_documents SET created_at = '2026-03-01 12:00:00.200+00' WHERE id = ${newer.sourceDocumentId}`
     );
     const first = await listLedgerEntryPage({ limit: 10, filters: {} });
-    const newerEntry = first.items.find((item) => item.itemName === "newer");
-    expect(newerEntry).toBeDefined();
+    const newerEntry = must(
+      first.items.find((item) => item.itemName === "newer"),
+      "newer entry"
+    );
 
     const page = await listLedgerEntryPage({
       limit: 10,
@@ -89,7 +92,7 @@ describe("listLedgerEntryPage cursor", () => {
           documentCreatedAt: "2026-03-01T12:00:00.200Z",
           documentId: newer.sourceDocumentId,
           position: 0,
-          entryId: newerEntry!.id,
+          entryId: newerEntry.id,
         },
         {}
       ),

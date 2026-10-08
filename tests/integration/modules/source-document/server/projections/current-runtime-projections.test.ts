@@ -6,6 +6,7 @@ import { ledgerEntries, extractionAttempts, sourceDocuments } from "@/persistenc
 import { deleteSourceDocumentAtomically } from "@/modules/source-document/server/delete";
 import { updateSourceDocuments } from "@/modules/source-document/server/updates";
 import { batchUpdateLedgerEntries } from "@/modules/source-document/server/entry-commands";
+import { must } from "tests/helpers/must";
 
 const projectionEntry = {
   categoryId: null,
@@ -27,10 +28,12 @@ describe("current-runtime target adapters", () => {
       entries: [projectionEntry],
       bookId: await testBookId(db),
     });
-    const originalEntry = await db.query.ledgerEntries.findFirst({
-      where: eq(ledgerEntries.sourceDocumentId, created.sourceDocumentId),
-    });
-    expect(originalEntry).toBeDefined();
+    const originalEntry = must(
+      await db.query.ledgerEntries.findFirst({
+        where: eq(ledgerEntries.sourceDocumentId, created.sourceDocumentId),
+      }),
+      "original entry"
+    );
     expect(
       await db.query.extractionAttempts.findMany({
         where: eq(extractionAttempts.sourceDocumentId, created.sourceDocumentId),
@@ -46,7 +49,7 @@ describe("current-runtime target adapters", () => {
     await expect(
       batchUpdateLedgerEntries({
         sourceDocumentIds: [created.sourceDocumentId],
-        ledgerEntryIds: [originalEntry!.id],
+        ledgerEntryIds: [originalEntry.id],
         amount: "18.00",
       })
     ).resolves.toMatchObject({ affectedCount: 1 });
@@ -56,7 +59,7 @@ describe("current-runtime target adapters", () => {
     expect(replacementEntries).toHaveLength(1);
     const replacementEntry = replacementEntries[0];
     expect(replacementEntry).toMatchObject({
-      id: originalEntry!.id,
+      id: originalEntry.id,
       amount: "18.000",
     });
 

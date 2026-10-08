@@ -12,9 +12,10 @@ import {
   ensureTestLedgerBooks,
   todayUtc,
 } from "tests/helpers/schema-setup";
+import { must } from "tests/helpers/must";
 
 async function seedDoc(db: ReturnType<typeof getTestDb>, entryDate?: string) {
-  const [doc] = await db
+  const [docRow] = await db
     .insert(sourceDocuments)
     .values({
       id: randomUUID(),
@@ -22,10 +23,7 @@ async function seedDoc(db: ReturnType<typeof getTestDb>, entryDate?: string) {
       bookId: sql`(SELECT id FROM books ORDER BY sort_order LIMIT 1)`,
     })
     .returning();
-  expect(doc).toBeDefined();
-  if (doc === undefined) {
-    throw new Error("Expected source document insert to return a row");
-  }
+  const doc = must(docRow, "doc");
   await activateTestSourceDocumentProjection(db, doc.id);
   return doc;
 }
@@ -42,7 +40,7 @@ describe("deleteLedgerEntryAction", () => {
   it("soft-deletes an entry", async () => {
     const db = getTestDb();
     const doc = await seedDoc(db);
-    const [entry] = await db
+    const [entryRow] = await db
       .insert(ledgerEntries)
       .values({
         id: randomUUID(),
@@ -52,10 +50,7 @@ describe("deleteLedgerEntryAction", () => {
         currency: "CNY",
       })
       .returning();
-    expect(entry).toBeDefined();
-    if (entry === undefined) {
-      throw new Error("Expected ledger entry insert to return a row");
-    }
+    const entry = must(entryRow, "entry");
     await activateTestSourceDocumentProjection(db, doc.id);
 
     await deleteLedgerEntryAction(doc.id, entry.id);

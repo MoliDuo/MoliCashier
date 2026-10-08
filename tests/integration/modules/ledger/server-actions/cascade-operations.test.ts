@@ -262,7 +262,7 @@ describe("E2: Delete Entry → Related Counts Update", () => {
     const doc = await db.query.sourceDocuments.findFirst({
       where: eq(sourceDocuments.id, sourceDoc.id),
     });
-    expect(doc).toBeDefined();
+    expect(doc).toMatchObject({ id: sourceDoc.id });
   });
 });
 

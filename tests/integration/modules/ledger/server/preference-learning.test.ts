@@ -181,7 +181,7 @@ describe("preference learning", () => {
       await db.query.sourceDocuments.findFirst({
         where: eq(sourceDocuments.id, record.sourceDocumentId),
       })
-    ).toBeDefined();
+    ).toMatchObject({ id: record.sourceDocumentId });
   });
 
   it("lets the owner edit the learned text and the switch like any setting", async () => {

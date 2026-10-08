@@ -92,23 +92,27 @@ describe("Service Credentials & Ledger Entry Ingestion", () => {
       bookId: await testBookId(getTestDb()),
     });
 
-    expect(createRes).toBeDefined();
-    expect(createRes.token).toBeDefined();
-    expect(createRes.tokenPrefix).toBeDefined();
-    expect(createRes.tokenSuffix).toBeDefined();
     expect(createRes.name).toBe("Test Credential");
 
-    // The token should match the expected format
+    // The token should match the expected format, and the display prefix and
+    // suffix are its first eight and last four characters.
     expect(createRes.token).toMatch(/^sk_live_[0-9a-f]{64}$/);
+    expect(createRes.tokenPrefix).toBe(createRes.token.slice(0, 8));
+    expect(createRes.tokenSuffix).toBe(createRes.token.slice(-4));
 
     // Verify hash is stored, not plaintext
     const db = getTestDb();
     const stored = await db.query.serviceCredentials.findFirst({
       where: eq(serviceCredentials.id, createRes.id),
     });
-    expect(stored?.tokenHash).toBeDefined();
+    expect(stored).toMatchObject({
+      tokenHash: computeHash(createRes.token),
+      tokenPrefix: createRes.tokenPrefix,
+      tokenSuffix: createRes.tokenSuffix,
+    });
+    expect(stored?.tokenHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(stored?.tokenHash).not.toContain(createRes.token);
     expect(stored).not.toHaveProperty("key");
-    expect(computeHash(createRes.token)).toBe(stored?.tokenHash);
 
     // List Credentials
     const listRes = await listServiceCredentials();
@@ -189,8 +193,7 @@ describe("Service Credentials & Ledger Entry Ingestion", () => {
     const doc = await db.query.sourceDocuments.findFirst({
       where: eq(sourceDocuments.id, data.sourceDocumentId),
     });
-    expect(doc).toBeDefined();
-    expect(doc?.bookId).toBe(await testBookId(db));
+    expect(doc).toMatchObject({ id: data.sourceDocumentId, bookId: await testBookId(db) });
     const attempt = await db.query.extractionAttempts.findFirst({
       where: eq(extractionAttempts.sourceDocumentId, data.sourceDocumentId),
     });
@@ -351,8 +354,7 @@ describe("Service Credentials & Ledger Entry Ingestion", () => {
     const check = await db.query.serviceCredentials.findFirst({
       where: eq(serviceCredentials.id, createRes.id),
     });
-    expect(check).toBeDefined();
-    expect(check?.revokedAt).not.toBeNull();
+    expect(check?.revokedAt).toBeInstanceOf(Date);
   });
 
   it("tracks last use and rejects authentication immediately after revoke", async () => {
@@ -392,7 +394,7 @@ describe("Service Credentials & Ledger Entry Ingestion", () => {
       await db.query.sourceDocuments.findFirst({
         where: eq(sourceDocuments.id, created.sourceDocumentId),
       })
-    ).toBeDefined();
+    ).toMatchObject({ id: created.sourceDocumentId });
   });
 
   it("throttles lastUsedAt updates to once per five minutes", async () => {

@@ -35,7 +35,7 @@ describe("requireLedgerAccess", () => {
 
   it("returns the ledger when it exists", async () => {
     const result = await requireLedgerAccess();
-    expect(result.ledger.settings).toBeDefined();
+    expect(result.ledger.settings).toMatchObject({ mainCurrency: "CNY" });
   });
 
   it("returns 404 error when no ledger exists yet", async () => {

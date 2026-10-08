@@ -112,7 +112,7 @@ describe("GET /api/stored-files/[fileId]", () => {
     expect(missing.status).toBe(404);
     expect(missing.headers.get("cache-control")).toBe("private, no-store");
     await expect(missing.json()).resolves.toMatchObject({ error: { code: "NOT_FOUND" } });
-    expect(missing.headers.get("X-Request-Id")).toBeTruthy();
+    expect(missing.headers.get("X-Request-Id")).toMatch(/^[0-9a-f-]{36}$/);
 
     downloadMock.mockRejectedValueOnce(new AppError("outage", "S3_DOWNLOAD_FAILED", 503));
     const outage = await GET(request(), { params: Promise.resolve({ fileId: file.id }) });

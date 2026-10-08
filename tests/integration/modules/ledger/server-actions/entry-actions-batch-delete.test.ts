@@ -12,9 +12,10 @@ import {
   ensureTestLedgerBooks,
   todayUtc,
 } from "tests/helpers/schema-setup";
+import { must } from "tests/helpers/must";
 
 async function seedDoc(db: ReturnType<typeof getTestDb>, entryDate?: string) {
-  const [doc] = await db
+  const [docRow] = await db
     .insert(sourceDocuments)
     .values({
       id: randomUUID(),
@@ -22,10 +23,7 @@ async function seedDoc(db: ReturnType<typeof getTestDb>, entryDate?: string) {
       bookId: sql`(SELECT id FROM books ORDER BY sort_order LIMIT 1)`,
     })
     .returning();
-  expect(doc).toBeDefined();
-  if (doc === undefined) {
-    throw new Error("Expected source document insert to return a row");
-  }
+  const doc = must(docRow, "doc");
   await activateTestSourceDocumentProjection(db, doc.id);
   return doc;
 }
@@ -88,7 +86,7 @@ describe("batchDeleteLedgerEntriesAction", () => {
 
   it("deletes entries of a document that never had a parse attempt", async () => {
     const db = getTestDb();
-    const [doc] = await db
+    const [docRow] = await db
       .insert(sourceDocuments)
       .values({
         id: randomUUID(),
@@ -96,13 +94,13 @@ describe("batchDeleteLedgerEntriesAction", () => {
         bookId: sql`(SELECT id FROM books ORDER BY sort_order LIMIT 1)`,
       })
       .returning();
-    expect(doc).toBeDefined();
+    const doc = must(docRow, "doc");
     const entries = await db
       .insert(ledgerEntries)
       .values(
         [10, 20].map((amount, index) => ({
           id: randomUUID(),
-          sourceDocumentId: doc!.id,
+          sourceDocumentId: doc.id,
           itemName: `Typed ${index}`,
           amount: String(amount),
           currency: "CNY",
@@ -111,7 +109,7 @@ describe("batchDeleteLedgerEntriesAction", () => {
       .returning();
 
     const result = await batchDeleteLedgerEntriesAction(
-      [doc!.id],
+      [doc.id],
       entries.map((entry) => entry.id)
     );
 
@@ -121,7 +119,7 @@ describe("batchDeleteLedgerEntriesAction", () => {
       entries.map((entry) => entry.id).sort()
     );
     const remaining = await db.query.ledgerEntries.findMany({
-      where: eq(ledgerEntries.sourceDocumentId, doc!.id),
+      where: eq(ledgerEntries.sourceDocumentId, doc.id),
     });
     expect(remaining).toEqual([]);
   });

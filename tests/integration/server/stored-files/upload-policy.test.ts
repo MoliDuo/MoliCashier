@@ -84,8 +84,11 @@ describe("upload policy integration", () => {
         })
       );
 
-      expect(result.document).toBeDefined();
-      expect(result.attempt).toBeDefined();
+      expect(result.attempt).toMatchObject({
+        sourceDocumentId: result.document.id,
+        processingStatus: "processing",
+      });
+      expect(result.document.latestAttemptId).toBe(result.attempt.id);
     });
   });
 
@@ -140,8 +143,11 @@ describe("upload policy integration", () => {
         })
       );
 
-      expect(result.document).toBeDefined();
-      expect(result.attempt).toBeDefined();
+      expect(result.attempt).toMatchObject({
+        sourceDocumentId: result.document.id,
+        processingStatus: "processing",
+      });
+      expect(result.document.latestAttemptId).toBe(result.attempt.id);
     });
 
     it("rejects attempt with duplicate stored-file IDs", async () => {
@@ -206,8 +212,7 @@ describe("upload policy integration", () => {
         .from(storedFiles)
         .where(eq(storedFiles.id, file.id))
         .then((rows) => rows[0]);
-      expect(rawRow).toBeDefined();
-      expect(rawRow!.storageKey).toBe(`stored/${file.id}`);
+      expect(rawRow).toEqual({ storageKey: `stored/${file.id}` });
     });
   });
 });

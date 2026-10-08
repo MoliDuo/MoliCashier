@@ -442,7 +442,7 @@ test("books production files an API upload into the book its key is bound to", a
     /sk_live_[0-9a-f]{64}/
   );
   const token = tokenMatch?.[0];
-  expect(token).toBeTruthy();
+  expect(token).toMatch(/^sk_live_[0-9a-f]{64}$/);
   await tokenDialog.getByRole("button", { name: "我已保存", exact: true }).click();
   await expect(
     page.getByRole("combobox", { name: `修改「${credentialName}」的分账`, exact: true })
@@ -456,7 +456,7 @@ test("books production files an API upload into the book its key is bound to", a
   expect(created.status()).toBe(201);
   const createdBody = (await created.json()) as { sourceDocumentId?: string };
   const sourceDocumentId = createdBody.sourceDocumentId;
-  expect(sourceDocumentId).toBeTruthy();
+  expect(sourceDocumentId).toMatch(/^[0-9a-f-]{36}$/);
 
   // The stub provider answers in seconds; polling the status is the observable
   // state, so nothing here waits on a fixed clock.

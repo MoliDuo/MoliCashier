@@ -33,7 +33,7 @@ describe("logger", () => {
 
     const loggerModule = await import("@/lib/logger");
 
-    expect(loggerModule.logger).toBeDefined();
+    expect(loggerModule.logger).toBe(pinoMock.mock.results[0]?.value);
     expect(pinoMock).toHaveBeenCalledWith(
       expect.objectContaining({
         level: "info",

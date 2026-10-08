@@ -48,7 +48,7 @@ describe("handleApiV1Route", () => {
       expect(response.status).toBe(401);
       expect(response.headers.get("WWW-Authenticate")).toBe("Bearer");
       expect(response.headers.get("Cache-Control")).toBe("private, no-store");
-      expect(response.headers.get("X-Request-Id")).toBeTruthy();
+      expect(response.headers.get("X-Request-Id")).toMatch(/^[0-9a-f-]{36}$/);
     }
     expect(handler).not.toHaveBeenCalled();
   });

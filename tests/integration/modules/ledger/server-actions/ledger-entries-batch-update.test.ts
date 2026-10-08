@@ -8,6 +8,7 @@ import {
   createTestSourceDocument,
   activateTestSourceDocumentProjection,
 } from "tests/helpers/schema-setup";
+import { must } from "tests/helpers/must";
 
 describe("Batch Update Ledger Entries Action", () => {
   let testEntryIds: string[];
@@ -20,14 +21,11 @@ describe("Batch Update Ledger Entries Action", () => {
     await db.delete(ledgers);
     await createTestLedger(db);
 
-    const [category] = await db
+    const [categoryRow] = await db
       .insert(entryCategories)
       .values({ name: "Dining", sortOrder: 1 })
       .returning();
-    expect(category).toBeDefined();
-    if (category == null) {
-      throw new Error("Expected category to be created");
-    }
+    const category = must(categoryRow, "category");
     testCategoryId = category.id;
 
     // Create a test source document for entries

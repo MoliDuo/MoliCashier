@@ -231,7 +231,14 @@ describe("ledger-url-params", () => {
     it("ignores the legacy ?bookId URL parameter entirely", () => {
       // The scope moved to a device cookie; a link that still carries the old
       // parameter is read as 总账 and the parameter is not even cleaned up.
-      expect(readLedgerFilterParams(new URLSearchParams("bookId=nonsense"))).toBeDefined();
+      expect(readLedgerFilterParams(new URLSearchParams("bookId=nonsense"))).toEqual({
+        categoryId: null,
+        currency: null,
+        minAmount: null,
+        maxAmount: null,
+        statuses: [],
+        search: null,
+      });
       expect(
         normalizePeriodSearchParams(new URLSearchParams(`bookId=${"1".repeat(36)}`))
       ).toBeNull();

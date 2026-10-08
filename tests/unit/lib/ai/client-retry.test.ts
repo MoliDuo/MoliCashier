@@ -1,6 +1,7 @@
 import { OpenAiTransport, type CompleteRequest } from "@/lib/ai/client";
 import { runtimeEnv } from "@/lib/env/runtime";
 import { vi, describe, beforeEach, afterEach, it, expect } from "vitest";
+import { must } from "tests/helpers/must";
 
 const { mockCreate, mockOpenAI } = vi.hoisted(() => {
   const mockCreate = vi.fn();
@@ -85,15 +86,16 @@ describe("OpenAiTransport Retry Logic", () => {
 
     new OpenAiTransport();
 
-    const firstConstructorCall = mockOpenAI.mock.calls[0] as unknown[] | undefined;
-    expect(firstConstructorCall).toBeDefined();
-    if (firstConstructorCall == null) {
-      throw new Error("Expected OpenAI constructor to be called");
-    }
+    const firstConstructorCall = must(
+      mockOpenAI.mock.calls[0] as unknown[] | undefined,
+      "OpenAI constructor call"
+    );
 
-    const constructorArgs = firstConstructorCall[0] as Record<string, unknown> | undefined;
-    expect(constructorArgs).toBeDefined();
-    expect(Object.hasOwn(constructorArgs ?? {}, "baseURL")).toBe(false);
+    const constructorArgs = must(
+      firstConstructorCall[0] as Record<string, unknown> | undefined,
+      "OpenAI constructor options"
+    );
+    expect(Object.hasOwn(constructorArgs, "baseURL")).toBe(false);
   });
 
   it("passes baseURL through when a custom provider URL is configured", () => {
@@ -102,15 +104,16 @@ describe("OpenAiTransport Retry Logic", () => {
 
     new OpenAiTransport();
 
-    const firstConstructorCall = mockOpenAI.mock.calls[0] as unknown[] | undefined;
-    expect(firstConstructorCall).toBeDefined();
-    if (firstConstructorCall == null) {
-      throw new Error("Expected OpenAI constructor to be called");
-    }
+    const firstConstructorCall = must(
+      mockOpenAI.mock.calls[0] as unknown[] | undefined,
+      "OpenAI constructor call"
+    );
 
-    const constructorArgs = firstConstructorCall[0] as Record<string, unknown> | undefined;
-    expect(constructorArgs).toBeDefined();
-    expect(constructorArgs?.baseURL).toBe("https://openai-proxy.example/v1");
+    const constructorArgs = must(
+      firstConstructorCall[0] as Record<string, unknown> | undefined,
+      "OpenAI constructor options"
+    );
+    expect(constructorArgs.baseURL).toBe("https://openai-proxy.example/v1");
   });
 
   it("omits usage when OpenAI does not return token usage", async () => {
@@ -186,13 +189,17 @@ describe("OpenAiTransport Retry Logic", () => {
 
     await client.complete(baseRequest);
 
-    const request = mockCreate.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
-    const requestOptions = mockCreate.mock.calls[0]?.[1] as Record<string, unknown> | undefined;
+    const request = must(
+      mockCreate.mock.calls[0]?.[0] as Record<string, unknown> | undefined,
+      "completion request"
+    );
+    const requestOptions = must(
+      mockCreate.mock.calls[0]?.[1] as Record<string, unknown> | undefined,
+      "completion request options"
+    );
 
-    expect(request).toBeDefined();
-    expect(Object.hasOwn(request ?? {}, "response_format")).toBe(false);
-    expect(requestOptions).toBeDefined();
-    expect(Object.hasOwn(requestOptions ?? {}, "signal")).toBe(false);
+    expect(Object.hasOwn(request, "response_format")).toBe(false);
+    expect(Object.hasOwn(requestOptions, "signal")).toBe(false);
   });
 
   it("should retry on retryable error and succeed", async () => {

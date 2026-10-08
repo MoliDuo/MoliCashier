@@ -213,6 +213,6 @@ describe("refreshExchangeRates", () => {
       await db.query.exchangeRates.findFirst({
         where: and(eq(exchangeRates.rateDate, "2024-03-05"), eq(exchangeRates.currency, "EUR")),
       })
-    ).toBeDefined();
+    ).toMatchObject({ rateDate: "2024-03-05", currency: "EUR", perEur: "1" });
   });
 });
