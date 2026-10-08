@@ -7,7 +7,8 @@ import { processAllPendingTasks } from "tests/helpers/processing";
 import { ledgerEntries, ledgers, extractionAttempts, sourceDocuments } from "@/persistence";
 import { getCurrentSession } from "@/modules/auth/server/current-session";
 import { setAiTransportForTests } from "@/lib/ai/client";
-import { NotFoundError, UnauthorizedError, ValidationError } from "@/lib/errors";
+import { NotFoundError, ValidationError } from "@/lib/errors";
+import { SIGN_IN_PATH } from "@/modules/auth/constants";
 import {
   batchDeleteSourceDocumentsAction,
   batchRetrySourceDocumentsAction,
@@ -81,11 +82,11 @@ describe("source document batch actions", () => {
     ).resolves.toHaveLength(1);
   });
 
-  it("passes the access failures through unchanged", async () => {
+  it("sends a signed-out session to sign in and passes other access failures through", async () => {
     vi.mocked(getCurrentSession).mockResolvedValueOnce(null);
-    await expect(batchDeleteSourceDocumentsAction([MISSING_ID])).rejects.toBeInstanceOf(
-      UnauthorizedError
-    );
+    await expect(batchDeleteSourceDocumentsAction([MISSING_ID])).rejects.toMatchObject({
+      digest: expect.stringContaining(SIGN_IN_PATH),
+    });
 
     // Without the ledger the action reports it as not found, never re-labelled
     // as a sign-in problem.
