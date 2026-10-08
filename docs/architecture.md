@@ -51,7 +51,7 @@ Cashier 只有一种运行环境（Docker 里的 Node 进程、PostgreSQL、S3 �
 ```
 src/app/                  路由与 API handler：认证、校验、调用、映射响应
   (protected)/(ledger)/   records、entries、stats、settings 四个真实路由，共用一个 layout
-  api/ledger-queries      浏览器读取的唯一入口（类型化查询注册表）
+  api/ledger-queries      浏览器读取的唯一入口：鉴权，然后交给查询注册表
   api/v1                  外部 API（快捷指令）
   api/stored-files        带授权的图片上传（POST）和文件读取（GET）
   healthz                 容器健康检查，返回 {ok, version}（version 是构建的提交哈希）
@@ -59,11 +59,14 @@ src/app/                  路由与 API handler：认证、校验、调用、映
 src/modules/<m>/          auth、currency、forecast、ledger、source-document、stats、workspace
   server-actions/         Zod 校验 + withLedgerAction，然后直接调用 server/ 的函数；只用于命令
   queries.ts              本模块的类型化读取，建立在无类型的 postLedgerQuery 传输层之上
-  server/                 drizzle 数据访问与事务（"server-only"）
-  domain/                 纯决策：状态、金额、解析、提示词；不碰数据库、框架和 IO
+  server/                 drizzle 数据访问与事务（"server-only"）；读取函数是普通函数，不自己鉴权
+  domain/                 纯决策：状态、金额、解析的输入输出、提示词；不碰数据库、框架和任何 IO
   hooks/ ui/              客户端代码，一个界面一个组件加一个 hook
-src/server/               跨模块的后台流程：background（worker、调度器、唤醒信号）、processing、
-                          category-assignment、maintenance、stored-files、api-v1 请求管线
+src/modules/workspace/server/ledger-queries.ts
+                          查询注册表：每个读取一项 { parse, run }，/api/ledger-queries 和页面预取共用
+src/server/               跨模块的后台流程：background（worker、调度器、唤醒信号）、processing（含解析
+                          管线 parse.ts）、category-assignment（commands、lease、reads）、maintenance、
+                          stored-files、api-v1 请求管线
 src/lib/                  共享基础设施：db（含租约帮手）、s3、ai、logger、env、money、format、
                           security、drafts、queries 传输层
 src/persistence/          schema（按领域拆文件）和迁移
@@ -77,8 +80,19 @@ src/copy/                 全部界面文案，按界面区域分文件
 2. 模块之间、模块与 `src/server` 之间可以互相调用 `server/` 的函数，只要文件级 import 不成环。
 3. server action 和 API 路由不直接碰数据库或服务商 SDK。
 4. 只改名转发参数的函数不应该存在，直接调用目标。
-5. `domain/` 不得 import 数据库；客户端代码不得 import `server/`。
-6. `src/copy` 是叶子：只放文案，除了 `src/config` 的类型什么都不 import；任何一层都可以 import 它。
+5. `domain/` 只放纯函数：不得 import 数据库、服务商 SDK、`src/lib/logger`、AI 运行时（`src/lib/ai` 里只有
+   `types`、`date-organization`、`duplicate-suggestion` 这几个数据形状可以用）、Node 内置模块（`node:crypto`、
+   计时器之类）、React 或 Next，也不得 import `server/` 和 `src/server`。要计时、调模型、记日志或算哈希的编排放在
+   `server/` 或 `src/server`，例如解析管线在 `src/server/processing/parse.ts`，`domain/parse` 只留提示词、输入和
+   结果映射；历史指纹的文本在 `domain/judgment/fingerprint.ts`，哈希在 `forecast/server/history-fingerprint.ts`。
+6. 客户端代码不得 import 服务端代码（数据库、`server/`、`src/server`、对象存储、AI 运行时）。客户端代码按路径认定：
+   `src/modules/*/ui`、`src/modules/*/hooks`、`src/components`、`src/hooks`，再加上任何以 `"use client"` 开头的文件。
+7. 只有 `src/lib/ai` 可以 import `openai`，只有 `src/lib/storage` 可以 import `@aws-sdk/*`。
+8. `src/copy` 是叶子：只放文案，除了 `src/config` 的类型什么都不 import；任何一层都可以 import 它。
+
+**鉴权在入口做一次。** server action 由 `withLedgerAction` 把关；`/api/ledger-queries` 在读请求体之前查会话，
+读完信封后加载一次账本，再把账本交给注册表里的读取；页面预取（`ledger-page-bootstrap.ts`）用页面已经鉴权并加载的
+账本跑同一个注册表。`server/` 里的读取函数不再各自包一层 `withLedgerAccess`，也不叫 `*Action`。
 
 有值得单测的分支时，把决策抽到 `domain/`；直来直去的数据访问留在 `server/`，用 PostgreSQL 集成测试覆盖。
 
@@ -87,7 +101,9 @@ src/copy/                 全部界面文案，按界面区域分文件
 `eslint.config.mjs` 的 `no-restricted-syntax` 里，按语法而不是文本匹配：
 
 - `logger` / `console` 调用里的 id 类字段必须经过 `logIdentifier`；
-- 只有登记过的 writer（`registeredSourceDocumentWriters`）可以插入、更新或删除 `sourceDocuments`；
+- 只有登记过的 writer（`registeredSourceDocumentWriters`）可以插入、更新或删除 `sourceDocuments`，
+  用 drizzle 写，或者用原始 SQL 写（`UPDATE source_documents`、`INSERT INTO source_documents`、
+  `DELETE FROM source_documents`），迁移除外；
 - class 字面量不得使用任意字号或已退役的 `text-muted`；功能代码不得使用原始的 `text-xs/sm/base/lg`。
 
 注释永远不算证据。
@@ -97,21 +113,21 @@ src/copy/                 全部界面文案，按界面区域分文件
 表名、列名、枚举和代码里的叫法一致（迁移 0018 统一过一次）。约束和索引按 `uq_<表>_…`、`idx_<表>_…`、
 `fk_<表>_<目标>`、`ck_<表>_…` 命名，主键保持 `<表>_pkey`，由 `schema-contract.test.ts` 检查。
 
-| 概念与表名                                                                                           | 职责                                                                                                                                                                                                          |
-| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ledgers`（单行）、`books`、`entry_categories`                                                       | 账本设置（含唯一的时区 `time_zone`）、分账、分类。分类硬删除，名称唯一约束为 `DEFERRABLE`。分账没有自己的时区                                                                                                 |
-| 票据：`source_documents`                                                                             | 所属分账、标题、日期、当前输入（文本）、`version`、指向最新提取尝试的 `latest_attempt_id`、幂等 key。标题只存在这里：提取成功时写入，用户可改                                                                 |
-| 票据文件：`source_document_files`                                                                    | 票据当前输入的文件                                                                                                                                                                                            |
-| 提取尝试：`extraction_attempts`                                                                      | 每一次提取：请求的日期、状态、租约、尝试次数、失败码。它本身就是任务队列                                                                                                                                      |
-| 条目：`ledger_entries`                                                                               | 金额、币种、分类、所属票据（必填）。不存折算值                                                                                                                                                                |
-| 汇率：`exchange_rates(rate_date, currency, per_eur, …)`                                              | 每个自然日、每个币种一行，`source_date` 记录服务商的真实日期，`fetched_at` 记录抓取时间                                                                                                                       |
-| `stored_files`                                                                                       | 对象存储里文件的登记；先登记行、再写对象，没有任何票据引用的行由每日维护清掉                                                                                                                                  |
-| 批量分类：`category_assignment_jobs`、`category_assignment_documents`、`category_assignment_entries` | 租约放在 job 行上，进度在读取时统计；`ai` 任务的候选分类就是 `candidate_snapshot`                                                                                                                             |
-| 修改记录：`ai_corrections`                                                                           | 用户对 AI 所写分类、商品名、标题的修改：AI 的值、用户的值、读过与否；随票据删除。每日维护据此整理 `ledgers.ai_learned_preferences`                                                                            |
-| AI 判断：`forecast_judgments`                                                                        | 预测的 AI 分析师对某个范围（总账或一个分账）某一天的判断，每天一行，同一天重判覆盖；记以判断版本（`FORECAST_AI_JUDGMENT_VERSION`，改提示词时加一）开头的历史指纹：版本不同就当天重判，用于命中率，保留 400 天 |
-| 认证                                                                                                 | `sessions`（已登录的浏览器，只记提供方验证过的邮箱）                                                                                                                                                          |
-| API 密钥：`service_credentials`                                                                      | 吊销时写 `revoked_at`，行留作审计                                                                                                                                                                             |
-| `ledger_sync_state`（单行）                                                                          | 客户端刷新用的水位线，由行级触发器 `record_ledger_change` 维护：每改一行一条 UPDATE，同一事务复用一个版本号                                                                                                   |
+| 概念与表名                                                                                           | 职责                                                                                                                                                                                                                    |
+| ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ledgers`（单行）、`books`、`entry_categories`                                                       | 账本设置（含唯一的时区 `time_zone`）、分账、分类。分类硬删除，名称唯一约束为 `DEFERRABLE`。分账没有自己的时区                                                                                                           |
+| 票据：`source_documents`                                                                             | 所属分账、标题、日期、当前输入（文本）、`version`、指向最新提取尝试的 `latest_attempt_id`、幂等 key。标题只存在这里：提取成功时写入，用户可改                                                                           |
+| 票据文件：`source_document_files`                                                                    | 票据当前输入的文件                                                                                                                                                                                                      |
+| 提取尝试：`extraction_attempts`                                                                      | 每一次提取：请求的日期、状态、租约、尝试次数、失败码。它本身就是任务队列                                                                                                                                                |
+| 条目：`ledger_entries`                                                                               | 金额、币种、分类、所属票据（必填）。不存折算值                                                                                                                                                                          |
+| 汇率：`exchange_rates(rate_date, currency, per_eur, …)`                                              | 每个自然日、每个币种一行，`source_date` 记录服务商的真实日期，`fetched_at` 记录抓取时间                                                                                                                                 |
+| `stored_files`                                                                                       | 对象存储里文件的登记；先登记行、再写对象，没有任何票据引用的行由每日维护清掉                                                                                                                                            |
+| 批量分类：`category_assignment_jobs`、`category_assignment_documents`、`category_assignment_entries` | 租约放在 job 行上，进度在读取时统计；`ai` 任务的候选分类就是 `candidate_snapshot`                                                                                                                                       |
+| 修改记录：`ai_corrections`                                                                           | 用户对 AI 所写分类、商品名、标题的修改：AI 的值、用户的值、读过与否；随票据删除。每日维护据此整理 `ledgers.ai_learned_preferences`                                                                                      |
+| AI 判断：`forecast_judgments`                                                                        | 预测的 AI 分析师对某个范围（总账或一个分账）某一天的判断，每天一行，同一天重判覆盖；记以判断版本（`FORECAST_AI_JUDGMENT_VERSION`，改提示词时加一）开头的历史指纹：版本不同就当天重判，用于命中率，保留 400 天           |
+| 认证                                                                                                 | `sessions`（已登录的浏览器，只记提供方验证过的邮箱）                                                                                                                                                                    |
+| API 密钥：`service_credentials`                                                                      | 吊销时写 `revoked_at`，行留作审计                                                                                                                                                                                       |
+| `ledger_sync_state`（单行）                                                                          | 客户端刷新用的版本号，由行级触发器 `record_ledger_change` 维护：每改一行一条 UPDATE，同一事务复用一个版本号。触发器还在维护 `categories_version`、`settings_version`、`stats_version`，但已经没有代码读，下一个版本删掉 |
 
 语义约定：
 
@@ -260,6 +276,11 @@ src/copy/                 全部界面文案，按界面区域分文件
 - 一次提交创建一个提取尝试（`extraction_attempts` 行），提交后唤醒 worker。尝试本身就是队列项。
 - worker 在尝试仍处于处理中、且仍是票据最新提交时认领它，运行中续租，并在写入结果或失败的同一个事务里
   关闭它。AI 结果写回时做 fencing 检查。
+- 解析管线在 `src/server/processing/parse.ts`：整个解析的截止时间、调用模型、把服务商错误映射成处理失败；
+  提示词、输入整理和结果映射是 `src/modules/source-document/domain/parse` 里的纯函数。
+- **已知限制：同时提交的重复票据可能互相看不到。** "已经记过"由 AI 在解析时对照最近的条目判断，而一张票据的条目
+  要到它的解析成功、激活之后才算"最近的条目"。两张重复的票据同时在解析（最多 `PROCESSING_CONCURRENCY` 张并行），
+  谁也看不到谁，两张都不会被标出。重复由模型判断，激活时没法确定性地补算，所以先记为已知限制。
 - `POST /api/v1/source-documents` 在图片处理、对象上传和落库完成后返回 `201`，不等 AI 解析。
 - 重试创建请求要复用同一个 `Idempotency-Key`。key 存在它创建的票据上，按账本和发送方限定，永久有效：
   重复请求直接返回那张票据，内容不同返回 `409`，并发的重复请求在账本锁上等第一个提交。
@@ -275,11 +296,14 @@ src/copy/                 全部界面文案，按界面区域分文件
 ### 批量分类
 
 - 选择一次提交，最多 `CATEGORY_ASSIGNMENT_MAX_ENTRIES` 个条目；服务端在一个事务里登记 job、票据和条目。
-  同时最多一个活动 job，run 租用 job 行，所以只有一个 worker。
+  同时最多一个活动 job，run 租用 job 行，所以只有一个 worker。代码在 `src/server/category-assignment/`：
+  `commands.ts` 是用户的命令（开始、处理冲突、取消、重试失败的），`lease.ts` 是 worker 在租约下做的事（认领、续租、
+  取下一张票据、写每张票据的结果、结束或交还 job），`reads.ts` 是只读的进度、结果和逐条状态，`run.ts` 把它们串起来。
 - worker 的分类 lane 认领 job 后逐个处理到期票据，一直处理到 job 完成；只有优雅停机时才把手上的票据交回且不计
   尝试。没有待处理票据时，在同一个事务里根据条目结果定下 job 状态。关页面不会取消已开始的 job；
   进度轮询只读取进度，不再起新的 run。
-- 一张票据是分类的原子提交单位；选中条目超过 50 个的组用持久化的请求块做检查点。外部 AI 请求不保证恰好一次，
+- 一张票据是分类的原子提交单位；选中条目超过 `CATEGORY_ASSIGNMENT_REQUEST_CHUNK_SIZE`（50）个的组用持久化的
+  请求块做检查点。外部 AI 请求不保证恰好一次，
   恢复可能重复一个块。
 - **加锁顺序：账本 → 票据 → job 行。** 每一次 worker 写入（决策、重试、失败、应用）都在同一语句或事务里用
   `leaseHeldBy` 检查租约，租约过期的 worker 什么也写不进去。聚合事务还校验目标分类，以及票据仍存在且不在
@@ -353,9 +377,11 @@ UTC 18:00（ECB 已发布当天汇率）运行一次 `runDailyMaintenance`（`sr
   深度不在历史里的对话框随之关闭；用别的方式关闭时弹掉自己那一条。对话框开着时应用自己写历史（筛选、周期、
   切换 tab、打开详情）会替换掉这一条而不是叠在上面。状态本来就在网址里的（详情弹层、记账）用
   `closeOnBack={false}` 关掉这层。
-- **读取。** React Query，经 `/api/ledger-queries` 这个会话查询路由，包括页面预取；
-  各模块的 `queries.ts` 在无类型的 `postLedgerQuery` 传输层上给读取加类型。server action 是串行执行的，
-  只用于命令。
+- **读取。** React Query，经 `/api/ledger-queries` 这个会话查询路由；各模块的 `queries.ts` 在无类型的
+  `postLedgerQuery` 传输层上给读取加类型。服务端只有一份查询注册表（`workspace/server/ledger-queries.ts`），
+  每个读取是一项 `{ parse, run }`：`parse` 是它的 schema，有语义周期的先按账本时区解析成日期区间再校验，`run`
+  去读。路由和页面预取都经它，所以预取填进缓存的和浏览器自己读到的是同一种解析。server action 是串行执行的，
+  只用于命令；只读的预览（批量改日期的影响范围）也是查询，不是 action。
 - **写入。** 用集中定义的 query key 和 `useLedgerMutation`，失败默认提示"保存失败"，自己说明失败的调用方传 `null`。
   server action 抛出的错误在生产环境只剩一句通用信息，所以界面要分辨的拒绝（重名、冲突、额度）以
   `{ ok: false, code }` 返回；未登录的 action 由 `withLedgerAction` 跳去登录，`/api/ledger-queries` 仍回 401。完成后走和刷新同一条路：先重新读一次同步版本，
@@ -385,6 +411,7 @@ UTC 18:00（ECB 已发布当天汇率）运行一次 `runDailyMaintenance`（`sr
   （`waitFor`），或完全不等刷新（`waitFor: false`）。
 - **选择时列表冻结。** 批量选择期间列表查询暂停（`enabled: false`），后台刷新不会在选中项下面换掉行；
   退出选择后过期的查询自动重新读取，所以批量操作全部成功后直接退出选择，只有失败的项留在选择里。
+  账目和明细用同一个 `settleBatchResult` 收尾，部分失败时提示同一句"成功 N 项，失败 M 项"。
   批量对话框操作的就是此刻的选择，不需要快照和比对。
   账目、明细和账单详情共用同一套选择呈现（`SelectionBar` 的全选框和计数，还有未加载的页时计数写成"已加载"；手机上全选和计数在顶栏，动作在操作栏），各自只提供自己有的批量动作；
   批量改日期的影响预览（`useBatchDatePreview`）和翻页去重（`uniquePagedItems`）也只有一份。
@@ -457,8 +484,10 @@ UTC 18:00（ECB 已发布当天汇率）运行一次 `runDailyMaintenance`（`sr
 
 ### 刷新
 
-- 账本有一个单调递增的 bigint 同步版本。触发器每个事务分配一个版本，并原子地更新分类、设置、
-  统计各自的水位线（`ledger_sync_state`）。刷新时比较水位线和观察者的版本，不需要变更历史。改主币种会推进全部水位线。
+- 账本有一个单调递增的 bigint 同步版本（`ledger_sync_state.version`）。触发器每个事务分配一个版本，刷新时只比较
+  这个版本和观察者手里的版本，不需要变更历史；版本不是服务端发出过的（格式不对或比当前还新）也算变了。刷新接口只
+  返回版本、是否变了、是否还有处理中的票据。分类、设置、统计各自的水位线以前也一并返回，但任何变化都会推进版本，
+  它们从来不影响结果，所以不再读取；列和触发器里维护它们的部分按 expand/contract 留到下一个版本删除。
 - 刷新只有一个驱动：`useLedgerSync`（`src/modules/workspace/hooks/useLedgerSync.ts`），在 ledger layout 里挂一次，
   账本的每个路由都受它照看。它的 query key 是 `["ledger-sync"]`，不在 `["ledger"]` 前缀下，失效时不会刷新自己。
 - 版本一变，就让全部可见的 `["ledger"]` 查询失效，不区分是哪类资源变了。某个查询读失败由所在页面显示，
@@ -491,7 +520,8 @@ UTC 18:00（ECB 已发布当天汇率）运行一次 `runDailyMaintenance`（`sr
 ### 组件结构
 
 - 一个界面一个组件，配一个 hook。hook 直接调用 mutation、直接 import 文案，不经过层层转发，
-  也不把文案对象当参数传进 hook 或函数。
+  也不把文案对象当参数传进 hook 或函数。命令多的界面按区域拆成子 hook，例如账单详情的
+  `useSourceDocumentDetail` 只负责读取和"现在能不能改"，字段写入、条目命令、建议、整张账单的命令各在一个子 hook 里。
 - 渲染状态直接派生，状态更新用函数式写法；客户端入口里不 import 模块 barrel。
 
 ### 编辑交互
