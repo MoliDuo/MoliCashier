@@ -19,7 +19,8 @@ const COLLAPSED_LENGTH = 6;
 
 interface CategoryStat {
   id: string | null;
-  name: string;
+  /** Null for the entries without a category. */
+  name: string | null;
   icon: string | null;
   totalConverted: string;
   /** Share of the period's spending; zero for a category that nets out at or below nothing. */
@@ -82,7 +83,7 @@ export function StatsRanking({
     <StatsPanel title={statsTabCopy.expenseRanking}>
       <div className="space-y-4">
         {visible.map((category) => {
-          const displayName = category.id === null ? statsTabCopy.uncategorized : category.name;
+          const displayName = category.name ?? statsTabCopy.uncategorized;
           // A refunded category has no share of what was spent. It keeps its
           // amount and its place in the order; only the bar has nothing to say.
           const hasShare = compare(category.totalConverted, "0") > 0;

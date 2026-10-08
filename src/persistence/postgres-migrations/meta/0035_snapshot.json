@@ -1,6 +1,6 @@
 {
-  "id": "6d5b8182-fcf5-4a6b-b8f6-6f407d648941",
-  "prevId": "af528961-2292-4258-9240-5c9868c0f312",
+  "id": "43bf3241-bb68-499d-8ce2-6a376d2e695d",
+  "prevId": "aa53cac7-3200-43e1-9b43-eaa068fab27a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1580,6 +1580,21 @@
         }
       },
       "indexes": {
+        "idx_category_assignment_jobs_retry_of_job": {
+          "name": "idx_category_assignment_jobs_retry_of_job",
+          "columns": [
+            {
+              "expression": "retry_of_job_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "uq_category_assignment_jobs_request_key": {
           "name": "uq_category_assignment_jobs_request_key",
           "columns": [
@@ -1919,27 +1934,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "categories_version": {
-          "name": "categories_version",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "0"
-        },
-        "settings_version": {
-          "name": "settings_version",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "0"
-        },
-        "stats_version": {
-          "name": "stats_version",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "0"
-        },
         "updated_at": {
           "name": "updated_at",
           "type": "timestamp with time zone",
@@ -2147,6 +2141,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "last_used_at": {
+          "name": "last_used_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {

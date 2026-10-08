@@ -47,4 +47,25 @@ describe("Postgres migration journal", () => {
     expect(new Set(qualified)).toEqual(new Set(["public.gin_trgm_ops"]));
     expect(sql).not.toMatch(/^\\/m);
   });
+
+  it("names no schema in a migration, beyond the ones already applied", () => {
+    // Tests build their databases in a schema of their own choosing, and a
+    // migration naming `public` would reach past it. drizzle-kit writes the
+    // quoted `"public".` form into foreign keys, so a generated migration has
+    // to have it taken out. The trigram operator class lives where the
+    // extension was installed and is the one name that may be qualified.
+    const qualifiedName = /"?\bpublic"?\s*\.\s*"?\w+"?/gi;
+    const found: Record<string, string[]> = {};
+    for (const file of readdirSync(migrationsDirectory).filter((name) => name.endsWith(".sql"))) {
+      const sql = readFileSync(path.join(migrationsDirectory, file), "utf8");
+      const names = (sql.match(qualifiedName) ?? []).filter(
+        (name) => name !== "public.gin_trgm_ops"
+      );
+      if (names.length > 0) found[file] = names;
+    }
+    // Already applied everywhere, so left as they are.
+    expect(found).toEqual({
+      "0031_ai_learned_preferences.sql": ['"public"."source_documents"'],
+    });
+  });
 });

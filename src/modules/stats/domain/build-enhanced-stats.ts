@@ -8,7 +8,8 @@ import type {
 
 interface EnhancedStatsBucketCategory {
   id: string | null;
-  name: string;
+  /** Null for the entries without a category. */
+  name: string | null;
   icon: string | null;
   total: Decimal;
   count: number;

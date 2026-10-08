@@ -132,13 +132,15 @@ export async function getPeriodForecast(
           },
         });
   remember(memoKey, { history, prepared, trained, forecast });
-  // Too little history, or no days left: nothing to forecast, and nothing for the analyst to judge.
-  if (prepared == null || forecast == null) return null;
+  // Too little history: nothing to forecast, and nothing for the analyst to judge.
+  if (prepared == null) return null;
 
   const [latest, settings] = await Promise.all([
     latestJudgment(scope, { from: addCivilDays(today, -FORECAST_AI_MAX_AGE_DAYS), to: today }),
     getLedgerSettings(),
   ]);
+  // The judgment is of the ledger, not of this period, so it is kept current
+  // even on a period's last day, when there is nothing left to forecast.
   refreshJudgmentInBackground({
     scope,
     bookId,
@@ -147,6 +149,7 @@ export async function getPeriodForecast(
     latest,
     language: settings?.aiLanguage,
   });
+  if (forecast == null) return null;
   const judged =
     latest == null
       ? null

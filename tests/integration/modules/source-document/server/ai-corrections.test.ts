@@ -7,7 +7,12 @@ import {
   ledgers,
   sourceDocuments,
 } from "@/persistence";
-import { createTestLedger, createTestRecord, testBookId } from "tests/helpers/schema-setup";
+import {
+  createTestLedger,
+  createTestRecord,
+  createTestSourceDocument,
+  testBookId,
+} from "tests/helpers/schema-setup";
 import { getTestDb } from "tests/setup";
 import {
   addLedgerEntry,
@@ -16,6 +21,8 @@ import {
 } from "@/modules/source-document/server/entry-commands";
 import { updateSourceDocuments } from "@/modules/source-document/server/updates";
 import { deleteSourceDocumentAtomically } from "@/modules/source-document/server/delete";
+import { splitSourceDocumentAtomically } from "@/modules/source-document/server/split";
+import { applyDateOrganization } from "@/modules/source-document/server/date-organization";
 
 /** A record whose entries the AI wrote (`extracted`), and two categories to move between. */
 async function createFixture(options: { extracted?: boolean } = {}) {
@@ -272,5 +279,99 @@ describe("recording the owner's corrections", () => {
         where: eq(sourceDocuments.id, fixture.sourceDocumentId),
       })
     ).toBeUndefined();
+  });
+
+  it("follows an entry split off to a new record, so deleting the old one keeps it", async () => {
+    const fixture = await createFixture();
+    await batchUpdateLedgerEntries({
+      sourceDocumentIds: [fixture.sourceDocumentId],
+      ledgerEntryIds: [fixture.cookie.id],
+      categoryId: fixture.transport.id,
+    });
+    await updateSourceDocuments({
+      sourceDocumentIds: [fixture.sourceDocumentId],
+      data: { title: "星巴克" },
+    });
+
+    const { splitSourceDocumentId } = await splitSourceDocumentAtomically({
+      sourceDocumentId: fixture.sourceDocumentId,
+      ledgerEntryIds: [fixture.cookie.id],
+      entryDate: "2026-08-03",
+    });
+    await deleteSourceDocumentAtomically({ sourceDocumentId: fixture.sourceDocumentId });
+
+    // The title correction was about the deleted record and goes with it.
+    expect(await stored()).toMatchObject([
+      { sourceDocumentId: splitSourceDocumentId, subjectId: fixture.cookie.id, field: "category" },
+    ]);
+  });
+
+  it("follows an entry date organization moves to a new record", async () => {
+    const fixture = await createFixture();
+    await batchUpdateLedgerEntries({
+      sourceDocumentIds: [fixture.sourceDocumentId],
+      ledgerEntryIds: [fixture.latte.id, fixture.cookie.id],
+      itemName: "Renamed",
+    });
+    const document = await fixture.db.query.sourceDocuments.findFirst({
+      where: eq(sourceDocuments.id, fixture.sourceDocumentId),
+    });
+    const suggestionId = crypto.randomUUID();
+    await fixture.db
+      .update(sourceDocuments)
+      .set({
+        dateOrganizationSuggestion: {
+          schemaVersion: 1,
+          id: suggestionId,
+          referenceDate: document!.documentDate,
+          sourceDocumentDate: document!.documentDate,
+          items: [
+            {
+              ledgerEntryId: fixture.cookie.id,
+              dateHint: { kind: "relative", value: "yesterday", sourceText: "昨天" },
+              resolvedDate: "2026-08-02",
+              sourceText: "昨天",
+              snapshot: { itemName: "Renamed", amount: "6", currency: "CNY" },
+            },
+          ],
+        },
+      })
+      .where(eq(sourceDocuments.id, fixture.sourceDocumentId));
+
+    const { createdSourceDocumentIds } = await applyDateOrganization({
+      sourceDocumentId: fixture.sourceDocumentId,
+      suggestionId,
+      groups: [{ id: "2026-08-02", entryDate: "2026-08-02", ledgerEntryIds: [fixture.cookie.id] }],
+      appliedGroupIds: ["2026-08-02"],
+    });
+    await deleteSourceDocumentAtomically({ sourceDocumentId: fixture.sourceDocumentId });
+
+    expect(await stored()).toMatchObject([
+      {
+        sourceDocumentId: createdSourceDocumentIds[0],
+        subjectId: fixture.cookie.id,
+        field: "item_name",
+      },
+    ]);
+  });
+
+  it("moves a stored correction to the record its entry is on when it is edited again", async () => {
+    const fixture = await createFixture();
+    const move = (categoryId: string | null) =>
+      batchUpdateLedgerEntries({
+        sourceDocumentIds: [fixture.sourceDocumentId],
+        ledgerEntryIds: [fixture.latte.id],
+        categoryId,
+      });
+    await move(fixture.transport.id);
+    // A correction left on another record, as one stored before entries took theirs along.
+    const elsewhere = await createTestSourceDocument(fixture.db);
+    await fixture.db.update(aiCorrections).set({ sourceDocumentId: elsewhere });
+
+    await move(null);
+
+    expect(await stored()).toMatchObject([
+      { sourceDocumentId: fixture.sourceDocumentId, subjectId: fixture.latte.id, afterValue: "" },
+    ]);
   });
 });

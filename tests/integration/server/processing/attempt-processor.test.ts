@@ -199,6 +199,21 @@ describe("processAttempt", () => {
     expect(ensureRates).toHaveBeenCalledWith(["2026-09-01"]);
   });
 
+  it("stamps the entries it creates with the time they are written, not the record's day", async () => {
+    const before = Date.now();
+    const { entries } = await process(
+      modelReply({
+        outcome: "success",
+        entries: [{ item_name: "Croissant", amount: "10", currency: "EUR" }],
+      }),
+      "2020-01-15"
+    );
+
+    expect(entries).toHaveLength(1);
+    // The database clock and this one can differ by a moment; the record's day is years back.
+    expect(entries[0]!.createdAt.getTime()).toBeGreaterThan(before - 60_000);
+  });
+
   it("asks for the record's own day's rates when the submission carries no date", async () => {
     const { attempt } = await process(
       modelReply({

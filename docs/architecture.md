@@ -113,21 +113,21 @@ src/copy/                 全部界面文案，按界面区域分文件
 表名、列名、枚举和代码里的叫法一致（迁移 0018 统一过一次）。约束和索引按 `uq_<表>_…`、`idx_<表>_…`、
 `fk_<表>_<目标>`、`ck_<表>_…` 命名，主键保持 `<表>_pkey`，由 `schema-contract.test.ts` 检查。
 
-| 概念与表名                                                                                           | 职责                                                                                                                                                                                                                    |
-| ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ledgers`（单行）、`books`、`entry_categories`                                                       | 账本设置（含唯一的时区 `time_zone`）、分账、分类。分类硬删除，名称唯一约束为 `DEFERRABLE`。分账没有自己的时区                                                                                                           |
-| 票据：`source_documents`                                                                             | 所属分账、标题、日期、当前输入（文本）、`version`、指向最新提取尝试的 `latest_attempt_id`、幂等 key。标题只存在这里：提取成功时写入，用户可改                                                                           |
-| 票据文件：`source_document_files`                                                                    | 票据当前输入的文件                                                                                                                                                                                                      |
-| 提取尝试：`extraction_attempts`                                                                      | 每一次提取：请求的日期、状态、租约、尝试次数、失败码。它本身就是任务队列                                                                                                                                                |
-| 条目：`ledger_entries`                                                                               | 金额、币种、分类、所属票据（必填）。不存折算值                                                                                                                                                                          |
-| 汇率：`exchange_rates(rate_date, currency, per_eur, …)`                                              | 每个自然日、每个币种一行，`source_date` 记录服务商的真实日期，`fetched_at` 记录抓取时间                                                                                                                                 |
-| `stored_files`                                                                                       | 对象存储里文件的登记；先登记行、再写对象，没有任何票据引用的行由每日维护清掉                                                                                                                                            |
-| 批量分类：`category_assignment_jobs`、`category_assignment_documents`、`category_assignment_entries` | 租约放在 job 行上，进度在读取时统计；`ai` 任务的候选分类就是 `candidate_snapshot`                                                                                                                                       |
-| 修改记录：`ai_corrections`                                                                           | 用户对 AI 所写分类、商品名、标题的修改：AI 的值、用户的值、读过与否；随票据删除。每日维护据此整理 `ledgers.ai_learned_preferences`                                                                                      |
-| AI 判断：`forecast_judgments`                                                                        | 预测的 AI 分析师对某个范围（总账或一个分账）某一天的判断，每天一行，同一天重判覆盖；记以判断版本（`FORECAST_AI_JUDGMENT_VERSION`，改提示词时加一）开头的历史指纹：版本不同就当天重判，用于命中率，保留 400 天           |
-| 认证                                                                                                 | `sessions`（已登录的浏览器，只记提供方验证过的邮箱）                                                                                                                                                                    |
-| API 密钥：`service_credentials`                                                                      | 吊销时写 `revoked_at`，行留作审计                                                                                                                                                                                       |
-| `ledger_sync_state`（单行）                                                                          | 客户端刷新用的版本号，由行级触发器 `record_ledger_change` 维护：每改一行一条 UPDATE，同一事务复用一个版本号。触发器还在维护 `categories_version`、`settings_version`、`stats_version`，但已经没有代码读，下一个版本删掉 |
+| 概念与表名                                                                                           | 职责                                                                                                                                                                                                               |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ledgers`（单行）、`books`、`entry_categories`                                                       | 账本设置（含唯一的时区 `time_zone`）、分账、分类。分类硬删除，名称唯一约束为 `DEFERRABLE`。分账没有自己的时区                                                                                                      |
+| 票据：`source_documents`                                                                             | 所属分账、标题、日期、当前输入（文本）、`version`、指向最新提取尝试的 `latest_attempt_id`、幂等 key。标题只存在这里：提取成功时写入，用户可改                                                                      |
+| 票据文件：`source_document_files`                                                                    | 票据当前输入的文件                                                                                                                                                                                                 |
+| 提取尝试：`extraction_attempts`                                                                      | 每一次提取：请求的日期、状态、租约、尝试次数、失败码。它本身就是任务队列                                                                                                                                           |
+| 条目：`ledger_entries`                                                                               | 金额、币种、分类、所属票据（必填）。不存折算值                                                                                                                                                                     |
+| 汇率：`exchange_rates(rate_date, currency, per_eur, …)`                                              | 每个自然日、每个币种一行，`source_date` 记录服务商的真实日期，`fetched_at` 记录抓取时间                                                                                                                            |
+| `stored_files`                                                                                       | 对象存储里文件的登记；先登记行、再写对象。票据关联或解除关联文件时，`source_document_files` 上的触发器写入 `last_used_at`；没有任何票据引用、且 `last_used_at`（没有时取 `created_at`）已过 7 天的行由每日维护清掉 |
+| 批量分类：`category_assignment_jobs`、`category_assignment_documents`、`category_assignment_entries` | 租约放在 job 行上，进度在读取时统计；`ai` 任务的候选分类就是 `candidate_snapshot`                                                                                                                                  |
+| 修改记录：`ai_corrections`                                                                           | 用户对 AI 所写分类、商品名、标题的修改：AI 的值、用户的值、读过与否。记录挂在条目当前所在的票据上（拆分、按日期整理时跟着条目走），随票据删除。每日维护据此整理 `ledgers.ai_learned_preferences`                   |
+| AI 判断：`forecast_judgments`                                                                        | 预测的 AI 分析师对某个范围（总账或一个分账）某一天的判断，每天一行，同一天重判覆盖；记以判断版本（`FORECAST_AI_JUDGMENT_VERSION`，改提示词时加一）开头的历史指纹：版本不同就当天重判，用于命中率，保留 400 天      |
+| 认证                                                                                                 | `sessions`（已登录的浏览器，只记提供方验证过的邮箱）                                                                                                                                                               |
+| API 密钥：`service_credentials`                                                                      | 吊销时写 `revoked_at`，行留作审计                                                                                                                                                                                  |
+| `ledger_sync_state`（单行）                                                                          | 客户端刷新用的版本号，由行级触发器 `record_ledger_change` 维护：每改一行一条 UPDATE，同一事务复用一个版本号                                                                                                        |
 
 语义约定：
 
@@ -345,7 +345,7 @@ UTC 18:00（ECB 已发布当天汇率）运行一次 `runDailyMaintenance`（`sr
 
 1. 过期记录（会话、已结束的分类 job）；
 2. 刷新汇率，补齐缺失的日期并替换临时值；
-3. 7 天没有被任何票据使用的文件（先删行，再删对象）；
+3. 7 天没有被任何票据使用的文件（从最后一次被票据关联或解除关联算起，没有记录时从上传算起；先删行，再删对象）；
 4. `stored/` 下超过 1 天、没有任何行指向的孤儿对象。
 5. 偏好学习（`runPreferenceLearning`，`src/modules/ledger/server/preference-learning.ts`）：把还没读过的修改记录整理进
    `ledgers.ai_learned_preferences`。至少 `PREFERENCE_LEARNING_MIN_CORRECTIONS` 条才调用模型；模型调用在事务外，

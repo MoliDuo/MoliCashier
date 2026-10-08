@@ -82,6 +82,12 @@ export const storedFiles = pgTable(
     originalFilename: text("original_filename"),
     checksum: text("checksum"),
     createdAt: rowTimestamp("created_at"),
+    /**
+     * When a document last took or let go of the file, kept by a trigger on
+     * `source_document_files`. Null until that first happens; the daily cleanup
+     * counts a file's unused week from it, or from `created_at` when null.
+     */
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
   },
   (table) => [
     uniqueIndex("uq_stored_files_storage_key").on(table.storageKey),
@@ -186,6 +192,8 @@ export const categoryAssignmentJobs = pgTable(
       foreignColumns: [table.id],
       name: "fk_category_assignment_jobs_retry_of_job",
     }).onDelete("set null"),
+    // Deleting a run sets its retries' link to null; this finds them.
+    index("idx_category_assignment_jobs_retry_of_job").on(table.retryOfJobId),
     uniqueIndex("uq_category_assignment_jobs_request_key").on(table.requestKey),
     // One run at a time: a double submit becomes a conflict instead of paying
     // for the same model calls twice.
@@ -271,11 +279,7 @@ export const categoryAssignmentEntries = pgTable(
   ]
 );
 
-/**
- * The ledger's one row of change watermarks, kept by the change-log triggers. The
- * triggers still keep `categories_version`, `settings_version` and `stats_version`
- * in the database, but nothing reads them; a later release drops them.
- */
+/** The ledger's one row of change watermarks, kept by the change-log triggers. */
 export const ledgerSyncState = pgTable(
   "ledger_sync_state",
   {

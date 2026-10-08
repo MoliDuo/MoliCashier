@@ -480,7 +480,7 @@ describe("Enhanced Stats Actions", () => {
 
       expect(result.categories).toHaveLength(1);
       const uncategorizedCategory = requireFirst(result.categories, "category");
-      expect(uncategorizedCategory.name).toBe("Uncategorized");
+      expect(uncategorizedCategory.name).toBeNull();
       expect(uncategorizedCategory.totalConverted).toBe("100");
     });
   });
