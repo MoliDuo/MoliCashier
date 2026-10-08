@@ -17,15 +17,6 @@ const REFRESH_STALE_TIME_MS = 3_000;
 const MAX_ERROR_INTERVAL_MS = 30_000;
 const consecutiveFailures = new WeakMap<object, number>();
 
-function hasChanged(result: LedgerRefreshResult): boolean {
-  return (
-    result.changed ||
-    result.invalidations.categories ||
-    result.invalidations.settings ||
-    result.invalidations.stats
-  );
-}
-
 /**
  * The ledger's one refresh driver, mounted once by the ledger layout so every
  * route is kept current by the same poll. It reads the ledger's sync version;
@@ -51,7 +42,7 @@ export function useLedgerSync() {
         // A page that fails to read shows its own error. The driver keeps the new
         // version either way: failing here would leave the old one and invalidate
         // every visible query again on each poll.
-        if (previous != null && hasChanged(result)) {
+        if (previous != null && result.changed) {
           await invalidateVisibleLedger(queryClient).catch(() => undefined);
         }
         consecutiveFailures.delete(queryClient);

@@ -231,7 +231,6 @@ export async function getLedgerRouteBootstrap(
         version: firstPage.generation,
         changed: false,
         hasTransitionalWork: firstPage.hasTransitionalWork,
-        invalidations: { categories: false, settings: false, stats: false },
       });
     }
     return dehydrate(queryClient);

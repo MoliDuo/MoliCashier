@@ -24,7 +24,6 @@ const unchanged = {
   version: "1",
   changed: false,
   hasTransitionalWork: false,
-  invalidations: { categories: false, settings: false, stats: false },
 };
 
 function setup() {

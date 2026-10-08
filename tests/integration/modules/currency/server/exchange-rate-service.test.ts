@@ -133,7 +133,6 @@ describe("ensureExchangeRates", () => {
 
     const after = await db.query.ledgerSyncState.findFirst();
     expect(after!.version).toBeGreaterThan(before?.version ?? BigInt(0));
-    expect(after!.statsVersion).toBeGreaterThan(before?.statsVersion ?? BigInt(0));
   });
 });
 

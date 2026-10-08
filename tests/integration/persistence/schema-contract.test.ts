@@ -72,7 +72,12 @@ function isPgTable(value: unknown): value is AnyPgTable {
  * docs/architecture.md §2.8). Columns are written `table.column`. Remove an entry in the same change
  * as the migration that drops it.
  */
-const retiredNames = new Set<string>([]);
+const retiredNames = new Set<string>([
+  // Watermarks the triggers still keep but nothing reads; the next release drops them.
+  "ledger_sync_state.categories_version",
+  "ledger_sync_state.settings_version",
+  "ledger_sync_state.stats_version",
+]);
 
 function getDrizzleColumnNames(): Set<string> {
   const columns = new Set<string>();

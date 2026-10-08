@@ -23,7 +23,6 @@ describe("ledger refresh", () => {
       version: currentVersion.toString(),
       changed: false,
       hasTransitionalWork: false,
-      invalidations: { categories: false, settings: false, stats: false },
     });
   });
 
@@ -36,20 +35,18 @@ describe("ledger refresh", () => {
       version: (await version()).toString(),
       changed: true,
       hasTransitionalWork: false,
-      invalidations: { categories: false, settings: true, stats: true },
     });
   });
 
-  it("uses resource watermarks even for a client that has never refreshed", async () => {
+  it("reports a change to a client that has never refreshed", async () => {
     await createTestSourceDocument(getTestDb());
     await getTestDb().update(ledgers).set({ aiLanguage: "en" });
     expect(await refresh("0")).toMatchObject({
       changed: true,
-      invalidations: { categories: false, settings: true, stats: true },
     });
   });
 
-  it("coalesces a transaction and rolls back its resource watermarks", async () => {
+  it("coalesces a transaction and rolls back its version", async () => {
     const before = await version();
     await getTestDb().transaction(async (tx) => {
       await tx.update(ledgers).set({ aiLanguage: "en" });
@@ -66,32 +63,29 @@ describe("ledger refresh", () => {
     expect(await refresh(before.toString())).toEqual(committed);
   });
 
-  it("invalidates everything after a main-currency reset", async () => {
+  it("reports a change after a main-currency reset", async () => {
     const before = await version();
     await getTestDb().update(ledgers).set({ mainCurrency: "USD" });
 
     expect(await refresh(before.toString())).toMatchObject({
       changed: true,
-      invalidations: { categories: true, settings: true, stats: true },
     });
   });
 
   it.each(["invalid", "9223372036854775808"])(
-    "invalidates everything for invalid version %s",
+    "reports a change for invalid version %s",
     async (afterVersion) => {
       expect(await refresh(afterVersion)).toMatchObject({
         changed: true,
-        invalidations: { categories: true, settings: true, stats: true },
       });
     }
   );
 
-  it("invalidates everything for a future version", async () => {
+  it("reports a change for a future version", async () => {
     const current = await version();
     expect(await refresh((current + BigInt(1)).toString())).toMatchObject({
       version: current.toString(),
       changed: true,
-      invalidations: { categories: true, settings: true, stats: true },
     });
   });
 

@@ -3,8 +3,6 @@ import type { LedgerRefreshRequest, LedgerRefreshResult } from "../contract-refr
 import { summarizeLedgerChanges } from "./ledger-changes";
 
 const MAX_BIGINT_VERSION = BigInt("9223372036854775807");
-const FULL_INVALIDATIONS = { categories: true, settings: true, stats: true } as const;
-const NO_INVALIDATIONS = { categories: false, settings: false, stats: false } as const;
 
 function parseVersion(value: string): bigint | null {
   if (!/^\d+$/.test(value)) return null;
@@ -22,27 +20,14 @@ export async function getStreamRefresh(
   const requestVersionIsInvalid =
     parsedVersion == null || parsedVersion < BigInt(0) || parsedVersion > MAX_BIGINT_VERSION;
   const afterVersion = requestVersionIsInvalid ? BigInt(0) : parsedVersion;
-  const summary = await summarizeLedgerChanges({ afterVersion });
+  const summary = await summarizeLedgerChanges();
   const base = {
     version: summary.currentVersion.toString(),
     hasTransitionalWork: summary.hasTransitionalWork,
   };
 
-  if (requestVersionIsInvalid || afterVersion > summary.currentVersion) {
-    return { ...base, changed: true, invalidations: FULL_INVALIDATIONS };
-  }
-
-  if (afterVersion === summary.currentVersion) {
-    return { ...base, changed: false, invalidations: NO_INVALIDATIONS };
-  }
-
-  return {
-    ...base,
-    changed: true,
-    invalidations: {
-      categories: summary.categoriesChanged,
-      settings: summary.settingsChanged,
-      stats: summary.statsChanged,
-    },
-  };
+  // A version the server never handed out (malformed, or ahead of the ledger) is
+  // treated as stale, so the reader reads everything again.
+  const changed = requestVersionIsInvalid || afterVersion !== summary.currentVersion;
+  return { ...base, changed };
 }
