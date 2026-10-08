@@ -24,8 +24,8 @@ import {
   resolveLatestConflictSelection,
   retryCategoryAssignmentFailures,
   startCategoryAssignment,
-} from "@/server/category-assignment/assignments";
-import { getCategoryAssignmentJob } from "@/server/category-assignment/jobs";
+} from "@/server/category-assignment/commands";
+import { getCategoryAssignmentJob } from "@/server/category-assignment/reads";
 
 async function validateMode(
   mode: CategoryAssignmentMode

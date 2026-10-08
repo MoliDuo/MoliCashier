@@ -1,17 +1,40 @@
 import "server-only";
-import { sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   categoryAssignmentDocuments,
   categoryAssignmentEntries,
   categoryAssignmentJobs,
+  entryCategories,
+  ledgerEntries,
 } from "@/persistence";
 import type {
+  CategoryAssignmentEntryResultDto,
+  CategoryAssignmentEntryStatesDto,
   CategoryAssignmentJobStatus,
   CategoryAssignmentMode,
+  CategoryAssignmentResultPageDto,
 } from "@/modules/ledger/contracts";
 import type { CategoryAssignmentCandidate } from "@/modules/ledger/domain/category-assignment-protocol";
-import { rowMode } from "./assignments";
+
+/**
+ * Reads of category assignment runs: a job with its progress, a finished run's
+ * results, and the state of each entry a run still holds. Nothing here writes.
+ */
+
+/** The mode a job was started with; an `ai` run's candidates are its snapshot. */
+export function rowMode(row: {
+  mode: "ai" | "assign" | "clear";
+  assignCategoryId: string | null;
+  candidateSnapshot: ReadonlyArray<{ id: string }>;
+}): CategoryAssignmentMode {
+  if (row.mode === "assign") return { kind: "assign", categoryId: row.assignCategoryId! };
+  if (row.mode === "clear") return { kind: "clear" };
+  return {
+    kind: "ai",
+    candidateCategoryIds: row.candidateSnapshot.map((candidate) => candidate.id),
+  };
+}
 
 /** A job with its progress, counted from its entry and document rows when read. */
 export interface CategoryAssignmentJobRecord {
@@ -155,4 +178,97 @@ export async function getCategoryAssignmentJob(input: {
 
 export async function getLatestCategoryAssignmentJob(): Promise<CategoryAssignmentJobRecord | null> {
   return readJob(null);
+}
+
+export async function listCategoryAssignmentResults(input: {
+  jobId: string;
+  cursor?: number;
+  limit?: number;
+}): Promise<CategoryAssignmentResultPageDto> {
+  const cursor = input.cursor ?? 0;
+  const limit = Math.min(input.limit ?? 50, 50);
+  const rows = await db
+    .select({
+      ledgerEntryId: categoryAssignmentEntries.ledgerEntryId,
+      itemName: ledgerEntries.itemName,
+      originalCategoryId: categoryAssignmentEntries.originalCategoryId,
+      targetCategoryId: categoryAssignmentEntries.targetCategoryId,
+      outcome: categoryAssignmentEntries.outcome,
+      errorCode: categoryAssignmentEntries.errorCode,
+      selectionOrder: categoryAssignmentEntries.selectionOrder,
+    })
+    .from(categoryAssignmentEntries)
+    .leftJoin(ledgerEntries, eq(ledgerEntries.id, categoryAssignmentEntries.ledgerEntryId))
+    .where(
+      and(
+        eq(categoryAssignmentEntries.jobId, input.jobId),
+        sql`${categoryAssignmentEntries.selectionOrder} >= ${cursor}`
+      )
+    )
+    .orderBy(categoryAssignmentEntries.selectionOrder)
+    .limit(limit + 1);
+  const page = rows.slice(0, limit);
+  const categoryIds = [
+    ...new Set(
+      page.flatMap((row) => [row.originalCategoryId, row.targetCategoryId]).filter(Boolean)
+    ),
+  ] as string[];
+  const categories =
+    categoryIds.length === 0
+      ? []
+      : await db
+          .select({ id: entryCategories.id, name: entryCategories.name })
+          .from(entryCategories)
+          .where(inArray(entryCategories.id, categoryIds));
+  const names = new Map(categories.map((category) => [category.id, category.name]));
+  const items: CategoryAssignmentEntryResultDto[] = page.map((row) => ({
+    ledgerEntryId: row.ledgerEntryId,
+    itemName: row.itemName,
+    originalCategoryId: row.originalCategoryId,
+    originalCategoryName:
+      row.originalCategoryId == null ? null : (names.get(row.originalCategoryId) ?? null),
+    targetCategoryId: row.targetCategoryId,
+    targetCategoryName:
+      row.targetCategoryId == null ? null : (names.get(row.targetCategoryId) ?? null),
+    outcome: row.outcome,
+    errorCode: row.errorCode,
+  }));
+  return {
+    items,
+    nextCursor: rows.length > limit ? rows[limit]!.selectionOrder : null,
+  };
+}
+
+/**
+ * The entries of a run a row has something to say about: those still waiting for
+ * the model, and those the model could not place. A failure is only reported
+ * while the entry still sits in the category it had when the run was selected,
+ * so a row the reader has since fixed by hand stops being flagged. Entries the
+ * run settled are not listed, which keeps the answer short for a large run.
+ */
+export async function listCategoryAssignmentEntryStates(input: {
+  jobId: string;
+}): Promise<CategoryAssignmentEntryStatesDto> {
+  const rows = await db
+    .select({
+      ledgerEntryId: categoryAssignmentEntries.ledgerEntryId,
+      outcome: categoryAssignmentEntries.outcome,
+    })
+    .from(categoryAssignmentEntries)
+    .leftJoin(ledgerEntries, eq(ledgerEntries.id, categoryAssignmentEntries.ledgerEntryId))
+    .where(
+      and(
+        eq(categoryAssignmentEntries.jobId, input.jobId),
+        sql`(${categoryAssignmentEntries.outcome} IS NULL OR (
+          ${categoryAssignmentEntries.outcome} = 'failed'
+          AND ${ledgerEntries.categoryId} IS NOT DISTINCT FROM ${categoryAssignmentEntries.originalCategoryId}
+        ))`
+      )
+    )
+    .orderBy(categoryAssignmentEntries.selectionOrder);
+  return {
+    jobId: input.jobId,
+    pendingIds: rows.filter((row) => row.outcome == null).map((row) => row.ledgerEntryId),
+    failedIds: rows.filter((row) => row.outcome === "failed").map((row) => row.ledgerEntryId),
+  };
 }

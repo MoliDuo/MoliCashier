@@ -24,6 +24,11 @@ import { applyCategoryAssignments } from "@/modules/source-document/server/categ
 import { deleteSourceDocumentAtomically } from "@/modules/source-document/server/delete";
 import {
   cancelCategoryAssignment,
+  resolveLatestConflictSelection,
+  retryCategoryAssignmentFailures,
+  startCategoryAssignment,
+} from "@/server/category-assignment/commands";
+import {
   claimCategoryAssignmentJob,
   failCategoryAssignmentDocument,
   nextCategoryAssignmentDocument,
@@ -31,12 +36,9 @@ import {
   releaseCategoryAssignmentJob,
   renewCategoryAssignmentLease,
   rescheduleCategoryAssignmentDocument,
-  resolveLatestConflictSelection,
-  retryCategoryAssignmentFailures,
-  startCategoryAssignment,
   yieldCategoryAssignmentDocument,
-} from "@/server/category-assignment/assignments";
-import { getCategoryAssignmentJob } from "@/server/category-assignment/jobs";
+} from "@/server/category-assignment/lease";
+import { getCategoryAssignmentJob } from "@/server/category-assignment/reads";
 
 async function addDocument(itemNames: string[]) {
   const db = getTestDb();

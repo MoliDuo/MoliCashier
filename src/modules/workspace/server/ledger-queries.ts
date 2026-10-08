@@ -19,7 +19,7 @@ import { getLatestCategoryAssignmentJobDto } from "@/modules/ledger/server/get-c
 import {
   listCategoryAssignmentEntryStates,
   listCategoryAssignmentResults,
-} from "@/server/category-assignment/assignments";
+} from "@/server/category-assignment/reads";
 import {
   sourceDocumentIdSchema,
   sourceDocumentIdsSchema,

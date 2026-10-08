@@ -6,10 +6,7 @@ import { holdLease } from "@/lib/db/lease";
 import { applyCategoryAssignments } from "@/modules/source-document/server/category-assignments";
 import { isSuccessfulLoadImageResult, loadStoredFilesForAI } from "@/server/processing/evidence";
 import { BACKGROUND_MAX_ATTEMPTS } from "@/config/tuning";
-import type {
-  CategoryAssignmentDocumentWork,
-  ClaimedCategoryAssignmentJob,
-} from "@/server/category-assignment/assignments";
+import type { CategoryAssignmentDocumentWork, ClaimedCategoryAssignmentJob } from "./lease";
 import {
   claimCategoryAssignmentJob,
   failCategoryAssignmentDocument,
@@ -21,7 +18,7 @@ import {
   renewCategoryAssignmentLease,
   rescheduleCategoryAssignmentDocument,
   yieldCategoryAssignmentDocument,
-} from "@/server/category-assignment/assignments";
+} from "./lease";
 import { loadCategoryAssignmentDocumentGroups } from "@/server/category-assignment/document-groups";
 import { decideEntryCategories } from "@/server/category-assignment/decide-entry-categories";
 

@@ -35,8 +35,8 @@ import {
   claimCategoryAssignmentJob,
   nextCategoryAssignmentDocument,
   releaseCategoryAssignmentJob,
-  startCategoryAssignment,
-} from "@/server/category-assignment/assignments";
+} from "@/server/category-assignment/lease";
+import { startCategoryAssignment } from "@/server/category-assignment/commands";
 import { saveEntryCategories } from "@/modules/ledger/server/categories";
 import { computeCategoryCollectionRevision } from "@/modules/ledger/category-collection-revision";
 
