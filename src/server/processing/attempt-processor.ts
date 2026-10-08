@@ -184,7 +184,6 @@ export async function processAttempt(
     currency: entry.currency,
     itemName: entry.itemName,
     description: entry.description,
-    createdAt: entry.entryDate,
     ...(entry.dateHint == null ? {} : { dateHint: entry.dateHint }),
   }));
 
