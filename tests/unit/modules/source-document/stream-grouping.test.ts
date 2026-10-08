@@ -16,6 +16,7 @@ function makeItem(
   return {
     id,
     version: 1,
+    latestAttemptId: null,
     title: `Doc ${id}`,
     text: null,
     processingStatus: "completed",

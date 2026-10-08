@@ -266,6 +266,7 @@ const secondEntry: LedgerEntry = {
 const sourceDocument: SourceDocument = {
   id: "doc-1",
   version: 1,
+  latestAttemptId: null,
   title: "Receipt",
   text: null,
   files: [],

@@ -16,6 +16,7 @@ vi.mock("@/modules/currency/ui/amount-text", () => ({
 const sourceDocument: SourceDocument = {
   id: "doc-1",
   version: 1,
+  latestAttemptId: null,
   title: "Receipt",
   text: "Lunch",
   files: [],

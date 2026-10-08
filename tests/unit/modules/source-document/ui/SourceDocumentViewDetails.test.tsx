@@ -68,6 +68,7 @@ function documentWithFiles(count: number): SourceDocument {
   return {
     id: "doc-1",
     version: 1,
+    latestAttemptId: null,
     title: "Receipt",
     text: null,
     files: Array.from({ length: count }, (_, index) => ({

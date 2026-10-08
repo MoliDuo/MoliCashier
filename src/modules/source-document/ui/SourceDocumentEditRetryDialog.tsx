@@ -121,6 +121,7 @@ function EditRetryDialogContent({
               <SourceDocumentInput
                 mode="retry"
                 sourceDocumentId={sourceDocument.id}
+                draftBasis={sourceDocument.latestAttemptId}
                 initialData={initialData}
                 onPendingChange={handlePendingChange}
                 onSuccess={() => {

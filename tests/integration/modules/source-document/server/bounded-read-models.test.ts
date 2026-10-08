@@ -25,6 +25,7 @@ const SOURCE_LIST_KEYS = [
   "errorCode",
   "hasImages",
   "id",
+  "latestAttemptId",
   "ledgerEntries",
   "pendingSuggestions",
   "processingStatus",

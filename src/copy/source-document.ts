@@ -51,6 +51,7 @@ export const sourceDocumentInputCopy = {
   capturePhoto: "拍照",
   switchCamera: "切换前后摄像头",
   dropImages: "松开即可添加图片",
+  staleDraftDiscarded: "这张账单已被重新处理，之前未提交的修改已丢弃。",
 };
 
 export const sourceDocumentEditRetryDialogCopy = {

@@ -91,18 +91,33 @@ export function createDraftDateState(
 /** What survives a reload: the images do not, being files the browser picked. */
 export interface StoredInputDraft {
   text: string;
-  /** A hand-picked date, as epoch milliseconds; null keeps the default. */
-  entryDate: number | null;
+  /** A hand-picked date as the ledger's `YYYY-MM-DD`; null keeps the default. */
+  entryDate: string | null;
 }
 
+const STORED_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Reads a stored draft. Drafts written before dates were stored as calendar
+ * days hold epoch milliseconds of the picked day's local midnight; those are
+ * read back as that day.
+ */
 export function parseStoredInputDraft(data: unknown): StoredInputDraft | null {
   if (data == null || typeof data !== "object") return null;
   const { text, entryDate } = data as Record<string, unknown>;
   if (typeof text !== "string") return null;
-  if (entryDate !== null && (typeof entryDate !== "number" || !Number.isFinite(entryDate))) {
-    return null;
+  if (entryDate === null) return { text, entryDate: null };
+  if (typeof entryDate === "number" && Number.isFinite(entryDate)) {
+    return { text, entryDate: formatDateTimeForApi(new Date(entryDate)) };
   }
-  return { text, entryDate };
+  if (
+    typeof entryDate === "string" &&
+    STORED_DATE_PATTERN.test(entryDate) &&
+    !isNaN(parseDateString(entryDate).getTime())
+  ) {
+    return { text, entryDate };
+  }
+  return null;
 }
 
 export function buildSubmitPayload(
@@ -154,6 +169,17 @@ export function sourceDocumentPayloadsEqual(
         leftImage.file === rightImage.file && leftImage.mimeType === rightImage.mimeType
     )
   );
+}
+
+/** What a create submission's idempotency key stands for: the payload and the book it goes to. */
+export interface CreateSubmission {
+  bookId: string | null;
+  payload: SourceDocumentSubmitPayload;
+}
+
+/** True when a resubmission may reuse the earlier key: same book, same input. */
+export function createSubmissionsEqual(left: CreateSubmission, right: CreateSubmission): boolean {
+  return left.bookId === right.bookId && sourceDocumentPayloadsEqual(left.payload, right.payload);
 }
 
 export function snapshotPayload(payload: SourceDocumentSubmitPayload): SourceDocumentSubmitPayload {

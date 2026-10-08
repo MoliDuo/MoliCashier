@@ -6,6 +6,7 @@ import { SourceDocumentDetailStatusPanels } from "@/modules/source-document/ui/S
 const baseDocument: SourceDocument = {
   id: "doc-1",
   version: 1,
+  latestAttemptId: null,
   title: "Receipt",
   text: null,
   files: [],

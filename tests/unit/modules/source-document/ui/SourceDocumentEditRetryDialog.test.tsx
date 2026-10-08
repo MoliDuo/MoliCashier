@@ -29,6 +29,7 @@ function renderDialog() {
       <SourceDocumentEditRetryDialog
         sourceDocument={{
           id: "00000000-0000-4000-8000-000000000001",
+          latestAttemptId: null,
           text: null,
           files: [],
           hasImages: true,
@@ -64,7 +65,7 @@ describe("SourceDocumentEditRetryDialog", () => {
     render(
       <QueryClientProvider client={queryClient}>
         <SourceDocumentEditRetryDialog
-          sourceDocument={{ id: "source-1", text: "Original" }}
+          sourceDocument={{ id: "source-1", latestAttemptId: null, text: "Original" }}
           open
           onOpenChange={onOpenChange}
         />

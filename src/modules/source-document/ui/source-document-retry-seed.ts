@@ -4,6 +4,8 @@ import { storedFileReadUrl } from "../stored-file-read";
 
 export interface RetrySeedSourceDocument {
   id: string;
+  /** The latest parse attempt the dialog opened against; null for a hand-entered record. */
+  latestAttemptId: string | null;
   text?: string | null;
   files?: SourceDocumentStoredFileDto[];
   documentDate?: string | null;
