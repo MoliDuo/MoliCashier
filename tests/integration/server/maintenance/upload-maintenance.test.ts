@@ -3,7 +3,8 @@ import type { ObjectStore } from "@/lib/storage";
 import { getTestDb } from "tests/setup";
 import { createTestLedger, testBookId } from "tests/helpers/schema-setup";
 import { MemoryObjectStore } from "tests/helpers/memory-object-store";
-import { storedFiles } from "@/persistence";
+import { eq } from "drizzle-orm";
+import { sourceDocuments, storedFiles } from "@/persistence";
 import { submitSourceDocument } from "@/modules/source-document/server/submissions";
 
 const objectStore = vi.hoisted(() => ({ current: undefined as ObjectStore | undefined }));
@@ -78,6 +79,36 @@ describe("daily upload maintenance", () => {
         `${foreignPrefix}/stored/orphan`,
       ].sort()
     );
+  });
+
+  it("counts a file's unused week from when a document last let go of it", async () => {
+    const db = getTestDb();
+    await createTestLedger(db);
+    const storage = new MemoryObjectStore();
+    objectStore.current = storage;
+    const uploadedAt = new Date(Date.now() - 8 * DAY_MS);
+    const file = {
+      id: crypto.randomUUID(),
+      storageKey: "stored/released-today",
+      contentType: "image/webp",
+      byteSize: 1,
+      createdAt: uploadedAt,
+    };
+    await db.insert(storedFiles).values(file);
+    await storage.upload(file.storageKey, Buffer.from("image"));
+    storage.modifiedAt.set(file.storageKey, uploadedAt);
+    const submitted = await submitSourceDocument({
+      bookId: await testBookId(db),
+      input: { text: null, storedFileIds: [file.id], documentDate: null },
+    });
+    // Deleting the record lets go of the file through the link's cascade.
+    await db.delete(sourceDocuments).where(eq(sourceDocuments.id, submitted.document.id));
+
+    await expect(runDailyMaintenance()).resolves.toMatchObject({ unused_files: "done" });
+
+    const [row] = await db.select().from(storedFiles).where(eq(storedFiles.id, file.id));
+    expect(row?.lastUsedAt?.getTime()).toBeGreaterThan(uploadedAt.getTime());
+    expect(storage.files.has(file.storageKey)).toBe(true);
   });
 
   it("skips the steps not yet started once the process is stopping", async () => {
