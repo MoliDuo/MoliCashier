@@ -56,6 +56,15 @@ export const SOURCE_DOC_STALE_TIME_MS = 120_000;
 
 /** How long a signed-in session survives without being renewed. */
 export const SESSION_MAX_AGE_DAYS = 14;
+/** How long a session lasts from sign-in however often it is renewed; after it the provider is asked again. */
+export const SESSION_ABSOLUTE_MAX_AGE_DAYS = 30;
+
+/**
+ * How many source documents one API v1 credential may create: a burst of this many a minute, and
+ * this many a day. Each allowance refills evenly over its period (a token bucket).
+ */
+export const API_V1_CREATES_PER_MINUTE = 30;
+export const API_V1_CREATES_PER_DAY = 300;
 
 /**
  * How many extraction attempts run at once. Each holds its images decoded and base64-encoded in

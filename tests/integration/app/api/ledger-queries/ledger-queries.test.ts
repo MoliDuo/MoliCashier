@@ -11,6 +11,7 @@ import {
   ensureTestLedgerBooks,
 } from "tests/helpers/schema-setup";
 import { insertExchangeRates } from "tests/helpers/exchange-rates";
+import { logger } from "@/lib/logger";
 
 vi.mock("@/modules/auth/server/current-session", () => ({ getCurrentSession: vi.fn() }));
 
@@ -53,8 +54,72 @@ describe("session ledger query transport", () => {
   it("requires a session and validates query envelopes", async () => {
     vi.mocked(getCurrentSession).mockResolvedValue(null);
     expect((await POST(request("detail", [crypto.randomUUID()]))).status).toBe(401);
+    expect((await POST(request("delete", [crypto.randomUUID()]))).status).toBe(401);
+
+    vi.mocked(getCurrentSession).mockResolvedValue(testSession());
     expect((await POST(request("delete", [crypto.randomUUID()]))).status).toBe(400);
     expect((await POST(request("detail", ["invalid", "invalid"]))).status).toBe(400);
+  });
+
+  it("turns away a request without a session before reading its body", async () => {
+    vi.mocked(getCurrentSession).mockResolvedValue(null);
+    let pulled = false;
+    const body = new ReadableStream<Uint8Array>(
+      {
+        pull() {
+          pulled = true;
+          throw new Error("the body should not be read");
+        },
+      },
+      { highWaterMark: 0 }
+    );
+    const response = await POST(
+      new Request("http://localhost/api/ledger-queries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        duplex: "half",
+      } as RequestInit)
+    );
+
+    expect(response.status).toBe(401);
+    expect(pulled).toBe(false);
+  });
+
+  it("refuses an oversized or malformed body", async () => {
+    const oversized = new Request("http://localhost/api/ledger-queries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query: "ledger", args: ["x".repeat(1024 * 1024)] }),
+    });
+    expect((await POST(oversized)).status).toBe(413);
+
+    const malformed = new Request("http://localhost/api/ledger-queries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{",
+    });
+    expect((await POST(malformed)).status).toBe(400);
+  });
+
+  it("does not log a request the reader dropped while its body was read", async () => {
+    const errorLog = vi.spyOn(logger, "error");
+    const dropped = Object.assign(new Error("aborted"), { code: "ECONNRESET" });
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.error(dropped);
+      },
+    });
+    const abandoned = new Request("http://localhost/api/ledger-queries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      duplex: "half",
+    } as RequestInit);
+
+    expect((await POST(abandoned)).status).toBe(500);
+    expect(errorLog).not.toHaveBeenCalled();
+    errorLog.mockRestore();
   });
 
   it("validates each supported read without leaking internal error data", async () => {

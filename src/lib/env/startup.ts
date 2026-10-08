@@ -117,23 +117,42 @@ export function getStartupEnvValue<K extends keyof StartupEnv>(
   );
 }
 
+/**
+ * The words the example env files and docs use for values a deployment must
+ * fill in. Every key the app signs or hashes with derives from AUTH_SECRET, so
+ * one left at such a value is refused rather than run with.
+ */
+const AUTH_SECRET_PLACEHOLDER = /replace|example|change-?me|local-only|placeholder/i;
+/**
+ * Shorter than this, AUTH_SECRET is only warned about: refusing it would stop a
+ * deployment that boots today, and its keys cannot change without signing
+ * everyone out and invalidating every API credential.
+ */
+const AUTH_SECRET_RECOMMENDED_LENGTH = 32;
+
+function invalidStartupEnv(name: keyof StartupEnv, message: string): AppError {
+  return new AppError(
+    `Startup environment validation failed: ${message}`,
+    "STARTUP_ENV_INVALID",
+    500,
+    { issues: [{ path: [name], message }] }
+  );
+}
+
 export function validateStartupEnv(env: NodeJS.ProcessEnv = process.env): StartupEnv {
   const result = startupEnvSchema.safeParse(env);
 
   if (result.success) {
     if (result.data.DEV_AUTH_BYPASS === "true" && !isSafeDevAuthEnvironment(env, result.data)) {
-      throw new AppError(
-        "Startup environment validation failed: DEV_AUTH_BYPASS requires test or local development",
-        "STARTUP_ENV_INVALID",
-        500,
-        {
-          issues: [
-            {
-              path: ["DEV_AUTH_BYPASS"],
-              message: "DEV_AUTH_BYPASS requires test or local development",
-            },
-          ],
-        }
+      throw invalidStartupEnv(
+        "DEV_AUTH_BYPASS",
+        "DEV_AUTH_BYPASS requires test or local development"
+      );
+    }
+    if (env.NODE_ENV !== "test" && AUTH_SECRET_PLACEHOLDER.test(result.data.AUTH_SECRET)) {
+      throw invalidStartupEnv(
+        "AUTH_SECRET",
+        "AUTH_SECRET is still an example value; set it to a long random value"
       );
     }
     return result.data;
@@ -150,6 +169,17 @@ export function validateStartupEnv(env: NodeJS.ProcessEnv = process.env): Startu
     500,
     { issues: result.error.issues }
   );
+}
+
+/** Settings the app runs with but should not; logged at startup, never containing a value. */
+export function startupEnvWarnings(env: Pick<StartupEnv, "AUTH_SECRET">): string[] {
+  const warnings: string[] = [];
+  if (env.AUTH_SECRET.length < AUTH_SECRET_RECOMMENDED_LENGTH) {
+    warnings.push(
+      `AUTH_SECRET is shorter than ${AUTH_SECRET_RECOMMENDED_LENGTH} characters; a long random value is recommended`
+    );
+  }
+  return warnings;
 }
 
 function isSafeDevAuthEnvironment(env: NodeJS.ProcessEnv, parsed: StartupEnv): boolean {

@@ -50,6 +50,16 @@ export class ConflictError extends AppError {
 }
 
 /**
+ * Too many requests (429). `retryAfterSeconds` is when the caller may try again,
+ * for the Retry-After header.
+ */
+export class RateLimitedError extends AppError {
+  constructor(readonly retryAfterSeconds: number) {
+    super("Too many requests; retry after the Retry-After interval", "RATE_LIMIT", 429);
+  }
+}
+
+/**
  * A record or key was pointed at a book it cannot use: unknown, archived, or
  * belonging to another ledger. Distinct from `ConflictError` so callers can tell
  * "this book is not available" apart from a ledger-level conflict such as the

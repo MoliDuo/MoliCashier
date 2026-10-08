@@ -20,10 +20,8 @@ const nextConfig: NextConfig = {
   // so its build skips Next's second, identical pass.
   ...(process.env.CASHIER_CHECK_BUILD === "1" ? { typescript: { ignoreBuildErrors: true } } : {}),
   experimental: {
-    // `proxy.ts` buffers the request body, and by default only the first 10 MB of it: past that the
-    // rest is dropped without an error. The largest body is an API v1 request, a little over
-    // 32 MiB of base64; a repository test holds this to it.
-    proxyClientMaxBodySize: 34 * 1024 * 1024,
+    // No `proxyClientMaxBodySize`: the proxy does not match API routes, where the large bodies
+    // (uploads, API v1) go, so it never buffers one. A repository test holds the matcher to it.
     // The ledger's pages are dynamic but carry no data of their own on a
     // client move — React Query holds it — so a page just left is safe to show
     // again at once instead of waiting on the server for the same payload.
@@ -32,6 +30,12 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true, // Disable Next.js image optimization - images are pre-processed on upload
     remotePatterns,
+  },
+  // 账目 is the app's front page. Redirecting here answers `/` with a plain 307 before anything
+  // renders; a redirect() inside the page came after the streamed shell had started, so the
+  // browser had to follow it with a second, client-side navigation.
+  async redirects() {
+    return [{ source: "/", destination: "/records", permanent: false }];
   },
   async headers() {
     return [

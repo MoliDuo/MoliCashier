@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ENV_DEFAULTS, validateStartupEnv } from "@/lib/env/startup";
+import { ENV_DEFAULTS, startupEnvWarnings, validateStartupEnv } from "@/lib/env/startup";
 
 const baseEnv = {
   NODE_ENV: "test",
@@ -127,6 +127,49 @@ describe("validateStartupEnv", () => {
         AUTH_SECRET: "",
       })
     ).toThrow(/AUTH_SECRET/);
+  });
+
+  it("refuses an AUTH_SECRET left at an example value, without repeating it", () => {
+    for (const secret of [
+      "replace-with-a-long-random-value",
+      "https://example.com/not-a-secret",
+      "changeme",
+      "CHANGE-ME-please-0123456789abcdef",
+      "cashier-local-only-secret",
+    ]) {
+      for (const NODE_ENV of ["production", "development"] as const) {
+        let message = "";
+        try {
+          validateStartupEnv({ ...baseEnv, NODE_ENV, AUTH_SECRET: secret });
+        } catch (error) {
+          message = error instanceof Error ? error.message : String(error);
+        }
+        expect(message, `${NODE_ENV}: ${secret}`).toMatch(/AUTH_SECRET/);
+        expect(message).not.toContain(secret);
+      }
+    }
+  });
+
+  it("accepts a random AUTH_SECRET in production, and any value under test", () => {
+    const random = "4f9c2a7e1b0d83c6a5e7f1029b3d4c5e6a7b8c9d0e1f2a3b";
+    expect(
+      validateStartupEnv({ ...baseEnv, NODE_ENV: "production", AUTH_SECRET: random }).AUTH_SECRET
+    ).toBe(random);
+    expect(() =>
+      validateStartupEnv({ ...baseEnv, NODE_ENV: "test", AUTH_SECRET: "replace-me" })
+    ).not.toThrow();
+  });
+
+  it("warns about a short AUTH_SECRET but still starts with it", () => {
+    const short = "a-short-but-random-value";
+    expect(() =>
+      validateStartupEnv({ ...baseEnv, NODE_ENV: "production", AUTH_SECRET: short })
+    ).not.toThrow();
+
+    const warnings = startupEnvWarnings({ AUTH_SECRET: short });
+    expect(warnings).toEqual([expect.stringMatching(/AUTH_SECRET is shorter than 32/)]);
+    expect(warnings.join()).not.toContain(short);
+    expect(startupEnvWarnings({ AUTH_SECRET: "x".repeat(32) })).toEqual([]);
   });
 
   it("owns all app env defaults in the startup module", () => {

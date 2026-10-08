@@ -10,11 +10,6 @@
  */
 export const DISPLAY_LOCALE = "zh-CN";
 
-// Time constants (seconds)
-export const TIME_SECONDS = {
-  DAY: 86400,
-} as const;
-
 // Ledger
 export const LEDGER = {
   STALE_TIME_MS: 10 * 60 * 1000, // 10 minutes

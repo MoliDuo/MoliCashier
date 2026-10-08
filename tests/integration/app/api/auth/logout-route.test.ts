@@ -21,6 +21,10 @@ import { POST } from "@/app/api/auth/logout/route";
 import { devSignInAction } from "@/modules/auth/server-actions/sign-in";
 import { getCurrentSession } from "@/modules/auth/server/current-session";
 
+function logoutRequest(headers: Record<string, string> = { "sec-fetch-site": "same-origin" }) {
+  return new Request("http://localhost:3000/api/auth/logout", { method: "POST", headers });
+}
+
 describe("POST /api/auth/logout", () => {
   const originalBypass = process.env.DEV_AUTH_BYPASS;
 
@@ -36,7 +40,7 @@ describe("POST /api/auth/logout", () => {
     await createTestLedger(getTestDb());
     await devSignInAction();
 
-    const response = await POST();
+    const response = await POST(logoutRequest());
 
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("no-store");
@@ -46,7 +50,7 @@ describe("POST /api/auth/logout", () => {
   });
 
   it("leaves a minute-long marker so the login page does not sign the reader straight back in", async () => {
-    const response = await POST();
+    const response = await POST(logoutRequest());
 
     const marker = response.headers
       .getSetCookie()
@@ -58,8 +62,35 @@ describe("POST /api/auth/logout", () => {
     expect(marker).toContain("samesite=lax");
   });
 
+  it("refuses a request from another site, leaving the session and setting no marker", async () => {
+    process.env.DEV_AUTH_BYPASS = "true";
+    await createTestLedger(getTestDb());
+    await devSignInAction();
+    const token = jar.get(SESSION_COOKIE_NAME);
+
+    for (const headers of [
+      { "sec-fetch-site": "cross-site" },
+      { "sec-fetch-site": "same-site" },
+      { origin: "https://evil.example" },
+      {},
+    ]) {
+      const response = await POST(logoutRequest(headers));
+
+      expect(response.status).toBe(403);
+      expect(response.headers.getSetCookie()).toEqual([]);
+    }
+    expect(jar.get(SESSION_COOKIE_NAME)).toBe(token);
+    expect(await getTestDb().select().from(sessions)).toHaveLength(1);
+  });
+
+  it("accepts a browser that sends only Origin, when it is the app's own", async () => {
+    const response = await POST(logoutRequest({ origin: "http://localhost:3000" }));
+
+    expect(response.status).toBe(200);
+  });
+
   it("is fine to call without a session", async () => {
-    const response = await POST();
+    const response = await POST(logoutRequest());
 
     expect(response.status).toBe(200);
   });

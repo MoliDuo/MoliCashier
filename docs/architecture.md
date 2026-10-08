@@ -187,9 +187,12 @@ src/copy/                 全部界面文案，按界面区域分文件
   能不能走到这一步由提供方对这个客户端的访问策略控制，所以该策略要只放行预期的人。会话里记下提供方验证过的
   邮箱，只用于在设置页显示是谁登录的。
 - **会话。** 自建 `sessions` 表，cookie `__Host-cashier_session` 里是 32 字节随机令牌（httpOnly、始终 Secure、
-  SameSite=Lax、Path=/），库里存它的 HMAC。14 天滑动过期，`last_seen_at` 超过 1 天才续期。用 `getCurrentSession`
+  SameSite=Lax、Path=/），库里存它的 HMAC。14 天滑动过期，`last_seen_at` 超过 1 天才续期；无论怎么续，登录 30 天后
+  一定过期（`created_at` 判断，常量在 `src/config/tuning.ts`），之后由提供方重新确认一次。cookie 在登录时设为
+  30 天后过期，之后不再刷新，闲置过期只由数据库判断。用 `getCurrentSession`
   读取，用 `requireAuth` 或 `withAuth`（`src/modules/auth/server/session-guards.ts`）把关，吊销就是删除行。
-  proxy 只检查 cookie 是否存在，`/api/auth/` 是公开路径。
+  `proxy.ts` 不匹配 `/api`：每个 API 路由自己鉴权，并且先鉴权、再读请求体（网页用的路由查会话，`/api/v1` 查
+  bearer 凭证，`/api/auth/` 是公开路径），所以没有会话的大请求在读完之前就被拒绝。
 - **退出。** 只清应用自己的会话，不退出提供方，也不调用提供方的登出端点。退出后落在
   `/login?notice=signed_out`，这个页面不自动跳转，由用户点"重新登录"；`failed`、`denied`
   这些错误页同样不自动跳转，避免死循环。退出走 `POST /api/auth/logout` 路由，而不是 server action：
@@ -198,17 +201,24 @@ src/copy/                 全部界面文案，按界面区域分文件
   即便如此，退出后页面上还在途的请求或路由器的补救导航，仍可能在整页跳转落地前先到一次不带提示的 `/login`，
   所以退出路由还会留一个 60 秒的 `cashier_signed_out` cookie：`/login` 看到它就按 `signed_out` 处理、不自动跳转。
   用户点"重新登录"进入 `/api/auth/login` 时清掉它；会话自己过期时没有这个 cookie，仍然自动去提供方续上。
-  请求只靠 `SameSite=Lax` 的会话 cookie 识别要退出的会话，跨站的 POST 带不上它，所以不需要额外的来源检查。
+  `SameSite=Lax` 只挡住跨站（cross-site）的 POST，同站的兄弟子域名发来的 POST 仍会带上会话 cookie，所以退出路由
+  还要求 `Sec-Fetch-Site: same-origin`；没有这个头的旧浏览器，要求 `Origin` 等于 `APP_URL`；两者都没有就拒绝（403）。
 - **dev 旁路。** 开发和测试环境保留受 `isDevAuthBypassEnabled()` 限制的 dev 登录，demo 也靠它。
 - **建账本。** 没有网页 setup。用 `npm run ledger:create` 在一个事务里建好账本、默认分账和分类；
   没有账本时登录页会提示这条命令。
 - **没有应用层的登录限流。** 口令校验、多因素和暴力破解防护都在提供方；回调只接受带有效 state、PKCE 和提供方
   签名的授权码。
 - **密钥。** 每一种摘要都用 `deriveKey` / `keyedDigest`（`src/lib/security/keys.ts`），一种用途一把密钥，
-  全部由 `AUTH_SECRET` 经 HKDF 派生。
-- **API v1 凭证。** 256 位随机值（早期签发的 192 位凭证仍然有效），HMAC 存储，绑定到分账。
+  全部由 `AUTH_SECRET` 经 HKDF 派生。启动时（测试环境除外）拒绝示例文件里的占位值（含 `replace`、`example`、
+  `changeme`、`local-only` 等）；短于 32 个字符只记一条警告、照常启动，因为换密钥会让所有会话和 API 凭证失效。
+- **API v1 凭证。** 256 位随机值（早期签发的 192 位凭证仍然有效），HMAC 存储，绑定到分账。创建单据按凭证限流
+  （进程内存里的令牌桶，`src/server/api-v1/rate-limit.ts`，额度在 `src/config/tuning.ts`），在读请求体之前判断，
+  超出返回 429 和 `Retry-After`。只有一个进程，所以不需要共享存储；记住的凭证数有上限。
 - **日志。** 只记关联 id 和经 `logIdentifier` 标记的标识，邮箱一律哈希。不记原始邮箱、bearer token、
   授权码、令牌、图片内容或服务商负载。
+- **响应头。** 应用在 `next.config.ts` 里给所有路由加 `X-Content-Type-Options`、`Referrer-Policy`、
+  `Permissions-Policy` 和不需要 nonce 的 CSP（`frame-ancestors` 等）；HSTS 由前面的反向代理（Traefik）统一加，
+  应用不重复设置。
 - 外部调用（汇率、AI、对象存储、OIDC 提供方）放在数据库事务和账本锁之外。一次性和带租约的流程用条件写、
   行锁或 fencing token。
 
@@ -296,8 +306,9 @@ src/copy/                 全部界面文案，按界面区域分文件
 - 行先于对象写入：崩溃后只会留下一行没有对象的记录，它的 id 从未返回给客户端，不会被任何票据引用，
   由每日维护按"没有被引用"清掉。只有被提取尝试引用的文件才算在用。
 - API v1 的内联图片走同一个存储函数；之后提交失败的，丢弃它存下的文件。
-- 因为 `proxy.ts` 会缓冲请求体，`next.config.ts` 的 `experimental.proxyClientMaxBodySize` 必须不小于 API v1
-  的请求体上限，由仓库测试保证；否则超出的部分会被静默截断。
+- Next 会缓冲 `proxy.ts` 匹配到的每个请求体，超过 `proxyClientMaxBodySize`（默认 10 MB）的部分被静默丢弃。
+  上传和 API v1 的大请求体都发往 `/api`，而 proxy 不匹配 `/api`（仓库测试保证），所以不设这个值；每个路由
+  自己按上限边读边拒（`readBoundedBody`）。
 - 读取一律经过带授权的 `/api/stored-files/{fileId}`，响应头 `Cache-Control: private, no-store`。
   实现在 `src/server/stored-files/`，测试通过 mock `@/lib/storage/s3` 替换对象存储。浏览器从不直接访问
   对象存储，所以对象存储只在容器内部网络里可达。

@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { authenticateServiceCredential } from "@/modules/ledger/server/service-credentials";
 import type { AuthenticatedServiceCredential } from "@/modules/ledger/contracts";
-import { UnauthorizedError } from "@/lib/errors";
+import { RateLimitedError, UnauthorizedError } from "@/lib/errors";
 import { getErrorStatusCode, toSanitizedErrorResponse } from "@/lib/error-handlers";
 import { logger } from "@/lib/logger";
 
@@ -101,6 +101,9 @@ export async function handleApiV1Route(
     });
     if (failure.cause instanceof UnauthorizedError) {
       response.headers.set("WWW-Authenticate", "Bearer");
+    }
+    if (failure.cause instanceof RateLimitedError) {
+      response.headers.set("Retry-After", String(failure.cause.retryAfterSeconds));
     }
     logger[status < 500 ? "warn" : "error"](
       {

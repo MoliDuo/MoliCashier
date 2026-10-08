@@ -1,20 +1,44 @@
 import { describe, expect, it } from "vitest";
+import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 import nextConfig from "../../../next.config";
-import { API_V1_MAX_REQUEST_BYTES } from "@/modules/source-document/api-v1-policy";
-import { MAX_ORIGINAL_BYTES_PER_FILE } from "@/lib/storage/upload-policy";
+import { config } from "@/proxy";
 
-describe("request body limit", () => {
-  const limit = nextConfig.experimental?.proxyClientMaxBodySize;
+/**
+ * Next buffers the body of every request the proxy matches, and past
+ * `proxyClientMaxBodySize` (10 MB by default) silently drops the rest. The
+ * large bodies — web uploads, API v1 — go to API routes, and each API route
+ * authenticates itself before it reads its body, so the proxy must not match
+ * them.
+ */
+describe("request bodies", () => {
+  const matches = (url: string) => unstable_doesMiddlewareMatch({ config, nextConfig, url });
 
-  it("is set, since the default silently truncates bodies past 10 MB", () => {
-    expect(typeof limit).toBe("number");
+  it("reach API routes without passing through the proxy", () => {
+    for (const url of [
+      "/api",
+      "/api/v1/source-documents",
+      "/api/stored-files",
+      "/api/ledger-queries",
+      "/api/auth/logout",
+      "/api/private/file.json",
+    ]) {
+      expect(matches(url), url).toBe(false);
+    }
   });
 
-  it("covers the largest API v1 request", () => {
-    expect(limit).toBeGreaterThanOrEqual(API_V1_MAX_REQUEST_BYTES);
+  it("still pass pages, and paths that only start with 'api', through the proxy", () => {
+    for (const url of ["/", "/login", "/settings", "/healthz", "/apiary"]) {
+      expect(matches(url), url).toBe(true);
+    }
   });
 
-  it("covers the largest web upload with room for its headers", () => {
-    expect(limit).toBeGreaterThan(MAX_ORIGINAL_BYTES_PER_FILE);
+  it("skip the proxy for static files and build assets", () => {
+    for (const url of ["/_next/static/chunk.js", "/favicon.ico"]) {
+      expect(matches(url), url).toBe(false);
+    }
+  });
+
+  it("are not held to a proxy-specific limit, since no large body passes through it", () => {
+    expect(nextConfig.experimental?.proxyClientMaxBodySize).toBeUndefined();
   });
 });
