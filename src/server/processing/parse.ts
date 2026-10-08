@@ -29,6 +29,12 @@ import { AI_ATTEMPT_DEADLINE_MS } from "@/config/tuning";
 
 /** The parse reply is a whole receipt, so it gets the generous output budget. */
 const PARSER_MAX_TOKENS = 8192;
+/**
+ * The provider's default, kept on purpose rather than forced: the model accepts lower values (the
+ * category step uses 0.1, preference learning and forecast judgment 0.2), but parsing moves to a
+ * lower one only once `npm run bench:prompt -- --task parse` shows it is no less accurate than 1.
+ * That comparison has not been run yet; change this value only together with its result.
+ */
 const PARSER_TEMPERATURE = 1;
 
 export interface StageContext {
