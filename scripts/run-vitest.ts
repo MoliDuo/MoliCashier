@@ -2,7 +2,7 @@ import { spawn, type ChildProcess, type SpawnOptions } from "node:child_process"
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { createTestEnvironment } from "./test-environment";
+import { TEST_TIME_ZONE_VARIABLE, createTestEnvironment } from "./test-environment";
 
 type SpawnProcess = (command: string, args: string[], options: SpawnOptions) => ChildProcess;
 
@@ -19,13 +19,22 @@ export async function runVitest({
   environment?: NodeJS.ProcessEnv;
   spawnProcess?: SpawnProcess;
 } = {}): Promise<number> {
-  if (args.includes("--coverage")) {
+  // `--time-zone=<IANA zone>` is this runner's, not Vitest's: it runs the
+  // tests in that zone instead of UTC (see test-environment.ts).
+  const timeZoneFlag = "--time-zone=";
+  const timeZone = args.find((arg) => arg.startsWith(timeZoneFlag))?.slice(timeZoneFlag.length);
+  const vitestArgs = args.filter((arg) => !arg.startsWith(timeZoneFlag));
+  if (timeZone === "") throw new Error("--time-zone needs a zone, such as Asia/Singapore");
+
+  if (vitestArgs.includes("--coverage")) {
     mkdirSync(path.resolve("coverage/.tmp"), { recursive: true });
   }
 
   const vitestCli = path.resolve("node_modules/vitest/vitest.mjs");
-  const child = spawnProcess(process.execPath, [vitestCli, ...args], {
-    env: createTestEnvironment(environment),
+  const child = spawnProcess(process.execPath, [vitestCli, ...vitestArgs], {
+    env: createTestEnvironment(
+      timeZone == null ? environment : { ...environment, [TEST_TIME_ZONE_VARIABLE]: timeZone }
+    ),
     stdio: "inherit",
   });
   let requestedSignal: NodeJS.Signals | undefined;
