@@ -1,69 +1,92 @@
 "use client";
 
 import { useCallback, useMemo, useState, type KeyboardEvent } from "react";
+import { parse } from "@/lib/money/decimal";
 
 type Operator = "+" | "-" | "×" | "÷" | null;
 
 interface CalculatorState {
+  /** The left operand or result, a decimal string while typing ("12.", "0.5"). */
   displayValue: string;
   operator: Operator;
   operand: string;
   hasResult: boolean;
+  /** Set by a division by zero; the display shows the error until a new number starts. */
+  error: boolean;
 }
 
 interface UseCalculatorStateOptions {
-  value: number;
+  value: string;
   maxDecimals?: number;
-  onConfirm: (value: number) => void;
+  onConfirm: (value: string) => void;
   onInvalid: () => void;
 }
 
-export function amountToMinorUnitDigits(value: number): string {
-  return Math.max(0, Math.round(value * 100)).toString();
+/**
+ * The amount as a fixed decimal string, rounded half-up like the server's
+ * `roundToCurrency`. Plain decimals, never exponent notation; an invalid value
+ * reads as zero.
+ */
+export function toFixedAmount(value: string, maxDecimals: number): string {
+  try {
+    const rounded = parse(value).toDecimalPlaces(maxDecimals);
+    return (rounded.isZero() ? rounded.abs() : rounded).toFixed(maxDecimals);
+  } catch {
+    return parse(0).toFixed(maxDecimals);
+  }
 }
 
-export function digitsToMinorUnitDisplay(digits: string): string {
-  const normalized = digits.replace(/\D/g, "");
-  const padded = normalized.padStart(3, "0");
-  const rawUnits = padded.slice(0, -2).replace(/^0+(?=\d)/, "");
-  const units = rawUnits === "" ? "0" : rawUnits;
-  const cents = padded.slice(-2);
-  return `${units}.${cents}`;
+/** A typed amount ("1.", ".5", "-3") as a fixed decimal string, or null when it is not a number. */
+export function parseTypedAmount(value: string, maxDecimals: number): string | null {
+  if (value.trim() === "") return null;
+  try {
+    return toFixedAmount(parse(value).toFixed(), maxDecimals);
+  } catch {
+    return null;
+  }
 }
 
-export function digitsToAmount(digits: string): number {
-  const normalized = digits.replace(/\D/g, "");
-  if (normalized === "") return 0;
-  return Number.parseFloat((Number.parseInt(normalized, 10) / 100).toFixed(2));
-}
-
-function initialCalculatorState(value: number, maxDecimals: number): CalculatorState {
+function initialCalculatorState(value: string, maxDecimals: number): CalculatorState {
+  const fixed = toFixedAmount(value, maxDecimals);
   return {
-    displayValue: value === 0 ? "0" : value.toFixed(maxDecimals),
+    displayValue: parse(fixed).isZero() ? "0" : fixed,
     operator: null,
     operand: "",
     hasResult: false,
+    error: false,
   };
 }
 
-function formatDisplay(value: number, maxDecimals: number): string {
-  return Number.parseFloat(value.toFixed(maxDecimals)).toString();
+/** A result rounded half-up to the currency's decimals, with trailing zeros dropped. */
+function formatResult(value: string, maxDecimals: number): string {
+  const rounded = parse(value).toDecimalPlaces(maxDecimals);
+  return rounded.isZero() ? "0" : rounded.toFixed();
 }
 
-function calculate(a: number, operator: Operator, b: number): number | null {
+/** The result as a decimal string, or null for a division by zero. */
+function calculate(a: string, operator: Operator, b: string): string | null {
+  const left = parse(a);
   switch (operator) {
     case "+":
-      return a + b;
+      return left.plus(b).toFixed();
     case "-":
-      return a - b;
+      return left.minus(b).toFixed();
     case "×":
-      return a * b;
+      return left.times(b).toFixed();
     case "÷":
-      return b !== 0 ? a / b : null;
+      return parse(b).isZero() ? null : left.dividedBy(b).toFixed();
     default:
       return null;
   }
 }
+
+const ERROR_STATE: CalculatorState = {
+  displayValue: "0",
+  operator: null,
+  operand: "",
+  hasResult: true,
+  error: true,
+};
 
 export function useCalculatorState({
   value,
@@ -82,7 +105,7 @@ export function useCalculatorState({
   const handleNumber = useCallback((digit: string) => {
     setState((previous) => {
       if (previous.hasResult) {
-        return { displayValue: digit, operator: null, operand: "", hasResult: false };
+        return { displayValue: digit, operator: null, operand: "", hasResult: false, error: false };
       }
       if (previous.operator === null) {
         const displayValue = previous.displayValue === "0" ? digit : previous.displayValue + digit;
@@ -97,7 +120,7 @@ export function useCalculatorState({
   const handleDecimal = useCallback(() => {
     setState((previous) => {
       if (previous.hasResult) {
-        return { displayValue: "0.", operator: null, operand: "", hasResult: false };
+        return { displayValue: "0.", operator: null, operand: "", hasResult: false, error: false };
       }
       if (previous.operator === null && !previous.displayValue.includes(".")) {
         return { ...previous, displayValue: `${previous.displayValue}.` };
@@ -115,23 +138,21 @@ export function useCalculatorState({
   const handleOperator = useCallback(
     (operator: Exclude<Operator, null>) => {
       setState((previous) => {
+        // Nothing to operate on after a division by zero; a new number starts over.
+        if (previous.error) return previous;
         if (previous.hasResult) {
           return { ...previous, operator, operand: "", hasResult: false };
         }
         if (previous.operator !== null && previous.operand !== "") {
-          const result = calculate(
-            Number.parseFloat(previous.displayValue),
-            previous.operator,
-            Number.parseFloat(previous.operand)
-          );
-          if (result !== null) {
-            return {
-              displayValue: formatDisplay(result, maxDecimals),
-              operator,
-              operand: "",
-              hasResult: false,
-            };
-          }
+          const result = calculate(previous.displayValue, previous.operator, previous.operand);
+          if (result === null) return ERROR_STATE;
+          return {
+            displayValue: formatResult(result, maxDecimals),
+            operator,
+            operand: "",
+            hasResult: false,
+            error: false,
+          };
         }
         return { ...previous, operator, operand: "" };
       });
@@ -142,25 +163,20 @@ export function useCalculatorState({
   const handleEquals = useCallback(() => {
     setState((previous) => {
       if (previous.operator === null || previous.operand === "") return previous;
-      const result = calculate(
-        Number.parseFloat(previous.displayValue),
-        previous.operator,
-        Number.parseFloat(previous.operand)
-      );
-      if (result !== null) {
-        return {
-          displayValue: formatDisplay(result, maxDecimals),
-          operator: null,
-          operand: "",
-          hasResult: true,
-        };
-      }
-      return { displayValue: "Error", operator: null, operand: "", hasResult: true };
+      const result = calculate(previous.displayValue, previous.operator, previous.operand);
+      if (result === null) return ERROR_STATE;
+      return {
+        displayValue: formatResult(result, maxDecimals),
+        operator: null,
+        operand: "",
+        hasResult: true,
+        error: false,
+      };
     });
   }, [maxDecimals]);
 
   const handleClear = useCallback(() => {
-    setState({ displayValue: "0", operator: null, operand: "", hasResult: false });
+    setState({ displayValue: "0", operator: null, operand: "", hasResult: false, error: false });
   }, []);
 
   const handleDelete = useCallback(() => {
@@ -168,7 +184,7 @@ export function useCalculatorState({
       if (previous.hasResult) return initialCalculatorState(value, maxDecimals);
       if (previous.operator === null) {
         const sliced = previous.displayValue.slice(0, -1);
-        const displayValue = sliced === "" || sliced === "." ? "0" : sliced;
+        const displayValue = sliced === "" || sliced === "." || sliced === "-" ? "0" : sliced;
         return { ...previous, displayValue };
       }
       if (previous.operand !== "") {
@@ -179,13 +195,12 @@ export function useCalculatorState({
   }, [maxDecimals, value]);
 
   const handleConfirm = useCallback(() => {
-    const resultValue = Number.parseFloat(state.displayValue);
-    if (Number.isNaN(resultValue) || state.displayValue === "Error") {
+    if (state.error) {
       onInvalid();
       return;
     }
-    onConfirm(Number.parseFloat(resultValue.toFixed(maxDecimals)));
-  }, [maxDecimals, onConfirm, onInvalid, state.displayValue]);
+    onConfirm(toFixedAmount(state.displayValue, maxDecimals));
+  }, [maxDecimals, onConfirm, onInvalid, state.displayValue, state.error]);
 
   const handleSubmit = useCallback(() => {
     if (state.operator === null) {
@@ -196,17 +211,13 @@ export function useCalculatorState({
       onInvalid();
       return;
     }
-    const result = calculate(
-      Number.parseFloat(state.displayValue),
-      state.operator,
-      Number.parseFloat(state.operand)
-    );
-    if (result === null || !Number.isFinite(result)) {
-      setState({ displayValue: "Error", operator: null, operand: "", hasResult: true });
+    const result = calculate(state.displayValue, state.operator, state.operand);
+    if (result === null) {
+      setState(ERROR_STATE);
       onInvalid();
       return;
     }
-    onConfirm(Number.parseFloat(result.toFixed(maxDecimals)));
+    onConfirm(toFixedAmount(result, maxDecimals));
   }, [
     handleConfirm,
     maxDecimals,
@@ -219,7 +230,14 @@ export function useCalculatorState({
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {
-      if (event.target instanceof HTMLButtonElement) return;
+      // A focused keypad button presses itself on Enter and Space; every other
+      // key still types into the calculator.
+      if (
+        event.target instanceof HTMLButtonElement &&
+        (event.key === "Enter" || event.key === " ")
+      ) {
+        return;
+      }
       if (/^\d$/.test(event.key)) {
         event.preventDefault();
         handleNumber(event.key);

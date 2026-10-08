@@ -23,6 +23,7 @@ import {
 import type { EntryCategory } from "@/modules/ledger/contracts";
 import { SUPPORTED_CURRENCIES } from "@/config/currencies";
 import type { AddEntryData } from "@/modules/source-document/detail-types";
+import { normalize } from "@/lib/money/decimal";
 import { commonCopy } from "@/copy/common";
 import { sourceDocumentDetailCopy } from "@/copy/source-document";
 
@@ -60,7 +61,8 @@ export function AddLedgerEntryDialog({
     try {
       const submitted = await onSubmit({
         itemName: itemName.trim(),
-        amount: Math.round(numericAmount * 100) / 100,
+        // The server rounds the amount to the currency's own decimals.
+        amount: normalize(amount),
         ...(categoryId !== "" ? { categoryId } : {}),
         ...(currency !== "" ? { currency } : {}),
         ...(description.trim() !== "" ? { description: description.trim() } : {}),

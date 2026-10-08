@@ -11,6 +11,13 @@ export const calculatorCopy = {
   delete: "删除",
   calculate: "计算",
   confirm: "确认",
+  clearAll: "AC",
+  clearAllLabel: "全部清除",
+  error: "无法计算",
+  add: "加",
+  subtract: "减",
+  multiply: "乘",
+  divide: "除",
 };
 
 export const calendarCopy = {

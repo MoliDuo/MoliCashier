@@ -194,8 +194,7 @@ export function useSourceDocumentDetail({
     waitFor: detailKey,
   });
   const addEntryMutation = useLedgerMutation<{ ledgerEntryId: string }, AddEntryData>({
-    mutationFn: (data) =>
-      createLedgerEntryAction({ sourceDocumentId: id, ...data, amount: String(data.amount) }),
+    mutationFn: (data) => createLedgerEntryAction({ sourceDocumentId: id, ...data }),
     waitFor: detailKey,
   });
   const deleteEntryMutation = useLedgerMutation<{ ledgerEntryId: string; deleted: true }, string>({
