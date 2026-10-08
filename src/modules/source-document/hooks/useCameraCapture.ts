@@ -223,6 +223,12 @@ export function useCameraCapture({ enabled, onCapture }: UseCameraCaptureOptions
         hasPickedRearRef.current = true;
         if (capabilities?.focusMode?.includes(CONTINUOUS) === true) {
           await requestContinuousFocus(track);
+          // The dialog may have closed while the lens answered; nothing else
+          // holds this stream, so it is released here or never.
+          if (!isCurrent()) {
+            release(stream);
+            return;
+          }
         } else if (capabilities != null) {
           // The browser answered and this lens says it cannot focus, so every
           // other rear camera is worth a look. If it would not answer at all,
@@ -254,7 +260,13 @@ export function useCameraCapture({ enabled, onCapture }: UseCameraCaptureOptions
         video.srcObject = stream;
         await video.play().catch(() => {});
       }
-      if (!isCurrent()) return;
+      if (!isCurrent()) {
+        // A newer run owns the camera now; drop this one if it is still attached.
+        release(stream);
+        if (streamRef.current === stream) streamRef.current = null;
+        if (video != null && video.srcObject === stream) video.srcObject = null;
+        return;
+      }
       setStatus("ready");
 
       try {
