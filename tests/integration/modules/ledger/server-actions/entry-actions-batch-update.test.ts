@@ -1,4 +1,5 @@
 import { sql } from "drizzle-orm";
+import { getBatchEntryDateImpact } from "@/modules/ledger/server/entry-reads/get-batch-entry-date-impact";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { getTestDb } from "tests/setup";
 import { ledgers, ledgerEntries, entryCategories } from "@/persistence";
@@ -17,7 +18,6 @@ vi.mock("@/modules/currency/server/exchange-rates", async (importOriginal) => ({
 import {
   batchUpdateLedgerEntriesAction,
   batchUpdateLedgerEntryDatesAction,
-  previewBatchLedgerEntryDateAction,
 } from "@/modules/ledger/server-actions/entries";
 import {
   activateTestSourceDocumentProjection,
@@ -291,7 +291,7 @@ describe("batchUpdateLedgerEntriesAction", () => {
         .returning({ id: ledgerEntries.id })
     ).map((entry) => entry.id);
     await activateTestSourceDocumentProjection(db, doc.id);
-    const preview = await previewBatchLedgerEntryDateAction([ids[0]!]);
+    const preview = await getBatchEntryDateImpact({ ledgerEntryIds: [ids[0]!] });
 
     const committed = await batchUpdateLedgerEntryDatesAction([doc.id], [ids[0]!], "2026-01-02");
 

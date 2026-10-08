@@ -45,7 +45,7 @@ import { periodKey, type Period } from "@/modules/ledger/domain/period";
 import { buildLedgerEntryFilters } from "@/modules/workspace/ledger-filter-state";
 import { uniquePagedItems } from "@/modules/workspace/paged-items";
 import { buildStreamQueryDescriptor } from "@/modules/workspace/ledger-tab-query-descriptors";
-import { previewSourceDocumentDateImpactAction } from "@/modules/workspace/server-actions/date-impact";
+import { fetchSourceDocumentDateImpact } from "@/modules/workspace/queries";
 import { commonCopy } from "@/copy/common";
 import { sourceDocumentActionCopy } from "@/copy/source-document";
 import { batchActionsCopy } from "@/copy/workspace";
@@ -500,7 +500,7 @@ export function useLedgerEntriesTab({
       handleUpdateDates: (date: string, ids: string[]) =>
         batchUpdateDates.mutate({ ids, entryDate: date }),
       handlePreviewDateImpact: (sourceDocumentIds: string[], entryIds: string[]) =>
-        previewSourceDocumentDateImpactAction({ sourceDocumentIds, ledgerEntryIds: entryIds }),
+        fetchSourceDocumentDateImpact({ sourceDocumentIds, ledgerEntryIds: entryIds }),
       handleRetry: async () => {
         await batchRetry.mutateAsync(selectedIds);
       },

@@ -2,6 +2,7 @@ import { postLedgerQuery, type LedgerQueryOptions } from "@/lib/queries/post-led
 import type { PeriodQuery } from "./domain/period";
 import type { LedgerStatsQueryInput, ListLedgerEntriesInput } from "./contract-schemas";
 import type {
+  BatchEntryDateImpact,
   BookDto,
   CategoryAssignmentEntryStatesDto,
   CategoryAssignmentResultPageDto,
@@ -65,3 +66,7 @@ export const fetchCategoryAssignmentEntryStates = (jobId: string, options?: Ledg
     [{ jobId }],
     options
   );
+
+/** What moving the selected entries to another day touches; a read, so not a server action. */
+export const fetchBatchEntryDateImpact = (ledgerEntryIds: string[], options?: LedgerQueryOptions) =>
+  postLedgerQuery<BatchEntryDateImpact>("batch-entry-date-impact", [ledgerEntryIds], options);

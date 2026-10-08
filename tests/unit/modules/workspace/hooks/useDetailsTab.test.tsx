@@ -13,7 +13,7 @@ const {
   batchDeleteLedgerEntriesActionMock,
   batchUpdateLedgerEntriesActionMock,
   batchUpdateLedgerEntryDatesActionMock,
-  previewBatchLedgerEntryDateActionMock,
+  fetchBatchEntryDateImpactMock,
   startCategoryAssignmentActionMock,
   categoryAssignmentJobMock,
   fetchLedgerEntriesMock,
@@ -24,7 +24,7 @@ const {
   batchDeleteLedgerEntriesActionMock: vi.fn(),
   batchUpdateLedgerEntriesActionMock: vi.fn(),
   batchUpdateLedgerEntryDatesActionMock: vi.fn(),
-  previewBatchLedgerEntryDateActionMock: vi.fn(),
+  fetchBatchEntryDateImpactMock: vi.fn(),
   startCategoryAssignmentActionMock: vi.fn(),
   categoryAssignmentJobMock: vi.fn(),
   fetchLedgerEntriesMock: vi.fn(),
@@ -48,7 +48,6 @@ vi.mock("@/modules/ledger/server-actions/entries", () => ({
   batchDeleteLedgerEntriesAction: batchDeleteLedgerEntriesActionMock,
   batchUpdateLedgerEntriesAction: batchUpdateLedgerEntriesActionMock,
   batchUpdateLedgerEntryDatesAction: batchUpdateLedgerEntryDatesActionMock,
-  previewBatchLedgerEntryDateAction: previewBatchLedgerEntryDateActionMock,
 }));
 
 vi.mock("@/modules/ledger/server-actions/category-assignment", () => ({
@@ -56,6 +55,7 @@ vi.mock("@/modules/ledger/server-actions/category-assignment", () => ({
 }));
 
 vi.mock("@/modules/ledger/queries", () => ({
+  fetchBatchEntryDateImpact: fetchBatchEntryDateImpactMock,
   fetchCategoryAssignmentJob: categoryAssignmentJobMock,
   fetchLedgerEntries: fetchLedgerEntriesMock,
   fetchLedgerSummary: fetchLedgerSummaryMock,
@@ -321,7 +321,7 @@ describe("useDetailsTab", () => {
     batchUpdateLedgerEntryDatesActionMock.mockResolvedValueOnce({
       impact: { affectedEntryCount: 1 },
     });
-    previewBatchLedgerEntryDateActionMock.mockResolvedValueOnce({
+    fetchBatchEntryDateImpactMock.mockResolvedValueOnce({
       selectedEntryCount: 1,
       sourceDocumentCount: 0,
       affectedEntryCount: 1,
@@ -375,7 +375,7 @@ describe("useDetailsTab", () => {
   });
 
   it("confirms a date preview while its captured selection is unchanged", async () => {
-    previewBatchLedgerEntryDateActionMock.mockResolvedValueOnce({
+    fetchBatchEntryDateImpactMock.mockResolvedValueOnce({
       selectedEntryCount: 2,
       sourceDocumentCount: 1,
       affectedEntryCount: 2,
@@ -392,7 +392,7 @@ describe("useDetailsTab", () => {
     });
     act(() => result.current.openDateDialog());
     await act(async () => Promise.resolve());
-    expect(previewBatchLedgerEntryDateActionMock).toHaveBeenCalledWith(["entry-1", "entry-2"]);
+    expect(fetchBatchEntryDateImpactMock).toHaveBeenCalledWith(["entry-1", "entry-2"]);
 
     await act(async () => {
       await result.current.updateDates.mutateAsync();
@@ -418,7 +418,7 @@ describe("useDetailsTab", () => {
   });
 
   it("keeps the date dialog and selection when confirmation fails", async () => {
-    previewBatchLedgerEntryDateActionMock.mockResolvedValueOnce({
+    fetchBatchEntryDateImpactMock.mockResolvedValueOnce({
       selectedEntryCount: 1,
       sourceDocumentCount: 1,
       affectedEntryCount: 1,
@@ -441,7 +441,7 @@ describe("useDetailsTab", () => {
   });
 
   it("leaves the dialog open with the failure when the preview cannot be computed", async () => {
-    previewBatchLedgerEntryDateActionMock.mockRejectedValueOnce(new Error("preview down"));
+    fetchBatchEntryDateImpactMock.mockRejectedValueOnce(new Error("preview down"));
     const { result } = await renderDetailsTab([entry("entry-1")]);
     act(() => {
       result.current.handleSelect("entry-1", true);
@@ -676,7 +676,7 @@ describe("useDetailsTab", () => {
 
   it("ignores a date preview that lands after the dialog was reopened", async () => {
     const firstPreview = deferred();
-    previewBatchLedgerEntryDateActionMock
+    fetchBatchEntryDateImpactMock
       .mockImplementationOnce(async () => {
         await firstPreview.promise;
         return dateImpact(2);
@@ -701,7 +701,7 @@ describe("useDetailsTab", () => {
   });
 
   it("retries a failed date preview inside the open dialog", async () => {
-    previewBatchLedgerEntryDateActionMock
+    fetchBatchEntryDateImpactMock
       .mockRejectedValueOnce(new Error("preview down"))
       .mockResolvedValueOnce(dateImpact(1));
     const { result } = await renderDetailsTab([entry("entry-1")]);

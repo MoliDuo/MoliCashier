@@ -17,7 +17,6 @@ import {
   type BatchUpdateLedgerEntriesInput as BatchUpdateLedgerEntriesCommand,
 } from "@/modules/source-document/server/entry-commands";
 import { updateLedgerEntryDates } from "@/modules/source-document/server/updates";
-import { getBatchEntryDateImpact } from "../server/entry-reads/get-batch-entry-date-impact";
 import {
   parseSourceDocumentId,
   parseSourceDocumentTargetIds,
@@ -79,13 +78,6 @@ export const batchDeleteLedgerEntriesAction = withLedgerAction(
     });
   }
 );
-export const previewBatchLedgerEntryDateAction = withLedgerAction(async (inputIds: string[]) => {
-  const entryIds = parseLedgerEntryIds(inputIds);
-  return getBatchEntryDateImpact({
-    ledgerEntryIds: entryIds,
-  });
-});
-
 export const batchUpdateLedgerEntryDatesAction = withLedgerAction(
   async (sourceDocumentIds: string[], inputIds: string[], entryDate: string) => {
     const validatedSourceDocumentIds = parseSourceDocumentTargetIds(sourceDocumentIds);

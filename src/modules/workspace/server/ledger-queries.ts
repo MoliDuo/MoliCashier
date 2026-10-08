@@ -3,7 +3,8 @@ import { z } from "zod";
 import { NotFoundError } from "@/lib/errors";
 import { omitUndefinedProperties, UUID_REGEX } from "@/lib/validation";
 import type { LedgerDto } from "@/modules/ledger/contracts";
-import { parseBookId } from "@/modules/ledger/contract-schemas";
+import { parseBookId, parseLedgerEntryIds } from "@/modules/ledger/contract-schemas";
+import { getBatchEntryDateImpact } from "@/modules/ledger/server/entry-reads/get-batch-entry-date-impact";
 import { withResolvedPeriod, withResolvedStatsPeriod } from "@/modules/ledger/server/query-period";
 import { listLedgerEntries } from "@/modules/ledger/server/list-entries";
 import { calculateLedgerStats } from "@/modules/ledger/server/stats";
@@ -21,6 +22,7 @@ import {
 } from "@/server/category-assignment/assignments";
 import {
   sourceDocumentIdSchema,
+  sourceDocumentIdsSchema,
   streamPageInputSchema,
   streamTotalInputSchema,
 } from "@/modules/source-document/contract-schemas";
@@ -37,6 +39,7 @@ import { parseEnhancedStatsInput } from "@/modules/stats/contract-schemas";
 import { parseConvertCurrencyInput } from "@/modules/currency/contract-schemas";
 import { convertCurrency } from "@/modules/currency/server/convert-currency";
 import { getPeriodForecast } from "@/modules/forecast/server/get-forecast";
+import { previewSourceDocumentDateImpact } from "./source-document-date-impact";
 
 /**
  * What every read runs against: the signed-in session's ledger. The caller
@@ -85,6 +88,11 @@ const categoryAssignmentResultsInputSchema = z
     limit: z.number().int().min(1).max(50).optional(),
   })
   .strict();
+
+const sourceDocumentDateImpactInputSchema = z.object({
+  sourceDocumentIds: sourceDocumentIdsSchema,
+  ledgerEntryIds: z.array(z.unknown()),
+});
 
 const categoryAssignmentEntryStatesInputSchema = z.object({ jobId: z.string().uuid() }).strict();
 
@@ -175,6 +183,26 @@ export const ledgerQueries = {
       if (document == null) throw new NotFoundError("Source document");
       return document;
     },
+  }),
+  /** What moving the selected entries to another day touches: their whole documents. */
+  "batch-entry-date-impact": defineQuery({
+    parse: (raw) => parseLedgerEntryIds(raw),
+    run: (ledgerEntryIds) => getBatchEntryDateImpact({ ledgerEntryIds }),
+  }),
+  /** The same preview for a mixed selection of documents and entries. */
+  "source-document-date-impact": defineQuery({
+    parse: (raw) => {
+      // The input is checked before any of it is read: a request without an id
+      // list is a validation failure, not a TypeError.
+      const parsed = sourceDocumentDateImpactInputSchema.parse(raw);
+      return {
+        sourceDocumentIds: parsed.sourceDocumentIds,
+        // A selection of documents without entries has no entry ids, and still moves.
+        ledgerEntryIds:
+          parsed.ledgerEntryIds.length === 0 ? [] : parseLedgerEntryIds(parsed.ledgerEntryIds),
+      };
+    },
+    run: (input) => previewSourceDocumentDateImpact(input),
   }),
   "convert-currency": defineQuery({
     parse: (raw) => parseConvertCurrencyInput(raw),
