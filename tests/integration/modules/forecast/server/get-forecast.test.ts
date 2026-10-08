@@ -149,6 +149,18 @@ describe("getPeriodForecast", () => {
     expect(transport.complete).not.toHaveBeenCalled();
   });
 
+  it("still has a book judged on its period's last day, with nothing left to forecast", async () => {
+    // Noon on October 31st in Shanghai: the month has no day left after today.
+    vi.setSystemTime(new Date("2026-10-31T04:00:00Z"));
+    const book = books.get("共同支出")!;
+
+    expect(
+      await getPeriodForecast({ bookId: book, period: THIS_MONTH }, "Asia/Shanghai")
+    ).toBeNull();
+
+    expect(judgmentRegistry()?.attemptedAt.has(book)).toBe(true);
+  });
+
   it("answers a repeated read alike, and the next read after a change with it", async () => {
     const input = { bookId: books.get("共同支出"), period: THIS_MONTH };
     const first = await getPeriodForecast(input, "Asia/Shanghai");
