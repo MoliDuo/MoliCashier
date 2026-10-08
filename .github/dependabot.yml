@@ -50,3 +50,9 @@ updates:
       day: monday
     cooldown:
       default-days: 7
+    ignore:
+      # The runtime is Node 24 (engines, .nvmrc and CI), and only even-numbered lines are LTS. A
+      # new major is a deliberate move, not a weekly bump: this keeps Dependabot to the digest
+      # and the minor and patch releases of the current line.
+      - dependency-name: node
+        update-types: [version-update:semver-major]
