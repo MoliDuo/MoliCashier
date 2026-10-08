@@ -6,8 +6,8 @@ import { sourceDocuments } from "@/persistence/schema/source-document";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 
-import { getLedgerEntriesAction } from "@/modules/ledger/server/list-entries";
-import { getLedgerStatsAction } from "@/modules/ledger/server/stats";
+import { listLedgerEntries } from "@/modules/ledger/server/list-entries";
+import { calculateLedgerStats } from "@/modules/ledger/server/stats";
 import { UNCATEGORIZED_SENTINEL } from "@/modules/ledger/contract-schemas";
 import { insertExchangeRates } from "tests/helpers/exchange-rates";
 import {
@@ -33,7 +33,7 @@ async function seedDoc(db: ReturnType<typeof getTestDb>, entryDate?: string) {
   return doc;
 }
 
-async function getTargetLedgerEntriesAction(input: Parameters<typeof getLedgerEntriesAction>[0]) {
+async function listTargetLedgerEntries(input: Parameters<typeof listLedgerEntries>[0]) {
   const db = getTestDb();
   const documents = await db.query.sourceDocuments.findMany({
     columns: { id: true },
@@ -41,10 +41,10 @@ async function getTargetLedgerEntriesAction(input: Parameters<typeof getLedgerEn
   for (const document of documents) {
     await activateTestSourceDocumentProjection(db, document.id);
   }
-  return getLedgerEntriesAction(input);
+  return listLedgerEntries(input);
 }
 
-describe("getLedgerEntriesAction", () => {
+describe("listLedgerEntries", () => {
   beforeEach(async () => {
     const db = getTestDb();
     await db.insert(ledgers).values({});
@@ -65,7 +65,7 @@ describe("getLedgerEntriesAction", () => {
       });
     }
 
-    const result = await getTargetLedgerEntriesAction({ limit: 3 });
+    const result = await listTargetLedgerEntries({ limit: 3 });
     expect(result.items).toHaveLength(3);
     expect(result.nextCursor).toBeDefined();
   });
@@ -106,7 +106,7 @@ describe("getLedgerEntriesAction", () => {
     const collected: string[] = [];
     let cursor: string | null | undefined;
     for (let pageNum = 0; pageNum < 10; pageNum++) {
-      const result = await getTargetLedgerEntriesAction({
+      const result = await listTargetLedgerEntries({
         cursor: cursor ?? undefined,
         limit: 2,
       });
@@ -153,14 +153,14 @@ describe("getLedgerEntriesAction", () => {
       },
     ]);
 
-    const firstPage = await getTargetLedgerEntriesAction({ limit: 2 });
+    const firstPage = await listTargetLedgerEntries({ limit: 2 });
     expect(firstPage.nextCursor).toBeDefined();
     if (firstPage.nextCursor == null) {
       throw new Error("Expected a next cursor on the first page");
     }
 
     await expect(
-      getTargetLedgerEntriesAction({
+      listTargetLedgerEntries({
         cursor: firstPage.nextCursor,
         categoryId: randomUUID(),
       })
@@ -195,7 +195,7 @@ describe("getLedgerEntriesAction", () => {
       },
     ]);
 
-    const result = await getTargetLedgerEntriesAction({ categoryId: catId });
+    const result = await listTargetLedgerEntries({ categoryId: catId });
     expect(result.items).toHaveLength(1);
     const categorizedEntry = result.items[0];
     expect(categorizedEntry).toBeDefined();
@@ -244,7 +244,7 @@ describe("getLedgerEntriesAction", () => {
       throw new Error("Expected ledger entry insert to return a row");
     }
 
-    const result = await getTargetLedgerEntriesAction({
+    const result = await listTargetLedgerEntries({
       categoryId: UNCATEGORIZED_SENTINEL,
     });
 
@@ -272,7 +272,7 @@ describe("getLedgerEntriesAction", () => {
       },
     ]);
 
-    const result = await getTargetLedgerEntriesAction({ currency: "USD" });
+    const result = await listTargetLedgerEntries({ currency: "USD" });
     expect(result.items).toHaveLength(1);
     const usdEntry = result.items[0];
     expect(usdEntry).toBeDefined();
@@ -299,7 +299,7 @@ describe("getLedgerEntriesAction", () => {
       });
     }
 
-    const result = await getTargetLedgerEntriesAction({
+    const result = await listTargetLedgerEntries({
       startDate: "2024-02-01",
       endDate: "2024-11-01",
     });
@@ -359,7 +359,7 @@ describe("getLedgerEntriesAction", () => {
     });
 
     // Filter for January 2024
-    const result = await getTargetLedgerEntriesAction({
+    const result = await listTargetLedgerEntries({
       startDate: "2024-01-01",
       endDate: "2024-01-31",
     });
@@ -398,7 +398,7 @@ describe("getLedgerEntriesAction", () => {
       },
     ]);
 
-    const result = await getTargetLedgerEntriesAction({
+    const result = await listTargetLedgerEntries({
       minAmount: "20",
       maxAmount: "100",
     });
@@ -430,8 +430,8 @@ describe("getLedgerEntriesAction", () => {
       ]);
     const bounds = { minAmount: "20", maxAmount: "100" };
 
-    const listed = await getTargetLedgerEntriesAction(bounds);
-    const totals = await getLedgerStatsAction(bounds);
+    const listed = await listTargetLedgerEntries(bounds);
+    const totals = await calculateLedgerStats(bounds);
 
     expect(listed.items.map((item) => item.itemName)).toEqual(["Within"]);
     expect(totals.totals).toEqual([
@@ -440,7 +440,7 @@ describe("getLedgerEntriesAction", () => {
   });
 
   it("rejects a page size it cannot serve", async () => {
-    await expect(getLedgerEntriesAction({ limit: 0 })).rejects.toThrow("Validation failed");
+    await expect(listLedgerEntries({ limit: 0 })).rejects.toThrow("Validation failed");
   });
 
   it("lists exactly the entries the totals count for the same filtered window", async () => {
@@ -478,8 +478,8 @@ describe("getLedgerEntriesAction", () => {
       search: "  coffee  ",
     };
 
-    const listed = await getTargetLedgerEntriesAction({ ...window, limit: 20 });
-    const totals = await getLedgerStatsAction(window);
+    const listed = await listTargetLedgerEntries({ ...window, limit: 20 });
+    const totals = await calculateLedgerStats(window);
 
     expect(listed.items.map((item) => item.id)).toEqual([beans!.id]);
     expect(totals.totals).toEqual([

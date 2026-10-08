@@ -1,6 +1,6 @@
-import type { LedgerEntry } from "@/modules/ledger/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import type {
-  SourceDocument,
+  SourceDocumentDetailDto,
   SourceDocumentListItemDto,
 } from "@/modules/source-document/contracts";
 import { memo, useCallback, useId, useMemo, useState } from "react";
@@ -23,11 +23,11 @@ const cardToneByStatus: Record<SourceDocumentProcessingStatus, EntryCardTone> = 
 };
 
 interface SourceDocumentCardProps {
-  sourceDocument: SourceDocument | SourceDocumentListItemDto;
-  ledgerEntries: LedgerEntry[];
+  sourceDocument: SourceDocumentDetailDto | SourceDocumentListItemDto;
+  ledgerEntries: LedgerEntryDto[];
   mainCurrency?: string;
   onDelete?: () => void;
-  onViewLedgerEntry?: (ledgerEntry: LedgerEntry) => void;
+  onViewLedgerEntry?: (ledgerEntry: LedgerEntryDto) => void;
   onViewDetails?: () => void;
   onViewDetailsIntent?: () => void;
   defaultExpanded?: boolean;

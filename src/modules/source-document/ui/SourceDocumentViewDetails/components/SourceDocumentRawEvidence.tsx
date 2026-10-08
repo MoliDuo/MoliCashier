@@ -2,14 +2,14 @@
 import { useState } from "react";
 import Image from "next/image";
 import { FileText, ImagePlay, Maximize2 } from "lucide-react";
-import type { SourceDocument } from "@/modules/source-document/contracts";
+import type { SourceDocumentDetailDto } from "@/modules/source-document/contracts";
 import { textRoleClassName } from "@/components/typography";
 import { storedFileReadUrl } from "../../../stored-file-read";
 import { SourceDocumentImageModal } from "../../SourceDocumentImageModal";
 import { sourceDocumentCardCopy, sourceDocumentDetailCopy } from "@/copy/source-document";
 
 interface SourceDocumentRawEvidenceProps {
-  sourceDocument: SourceDocument;
+  sourceDocument: SourceDocumentDetailDto;
 }
 
 export function SourceDocumentRawEvidence({ sourceDocument }: SourceDocumentRawEvidenceProps) {

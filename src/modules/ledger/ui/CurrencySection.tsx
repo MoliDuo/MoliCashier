@@ -1,7 +1,7 @@
 "use client";
 import { textRoleClassName } from "@/components/typography";
 import { SUPPORTED_CURRENCIES } from "@/config/currencies";
-import type { Settings } from "@/modules/ledger/contracts";
+import type { LedgerSettingsDto } from "@/modules/ledger/contracts";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -32,8 +32,8 @@ function currencyLabel(currency: string): string {
 }
 
 interface CurrencySectionProps {
-  settings: Pick<Settings, "currencies" | "mainCurrency">;
-  onUpdateSettings: (data: Partial<Settings>) => void;
+  settings: Pick<LedgerSettingsDto, "currencies" | "mainCurrency">;
+  onUpdateSettings: (data: Partial<LedgerSettingsDto>) => void;
   disabled?: boolean;
 }
 

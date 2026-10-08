@@ -24,7 +24,7 @@ import {
   openLedgerDetail,
   openLedgerEntrySourceDocument,
 } from "@/lib/navigation/ledger-detail-navigation";
-import type { LedgerEntry } from "@/modules/ledger/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import type {
   BatchUpdateSourceDocumentsResultDto,
   PartialBatchCommandResult,
@@ -424,7 +424,7 @@ export function useLedgerEntriesTab({
   }, []);
 
   const handleViewSourceDetail = useCallback(
-    (group: { sourceDocument: SourceDocumentListItemDto; ledgerEntries: LedgerEntry[] }) => {
+    (group: { sourceDocument: SourceDocumentListItemDto; ledgerEntries: LedgerEntryDto[] }) => {
       openLedgerDetail(group.sourceDocument.id);
     },
     []
@@ -433,7 +433,7 @@ export function useLedgerEntriesTab({
   // An entry row opens the record it belongs to; entries have no sheet of
   // their own.
   const handleViewLedgerEntry = useCallback(
-    (entry: LedgerEntry) => openLedgerEntrySourceDocument(entry),
+    (entry: LedgerEntryDto) => openLedgerEntrySourceDocument(entry),
     []
   );
 

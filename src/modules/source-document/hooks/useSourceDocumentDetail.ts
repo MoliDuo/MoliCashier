@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { LEDGER, QUERY } from "@/lib/constants";
 import { queryKeys } from "@/lib/query-keys";
 import { useSelection } from "@/hooks/use-selection";
-import type { BookDto, LedgerEntry } from "@/modules/ledger/contracts";
+import type { BookDto, LedgerEntryDto } from "@/modules/ledger/contracts";
 import { fetchBook } from "@/modules/ledger/queries";
 import type { SourceDocumentDetailDto } from "@/modules/source-document/contracts";
 import type { AddEntryData, DocumentPatch } from "@/modules/source-document/detail-types";
@@ -16,7 +16,7 @@ import { useSourceDocumentFieldWrites } from "./useSourceDocumentFieldWrites";
 import { useSourceDocumentRecordCommands } from "./useSourceDocumentRecordCommands";
 import { useSourceDocumentSuggestions } from "./useSourceDocumentSuggestions";
 
-const NO_ENTRIES: LedgerEntry[] = [];
+const NO_ENTRIES: LedgerEntryDto[] = [];
 
 interface UseSourceDocumentDetailOptions {
   id: string;

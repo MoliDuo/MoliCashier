@@ -1,5 +1,5 @@
 "use client";
-import type { BookDto, EntryCategory } from "@/modules/ledger/contracts";
+import type { BookDto, EntryCategoryDto } from "@/modules/ledger/contracts";
 import { useMemo, useRef, useState } from "react";
 import { CircleStop, FilePen, MoreVertical, RefreshCw, Trash2, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -26,7 +26,7 @@ import { formatDateTimeForApi } from "@/lib/date-utils";
 import { cn } from "@/lib/utils";
 import { LedgerEntriesBatchActionToolbar } from "@/modules/ledger/ui/batch-action-toolbar";
 import { useSourceDocumentDetail } from "@/modules/source-document/hooks/useSourceDocumentDetail";
-import type { SourceDocument } from "@/modules/source-document/contracts";
+import type { SourceDocumentDetailDto } from "@/modules/source-document/contracts";
 import { SourceDocumentViewDetails } from "./SourceDocumentViewDetails";
 import { SourceDocumentTotal } from "./SourceDocumentViewDetails/components/SourceDocumentTotal";
 import { SourceDocumentDetailStatusPanels } from "./SourceDocumentDetailStatusPanels";
@@ -50,20 +50,20 @@ interface SourceDocumentDetailModalProps {
   onClose: () => void;
   /** Called once the sheet has finished closing. */
   onExitComplete?: () => void;
-  categories: EntryCategory[];
+  categories: EntryCategoryDto[];
   mainCurrency: string;
   preferredCurrencies: string[];
   /** Ledger timezone, so dates are named the ledger's way. */
   timeZone?: string;
 }
 
-function evidenceCount(sourceDocument: SourceDocument): number {
+function evidenceCount(sourceDocument: SourceDocumentDetailDto): number {
   const hasText = sourceDocument.text != null && sourceDocument.text.trim() !== "";
   return sourceDocument.files.length + (hasText ? 1 : 0);
 }
 
 interface DetailMenuProps {
-  sourceDocument: SourceDocument;
+  sourceDocument: SourceDocumentDetailDto;
   disabled: boolean;
   isRetrying: boolean;
   isCancelling: boolean;
@@ -85,7 +85,7 @@ function DetailMenu({
   onDelete,
 }: DetailMenuProps) {
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const has = (action: SourceDocument["supportedActions"][number]) =>
+  const has = (action: SourceDocumentDetailDto["supportedActions"][number]) =>
     sourceDocument.supportedActions.includes(action);
   const hasRecovery = has("retry") || has("edit_retry") || has("cancel_processing");
 

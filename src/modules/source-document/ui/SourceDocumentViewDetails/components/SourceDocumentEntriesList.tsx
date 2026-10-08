@@ -3,7 +3,7 @@ import { textRoleClassName } from "@/components/typography";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useState } from "react";
-import type { EntryCategory, LedgerEntryEmbeddedViewDto } from "@/modules/ledger/contracts";
+import type { EntryCategoryDto, LedgerEntryEmbeddedViewDto } from "@/modules/ledger/contracts";
 import type { EntryEditData } from "@/modules/source-document/types";
 import { SelectableEditableEntryCard } from "./SelectableEditableEntryCard";
 import { commonCopy } from "@/copy/common";
@@ -13,7 +13,7 @@ interface SourceDocumentEntriesListProps {
   entries: LedgerEntryEmbeddedViewDto[];
   pendingEntries: Record<string, Partial<EntryEditData>>;
   savingEntryIds: readonly string[];
-  categories: EntryCategory[];
+  categories: EntryCategoryDto[];
   preferredCurrencies: string[];
   mainCurrency: string;
   selectedEntryIds: string[];

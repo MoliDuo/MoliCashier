@@ -5,13 +5,13 @@ import { textRoleClassName } from "@/components/typography";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import type { EntryCategory } from "@/modules/ledger/contracts";
+import type { EntryCategoryDto } from "@/modules/ledger/contracts";
 import { batchActionsCopy } from "@/copy/workspace";
 
 interface BatchCategoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  categories: EntryCategory[];
+  categories: EntryCategoryDto[];
   /** Null clears the category on everything selected. */
   onSelect: (categoryId: string | null) => void;
 }

@@ -157,6 +157,11 @@ describe("source document writer rule", () => {
     "tx.insert(sourceDocuments).values(row);",
     "db.update(sourceDocuments).set(patch);",
     "tx.delete(sourceDocuments).where(match);",
+    "tx.execute(sql`UPDATE source_documents SET title = ${title}`);",
+    "tx.execute(sql`\n  update source_documents AS target SET input_text = ${text}`);",
+    "tx.execute(sql`INSERT INTO source_documents (id) VALUES (${id})`);",
+    "tx.execute(sql`DELETE FROM source_documents WHERE id = ${id}`);",
+    'client.query("delete from \\"source_documents\\" where id = $1", [id]);',
   ];
 
   it.each(writes)("reports %s outside a registered writer", async (write) => {
@@ -174,6 +179,16 @@ describe("source document writer rule", () => {
 
   it("allows reads and writes to other tables", async () => {
     const code = "tx.select().from(sourceDocuments);\ntx.insert(ledgerEntries).values(row);";
+
+    expect(await restrictedSyntax(code, serverFile)).toEqual([]);
+  });
+
+  it("allows raw SQL that reads the table or writes a similarly named one", async () => {
+    const code = [
+      "tx.execute(sql`SELECT id FROM source_documents WHERE id = ${id}`);",
+      "tx.execute(sql`DELETE FROM source_document_files WHERE source_document_id = ${id}`);",
+      "tx.execute(sql`UPDATE ledger_entries SET amount = 1 FROM source_documents`);",
+    ].join("\n");
 
     expect(await restrictedSyntax(code, serverFile)).toEqual([]);
   });

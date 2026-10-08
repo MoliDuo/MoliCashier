@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildUnifiedStreamGroups } from "@/modules/source-document/stream-grouping";
-import type {
-  SourceDocumentListItemDto,
-  SourceDocumentLedgerEntryDto,
-} from "@/modules/source-document/contracts";
+import type { SourceDocumentListItemDto } from "@/modules/source-document/contracts";
+import type { LedgerEntryEmbeddedViewDto } from "@/modules/ledger/contracts";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -35,8 +33,8 @@ function makeItem(
 }
 
 function makeEntry(
-  overrides: Partial<SourceDocumentLedgerEntryDto> = {}
-): SourceDocumentLedgerEntryDto {
+  overrides: Partial<LedgerEntryEmbeddedViewDto> = {}
+): LedgerEntryEmbeddedViewDto {
   return {
     id: "entry-1",
     categoryId: null,

@@ -1,6 +1,6 @@
 "use client";
-import type { LedgerEntryEmbeddedViewDto, EntryCategory } from "@/modules/ledger/contracts";
-import type { SourceDocument } from "@/modules/source-document/contracts";
+import type { LedgerEntryEmbeddedViewDto, EntryCategoryDto } from "@/modules/ledger/contracts";
+import type { SourceDocumentDetailDto } from "@/modules/source-document/contracts";
 import { type ReactNode, memo } from "react";
 import { cn } from "@/lib/utils";
 import type { EntryEditData } from "@/modules/source-document/types";
@@ -12,7 +12,7 @@ import { SourceDocumentDuplicateSuggestion } from "./SourceDocumentDuplicateSugg
 import type { ApplyDateOrganizationInput } from "../contracts";
 
 interface SourceDocumentViewDetailsProps {
-  sourceDocument: SourceDocument;
+  sourceDocument: SourceDocumentDetailDto;
   // These entries are always the embedded, sourceDocument-less view (see
   // listLedgerEntryViewsBySourceDocumentIds); typing this as the wider
   // LedgerEntry would let `.sourceDocument` type-check while silently
@@ -24,7 +24,7 @@ interface SourceDocumentViewDetailsProps {
   savingEntryIds: readonly string[];
   /** The record's date as shown, including one being written. */
   documentDate: string;
-  categories: EntryCategory[];
+  categories: EntryCategoryDto[];
   preferredCurrencies?: string[];
   mainCurrency?: string;
   selectedEntryIds: string[];

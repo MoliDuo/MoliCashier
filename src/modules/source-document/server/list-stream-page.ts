@@ -8,13 +8,12 @@ import { listTargetSourceDocuments } from "./reads/list";
 import { listLedgerEntryViewsBySourceDocumentIds } from "@/modules/ledger/server/entry-reads/list-ledger-entry-views-by-source-document-ids";
 import { filterStreamEntries, streamCategoryFilter } from "../stream-filter-policy";
 import { createHash } from "node:crypto";
+import { STREAM_PAGE_LIMIT } from "@/config/tuning";
 import {
   decodeSourceDocumentStreamCursor,
   encodeSourceDocumentPageCursor,
   encodeSourceDocumentStreamCursor,
 } from "../stream-cursor";
-
-const STREAM_PAGE_LIMIT = 20;
 
 // ---------------------------------------------------------------------------
 // Stream cursor helpers

@@ -10,8 +10,8 @@ import {
   Trash2,
 } from "lucide-react";
 import type {
-  EntryCategory,
-  EntryCategoryWithCount,
+  EntryCategoryDto,
+  EntryCategoryWithCountDto,
   SaveEntryCategoriesInput,
 } from "@/modules/ledger/contracts";
 import { textRoleClassName } from "@/components/typography";
@@ -37,10 +37,10 @@ import { CATEGORY_NAME_MAX_LENGTH } from "@/modules/ledger/category-limits";
 
 interface CategorySectionProps {
   /** Carries `entryCount`, shown beside each category. */
-  categories: EntryCategoryWithCount[];
+  categories: EntryCategoryWithCountDto[];
   uncategorizedCount?: number;
-  onSaveCategories: (input: SaveEntryCategoriesInput) => Promise<EntryCategory[]>;
-  onReloadCategories?: () => Promise<EntryCategory[]>;
+  onSaveCategories: (input: SaveEntryCategoriesInput) => Promise<EntryCategoryDto[]>;
+  onReloadCategories?: () => Promise<EntryCategoryDto[]>;
   generatingCategoryIds?: Set<string>;
   failedCategoryIds?: Set<string>;
   onRetryMetadata?: (id: string) => void;

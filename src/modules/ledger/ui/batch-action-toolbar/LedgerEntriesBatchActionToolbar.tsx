@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { CircleAlert } from "lucide-react";
 import { BatchActionButton } from "@/components/batch-action-button";
-import type { EntryCategory } from "@/modules/ledger/contracts";
+import type { EntryCategoryDto } from "@/modules/ledger/contracts";
 import { BatchCategoryDialog } from "./BatchCategoryDialog";
 import { BatchCurrencyDialog } from "./BatchCurrencyDialog";
 import { BatchSetCategoryDialog } from "./BatchSetCategoryDialog";
@@ -24,7 +24,7 @@ export interface LedgerEntriesBatchActionToolbarProps {
    * so retry or delete can take them all at once. Only 账目 offers it.
    */
   selectAbnormal?: { count: number; onSelect: () => void };
-  categories?: EntryCategory[];
+  categories?: EntryCategoryDto[];
   preferredCurrencies?: string[];
   isChangingCategory?: boolean;
   isChangingCurrency?: boolean;

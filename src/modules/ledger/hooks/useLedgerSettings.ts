@@ -12,13 +12,13 @@ import type { UpdateLedgerInput } from "@/modules/ledger/contract-schemas";
 import { ActionRefusedError, refusalCode } from "@/lib/errors";
 import type {
   CreateServiceCredentialErrorCode,
-  CreatedServiceCredential,
-  EntryCategory,
-  EntryCategoryWithCount,
-  Ledger,
+  CreatedServiceCredentialDto,
+  EntryCategoryDto,
+  EntryCategoryWithCountDto,
+  LedgerDto,
   SaveEntryCategoriesErrorCode,
   SaveEntryCategoriesInput,
-  ServiceCredential,
+  ServiceCredentialDto,
   UpdateLedgerActionErrorCode,
 } from "@/modules/ledger/contracts";
 import { fetchEntryCategories, fetchLedger, fetchLedgerSettings } from "@/modules/ledger/queries";
@@ -38,8 +38,8 @@ type UpdateLedgerData = UpdateLedgerInput["settings"];
 type QueryStatus = "pending" | "success" | "error";
 
 interface UseLedgerSettingsParams {
-  ledger: Ledger;
-  initialCategories: EntryCategoryWithCount[];
+  ledger: LedgerDto;
+  initialCategories: EntryCategoryWithCountDto[];
 }
 
 /** 设置's server state: the ledger, its categories and API keys, and the writes to them. */
@@ -50,7 +50,7 @@ export function useLedgerSettings({
   const queryClient = useQueryClient();
   const [metadataPollingSession, setMetadataPollingSession] = useState(0);
 
-  const categoryMetadataPolling = useSmartPolling<EntryCategoryWithCount[]>({
+  const categoryMetadataPolling = useSmartPolling<EntryCategoryWithCountDto[]>({
     sessionKey: metadataPollingSession,
     isPollingActive: useCallback(
       (data) =>
@@ -65,7 +65,7 @@ export function useLedgerSettings({
     ),
   });
 
-  const ledgerQuery = useQuery<Ledger | null>({
+  const ledgerQuery = useQuery<LedgerDto | null>({
     queryKey: queryKeys.ledger(),
     queryFn: ({ signal }) => fetchLedger({ signal }),
     initialData: initialLedger,
@@ -74,7 +74,7 @@ export function useLedgerSettings({
   });
   const ledger = ledgerQuery.data ?? initialLedger;
 
-  const categoriesQuery = useQuery<EntryCategoryWithCount[]>({
+  const categoriesQuery = useQuery<EntryCategoryWithCountDto[]>({
     queryKey: queryKeys.entryCategories(),
     queryFn: ({ signal }) => fetchEntryCategories({ signal }),
     initialData: initialCategories,
@@ -85,7 +85,7 @@ export function useLedgerSettings({
 
   const settingsQuery = useQuery<{
     uncategorizedCount: number;
-    credentials: ServiceCredential[];
+    credentials: ServiceCredentialDto[];
   }>({
     queryKey: queryKeys.ledgerSettings(),
     queryFn: ({ signal }) => fetchLedgerSettings({ signal }),
@@ -109,7 +109,7 @@ export function useLedgerSettings({
         return settingsCopy.updateFailed;
     }
   };
-  const updateLedgerMutation = useLedgerMutation<Ledger, UpdateLedgerData>({
+  const updateLedgerMutation = useLedgerMutation<LedgerDto, UpdateLedgerData>({
     mutationFn: async (data) => {
       const result = await updateLedgerSettingsAction({
         settings: omitUndefinedProperties(data),
@@ -125,7 +125,7 @@ export function useLedgerSettings({
     onError: (error) => toast.error(error.message || settingsCopy.updateFailed),
   });
 
-  const clearLearnedPreferences = useLedgerMutation<Ledger, void>({
+  const clearLearnedPreferences = useLedgerMutation<LedgerDto, void>({
     mutationFn: () => clearLearnedPreferencesAction(),
     successMessage: settingsCopy.clearLearnedPreferencesSuccess,
     errorMessage: settingsCopy.clearLearnedPreferencesFailed,
@@ -189,7 +189,7 @@ export function useLedgerSettings({
     [generateMetadata]
   );
 
-  const saveCategories = useLedgerMutation<EntryCategory[], SaveEntryCategoriesInput>({
+  const saveCategories = useLedgerMutation<EntryCategoryDto[], SaveEntryCategoriesInput>({
     mutationFn: async (input) => {
       const result = await saveEntryCategoriesAction(input);
       if (!result.ok) throw new ActionRefusedError<SaveEntryCategoriesErrorCode>(result.code);
@@ -200,7 +200,7 @@ export function useLedgerSettings({
     onSuccess: (saved, input) => {
       // The list keeps each category's entry count, which a save does not
       // change; a new category has none yet.
-      queryClient.setQueryData<EntryCategoryWithCount[]>(
+      queryClient.setQueryData<EntryCategoryWithCountDto[]>(
         queryKeys.entryCategories(),
         (previous) => {
           const counts = new Map(previous?.map((category) => [category.id, category.entryCount]));
@@ -227,7 +227,7 @@ export function useLedgerSettings({
   });
 
   const createCredential = useLedgerMutation<
-    CreatedServiceCredential,
+    CreatedServiceCredentialDto,
     { name: string; bookId: string }
   >({
     mutationFn: async (input) => {
@@ -248,11 +248,13 @@ export function useLedgerSettings({
     },
   });
 
-  const setCredentialBook = useLedgerMutation<ServiceCredential, { id: string; bookId: string }>({
-    mutationFn: (input) => updateServiceCredentialAction(input.id, { bookId: input.bookId }),
-    successMessage: settingsCopy.credentialBookChanged,
-    errorMessage: settingsCopy.credentialBookChangeFailed,
-  });
+  const setCredentialBook = useLedgerMutation<ServiceCredentialDto, { id: string; bookId: string }>(
+    {
+      mutationFn: (input) => updateServiceCredentialAction(input.id, { bookId: input.bookId }),
+      successMessage: settingsCopy.credentialBookChanged,
+      errorMessage: settingsCopy.credentialBookChangeFailed,
+    }
+  );
 
   const deleteCredential = useLedgerMutation<void, string>({
     mutationFn: (id) => deleteServiceCredentialAction(id),

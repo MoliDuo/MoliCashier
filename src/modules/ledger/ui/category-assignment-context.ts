@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { CategoryAssignmentJob } from "@/modules/ledger/contracts";
+import type { CategoryAssignmentJobDto } from "@/modules/ledger/contracts";
 
 /**
  * What the page below reads of the ledger's assignment run: only whether one is
@@ -13,7 +13,7 @@ import type { CategoryAssignmentJob } from "@/modules/ledger/contracts";
  */
 export interface CategoryAssignmentContextValue {
   isActive: boolean;
-  registerSubmittedJob: (job: CategoryAssignmentJob) => void;
+  registerSubmittedJob: (job: CategoryAssignmentJobDto) => void;
 }
 
 /**

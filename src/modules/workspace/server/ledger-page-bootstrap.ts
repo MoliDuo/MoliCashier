@@ -18,17 +18,16 @@ import { DEFAULT_PERIOD, type Period } from "@/modules/ledger/domain/period";
 import type { StreamPage } from "@/modules/source-document/contracts";
 import type { LedgerAdvancedFilters } from "@/modules/ledger/ledger-query";
 import type { LedgerTab } from "@/lib/ledger-tabs";
+import { buildDetailsQueryDescriptor } from "@/modules/ledger/ledger-query-descriptor";
 import {
-  buildDetailsQueryDescriptor,
   buildStatsQueryDescriptor,
   buildStreamQueryDescriptor,
 } from "@/modules/workspace/ledger-tab-query-descriptors";
-import { SOURCE_DOC_STALE_TIME_MS } from "@/config/tuning";
 
 import type {
   BookDto,
   CategoryAssignmentJobDto,
-  EntryCategoryWithCount,
+  EntryCategoryWithCountDto,
   LedgerDto,
   LedgerEntryPageDto,
 } from "@/modules/ledger/contracts";
@@ -78,7 +77,7 @@ export interface LedgerView extends LedgerViewScope {
    * The categories read, started alongside the books rather than after them.
    * The shell's bootstrap awaits it and handles its failure.
    */
-  categories: Promise<EntryCategoryWithCount[]>;
+  categories: Promise<EntryCategoryWithCountDto[]>;
   /**
    * The ledger's latest assignment run, or null when it has had none; started
    * with the categories and awaited by the shell's bootstrap, which drops it on
@@ -140,7 +139,7 @@ export function getLedgerBooksBootstrap(books: readonly BookDto[] | null): Dehyd
  */
 export async function getLedgerShellBootstrap(input: {
   ledgerDto: LedgerDto;
-  categories: Promise<EntryCategoryWithCount[]>;
+  categories: Promise<EntryCategoryWithCountDto[]>;
   categoryAssignmentJob: Promise<CategoryAssignmentJobDto | null>;
 }): Promise<DehydratedState> {
   const queryClient = new QueryClient();
@@ -216,7 +215,7 @@ export async function getLedgerRouteBootstrap(
         },
         initialPageParam: undefined as string | undefined,
         getNextPageParam: (lastPage: StreamPage) => lastPage.nextCursor,
-        staleTime: SOURCE_DOC_STALE_TIME_MS,
+        staleTime: QUERY.SOURCE_DOC_STALE_TIME_MS,
       }),
       queryClient.prefetchQuery({
         queryKey: descriptor.totalQueryKey,

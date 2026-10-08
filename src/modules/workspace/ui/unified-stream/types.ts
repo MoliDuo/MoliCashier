@@ -1,4 +1,4 @@
-import type { LedgerEntry } from "@/modules/ledger/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import type { SourceDocumentListItemDto } from "@/modules/source-document/contracts";
 import type { UnifiedStreamGroup } from "@/modules/source-document/stream-grouping";
 import type { useLedgerEntriesTab } from "@/modules/workspace/hooks/useLedgerEntriesTab";
@@ -6,10 +6,10 @@ import type { useLedgerEntriesTab } from "@/modules/workspace/hooks/useLedgerEnt
 export interface UnifiedStreamGroupProps {
   streamGroups: UnifiedStreamGroup[];
   mainCurrency: string;
-  onViewLedgerEntry?: (entry: LedgerEntry) => void;
+  onViewLedgerEntry?: (entry: LedgerEntryDto) => void;
   onViewSourceDetail: (group: {
     sourceDocument: SourceDocumentListItemDto;
-    ledgerEntries: LedgerEntry[];
+    ledgerEntries: LedgerEntryDto[];
   }) => void;
   onViewSourceDetailIntent?: (doc: SourceDocumentListItemDto) => void;
   onEditRetry?: (doc: SourceDocumentListItemDto) => void;

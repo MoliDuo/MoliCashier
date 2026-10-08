@@ -6,10 +6,7 @@ import type { GetStreamTotalInput, ListStreamPageInput } from "@/modules/source-
 import { periodKey, type Period, type PeriodQuery } from "@/modules/ledger/domain/period";
 import { normalizeSearchTerm } from "@/lib/search";
 import { queryKeys } from "@/lib/query-keys";
-
-const STREAM_PAGE_LIMIT = 20;
-
-export { buildDetailsQueryDescriptor } from "@/modules/ledger/ledger-query-descriptor";
+import { STREAM_PAGE_LIMIT } from "@/config/tuning";
 
 export interface StreamQueryDescriptor {
   queryKey: readonly unknown[];

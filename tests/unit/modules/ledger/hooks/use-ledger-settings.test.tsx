@@ -5,8 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { queryKeys } from "@/lib/query-keys";
 import type {
   CreatedServiceCredentialDto,
-  EntryCategory,
-  Ledger,
+  EntryCategoryDto,
+  LedgerDto,
 } from "@/modules/ledger/contracts";
 import { useLedgerSettings } from "@/modules/ledger/hooks/useLedgerSettings";
 import { getDefaultLedger } from "tests/helpers/default-ledger";
@@ -57,13 +57,13 @@ vi.mock("sonner", () => ({
   toast: { error: toastError, success: vi.fn(), warning: vi.fn() },
 }));
 
-const ledger: Ledger = {
+const ledger: LedgerDto = {
   settings: { ...getDefaultLedger().settings, currencies: ["USD", "CNY"] },
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
 };
 
-const category: EntryCategory = {
+const category: EntryCategoryDto = {
   id: "category-1",
   name: "Food",
   sortOrder: 0,
@@ -205,7 +205,7 @@ describe("useLedgerSettings", () => {
       vi.spyOn(queryClient, "invalidateQueries").mockReturnValue(refresh);
       saveAction.mockResolvedValue({ ok: true, categories: [{ ...category, name: "Dining" }] });
 
-      let mutation!: Promise<EntryCategory[]>;
+      let mutation!: Promise<EntryCategoryDto[]>;
       act(() => {
         mutation = result.current.saveCategories.mutateAsync({
           expectedRevision: "a".repeat(64),

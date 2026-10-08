@@ -13,8 +13,6 @@ export interface SourceDocumentStoredFileDto {
   originalFilename: string | null;
 }
 
-export type SourceDocumentLedgerEntryDto = LedgerEntryEmbeddedViewDto;
-
 interface SourceDocumentSummaryDto {
   id: string;
   bookId?: string | null;
@@ -65,7 +63,7 @@ export type PendingSuggestionKind = "duplicate" | "date_organization";
 
 export interface SourceDocumentDetailDto
   extends SourceDocumentSummaryDto, SourceDocumentInputDataDto {
-  ledgerEntries: SourceDocumentLedgerEntryDto[];
+  ledgerEntries: LedgerEntryEmbeddedViewDto[];
   hasImages: boolean;
   activeResultSummary?: SourceDocumentActiveResultSummary;
   dateOrganizationSuggestion?:
@@ -82,7 +80,7 @@ export interface SourceDocumentActiveResultSummary {
 export interface SourceDocumentListItemDto extends SourceDocumentSummaryDto {
   text: null;
   pendingSuggestions: PendingSuggestionKind[];
-  ledgerEntries?: SourceDocumentLedgerEntryDto[];
+  ledgerEntries?: LedgerEntryEmbeddedViewDto[];
   hasImages: boolean;
 }
 

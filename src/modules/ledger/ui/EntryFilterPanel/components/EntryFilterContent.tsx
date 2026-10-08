@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import type { EntryCategory } from "@/modules/ledger/contracts";
+import type { EntryCategoryDto } from "@/modules/ledger/contracts";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import type { SourceDocumentProcessingStatus } from "@/modules/source-document/types";
 import type { EntryFilters } from "@/modules/ledger/filters";
@@ -31,7 +31,7 @@ interface EntryFilterContentProps {
   handleApply: () => void;
   handleReset: () => void;
   toggleStatus: (status: SourceDocumentProcessingStatus) => void;
-  categories: EntryCategory[];
+  categories: EntryCategoryDto[];
   preferredCurrencies: string[];
   showCategory: boolean;
   showCurrency: boolean;

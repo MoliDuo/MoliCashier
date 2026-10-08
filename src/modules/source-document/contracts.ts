@@ -10,13 +10,11 @@ export type {
   SourceDocumentActiveResultSummary,
   SourceDocumentDetailDto,
   SourceDocumentInputDto,
-  SourceDocumentLedgerEntryDto,
   SourceDocumentListItemDto,
   SourceDocumentStoredFileDto,
   StreamPage,
   StreamTotalDto,
 } from "./document-contracts";
-export type { SourceDocumentDetailDto as SourceDocument } from "./document-contracts";
 
 export interface CreateSourceDocumentResponseDto {
   sourceDocumentId: string;

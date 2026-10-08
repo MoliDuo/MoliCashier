@@ -20,7 +20,7 @@ import { EntriesToolbarShell } from "./EntriesToolbarShell";
 import { PeriodBar } from "./PeriodBar";
 import { formatPeriodLabel } from "../period-label";
 import { useBatchDatePreview } from "../hooks/useBatchDatePreview";
-import type { BatchEntryDateImpact, EntryCategory } from "@/modules/ledger/contracts";
+import type { BatchEntryDateImpact, EntryCategoryDto } from "@/modules/ledger/contracts";
 import { DISPLAY_LOCALE } from "@/lib/constants";
 import { commonCopy } from "@/copy/common";
 import { batchActionsCopy } from "@/copy/workspace";
@@ -52,7 +52,7 @@ interface LedgerEntriesToolbarProps {
   isProcessing?: boolean;
   filters: EntryFilters;
   onFiltersChange: (filters: EntryFilters) => void;
-  categories: EntryCategory[];
+  categories: EntryCategoryDto[];
   preferredCurrencies: string[];
   period: Period;
   /** Today in the ledger's zone, which the period is counted from. */

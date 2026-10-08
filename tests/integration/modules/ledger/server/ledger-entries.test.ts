@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { getLedgerEntriesAction } from "@/modules/ledger/server/list-entries";
+import { listLedgerEntries } from "@/modules/ledger/server/list-entries";
 import { getTestDb } from "tests/setup";
 import { ledgers, entryCategories, ledgerEntries } from "@/persistence";
 import {
@@ -8,7 +8,7 @@ import {
   createTestSourceDocument,
 } from "tests/helpers/schema-setup";
 
-describe("getLedgerEntriesAction", () => {
+describe("listLedgerEntries", () => {
   let testCategoryId: string;
   let testSourceDocId: string;
 
@@ -37,7 +37,7 @@ describe("getLedgerEntriesAction", () => {
   });
 
   it("should return empty array when no ledger entries exist", async () => {
-    const data = await getLedgerEntriesAction({});
+    const data = await listLedgerEntries({});
 
     expect(data.items).toEqual([]);
     expect(data.nextCursor).toBeNull();
@@ -54,7 +54,7 @@ describe("getLedgerEntriesAction", () => {
     });
     await activateTestSourceDocumentProjection(db, testSourceDocId);
 
-    const data = await getLedgerEntriesAction({});
+    const data = await listLedgerEntries({});
 
     expect(data.items).toHaveLength(1);
     const firstItem = data.items[0];
@@ -93,7 +93,7 @@ describe("getLedgerEntriesAction", () => {
     ]);
     await activateTestSourceDocumentProjection(db, testSourceDocId);
 
-    const data = await getLedgerEntriesAction({ categoryId: testCategoryId });
+    const data = await listLedgerEntries({ categoryId: testCategoryId });
 
     expect(data.items).toHaveLength(1);
     const firstItem = data.items[0];

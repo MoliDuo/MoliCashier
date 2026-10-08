@@ -3,18 +3,16 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { QUERY } from "@/lib/constants";
 import { queryKeys } from "@/lib/query-keys";
-import type { Ledger, LedgerEntryPageDto } from "@/modules/ledger/contracts";
+import type { LedgerDto, LedgerEntryPageDto } from "@/modules/ledger/contracts";
 import type { LedgerAdvancedFilters } from "@/modules/ledger/ledger-query";
 import type { Period } from "@/modules/ledger/domain/period";
 import { fetchLedgerEntries, fetchLedgerSummary } from "@/modules/ledger/queries";
 import { fetchEnhancedStats } from "@/modules/stats/queries";
-import {
-  buildDetailsQueryDescriptor,
-  buildStatsQueryDescriptor,
-} from "./ledger-tab-query-descriptors";
+import { buildDetailsQueryDescriptor } from "@/modules/ledger/ledger-query-descriptor";
+import { buildStatsQueryDescriptor } from "./ledger-tab-query-descriptors";
 
 function mainCurrencyOf(queryClient: QueryClient): string {
-  return queryClient.getQueryData<Ledger>(queryKeys.ledger())?.settings.mainCurrency ?? "CNY";
+  return queryClient.getQueryData<LedgerDto>(queryKeys.ledger())?.settings.mainCurrency ?? "CNY";
 }
 
 /**

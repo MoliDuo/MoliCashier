@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { TOOLBAR_CONTROL_CLASS } from "@/components/toolbar-control";
 import { cn } from "@/lib/utils";
-import type { EntryCategory } from "@/modules/ledger/contracts";
+import type { EntryCategoryDto } from "@/modules/ledger/contracts";
 import {
   CLEARED_ENTRY_FILTERS,
   useEntryFilterDraft,
@@ -19,7 +19,7 @@ export type { EntryFilters } from "@/modules/ledger/filters";
 interface EntryFilterPanelProps {
   filters: EntryFilters;
   onFiltersChange: (filters: EntryFilters) => void;
-  categories?: EntryCategory[];
+  categories?: EntryCategoryDto[];
   preferredCurrencies?: string[];
   showCategory?: boolean;
   showCurrency?: boolean;

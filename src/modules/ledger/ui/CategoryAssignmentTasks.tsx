@@ -8,7 +8,7 @@ import {
   retryCategoryAssignmentFailuresAction,
   retryCategoryAssignmentLatestAction,
 } from "@/modules/ledger/server-actions/category-assignment";
-import type { CategoryAssignmentJob } from "@/modules/ledger/contracts";
+import type { CategoryAssignmentJobDto } from "@/modules/ledger/contracts";
 import type { CategoryAssignmentNotice } from "@/modules/ledger/hooks/useCategoryAssignmentJob";
 import { CategoryAssignmentResultDialog } from "./CategoryAssignmentResultDialog";
 import { isCategoryAssignmentJobActive } from "./category-assignment-job-state";
@@ -18,11 +18,11 @@ const PROGRESS_TOAST_ID = "category-assignment-progress";
 const READ_ERROR_TOAST_ID = "category-assignment-read-error";
 
 interface CategoryAssignmentTasksProps {
-  job: CategoryAssignmentJob | null;
+  job: CategoryAssignmentJobDto | null;
   isReadError: boolean;
   onRefresh: () => Promise<unknown>;
   /** Hands a restarted run to the page, which reports its outcome once it ends. */
-  onTaskRegistered: (job: CategoryAssignmentJob) => void;
+  onTaskRegistered: (job: CategoryAssignmentJobDto) => void;
   notices: readonly CategoryAssignmentNotice[];
   onNoticeConsumed: (jobId: string) => void;
 }

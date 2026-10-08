@@ -3,7 +3,7 @@
 import { ArrowLeft, SquareCheckBig } from "lucide-react";
 import { useIsPhoneLayout } from "@/hooks/use-is-phone-layout";
 import { textRoleClassName } from "@/components/typography";
-import type { EntryCategory, Ledger } from "@/modules/ledger/contracts";
+import type { EntryCategoryDto, LedgerDto } from "@/modules/ledger/contracts";
 import type { EntryFilters } from "@/modules/ledger/ui/EntryFilterPanel";
 import { EntryFilterPanel } from "@/modules/ledger/ui/EntryFilterPanel";
 import { countActiveEntryFilters } from "@/modules/ledger/filters";
@@ -36,8 +36,8 @@ import { batchActionsCopy, detailsTabCopy, entryFilterPanelCopy } from "@/copy/w
 interface DetailsTabProps {
   /** The book the list is narrowed to; undefined means 总账. */
   bookId?: string | undefined;
-  categories: EntryCategory[];
-  ledger?: Ledger;
+  categories: EntryCategoryDto[];
+  ledger?: LedgerDto;
   period: Period;
   today: string;
   onPeriodChange: (period: Period) => void;

@@ -1,12 +1,12 @@
-import type { LedgerEntry } from "@/modules/ledger/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import { memo } from "react";
 import { LedgerEntryItem } from "./LedgerEntryItem";
 
 interface SourceDocumentCardEntriesProps {
-  entries: LedgerEntry[];
+  entries: LedgerEntryDto[];
   mainCurrency: string;
   sourceDocumentEntryDate?: string | null;
-  onViewLedgerEntry?: (ledgerEntry: LedgerEntry) => void;
+  onViewLedgerEntry?: (ledgerEntry: LedgerEntryDto) => void;
 }
 
 export const SourceDocumentCardEntries = memo(function SourceDocumentCardEntries({

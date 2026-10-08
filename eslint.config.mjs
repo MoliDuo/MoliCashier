@@ -13,6 +13,7 @@ export const registeredSourceDocumentWriters = [
   "src/modules/source-document/server/projections/manual-entries.ts",
   "src/modules/source-document/server/projections/writes.ts",
   "src/modules/source-document/server/extraction-attempts.ts",
+  "src/modules/source-document/server/document-input.ts",
 ];
 
 const identifierKey = "/^(?:userId|documentId|sourceDocumentId|attemptId|fileId|storedFileId)$/";
@@ -64,12 +65,23 @@ const architectureSyntax = [
   { selector: `Literal[value=${mutedAlias}]`, message: mutedMessage },
   { selector: `TemplateElement[value.cooked=${mutedAlias}]`, message: mutedMessage },
 ];
-const sourceDocumentWrite = {
-  selector:
-    "CallExpression[callee.type='MemberExpression'][callee.computed=false][callee.property.name=/^(?:insert|update|delete)$/] > Identifier[name='sourceDocuments']",
-  message:
-    "sourceDocuments writes must live in a registered source-document writer (registeredSourceDocumentWriters in eslint.config.mjs).",
-};
+const sourceDocumentWriteMessage =
+  "sourceDocuments writes must live in a registered source-document writer (registeredSourceDocumentWriters in eslint.config.mjs).";
+/** Raw SQL that writes the table by name: `UPDATE source_documents`, `INSERT INTO …`, `DELETE FROM …`. */
+const rawSourceDocumentWrite =
+  '/\\b(?:UPDATE|INSERT\\s+INTO|DELETE\\s+FROM)\\s+(?:ONLY\\s+)?"?source_documents"?(?![\\w"])/i';
+const sourceDocumentWrites = [
+  {
+    selector:
+      "CallExpression[callee.type='MemberExpression'][callee.computed=false][callee.property.name=/^(?:insert|update|delete)$/] > Identifier[name='sourceDocuments']",
+    message: sourceDocumentWriteMessage,
+  },
+  {
+    selector: `TemplateElement[value.raw=${rawSourceDocumentWrite}]`,
+    message: sourceDocumentWriteMessage,
+  },
+  { selector: `Literal[value=${rawSourceDocumentWrite}]`, message: sourceDocumentWriteMessage },
+];
 
 export default defineConfig([
   ...nextVitals,
@@ -110,7 +122,7 @@ export default defineConfig([
   {
     files: ["src/**/*.{ts,tsx,mts,mjs}"],
     rules: {
-      "no-restricted-syntax": ["error", ...architectureSyntax, sourceDocumentWrite],
+      "no-restricted-syntax": ["error", ...architectureSyntax, ...sourceDocumentWrites],
     },
   },
   {
@@ -127,7 +139,7 @@ export default defineConfig([
       "no-restricted-syntax": [
         "error",
         ...architectureSyntax,
-        sourceDocumentWrite,
+        ...sourceDocumentWrites,
         ...rawTextSizeSyntax,
       ],
     },

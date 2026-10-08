@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { LedgerEntry } from "@/modules/ledger/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import { buildSourceDocumentDetailViewModel } from "@/modules/source-document/ui/source-document-detail-view-model";
 
-const entry: LedgerEntry = {
+const entry: LedgerEntryDto = {
   id: "entry-1",
   categoryId: null,
   sourceDocumentId: "document-1",

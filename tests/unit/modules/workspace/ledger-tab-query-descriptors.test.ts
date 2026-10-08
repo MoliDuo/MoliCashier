@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { queryKeys } from "@/lib/query-keys";
 import type { Period } from "@/modules/ledger/domain/period";
+import { buildDetailsQueryDescriptor } from "@/modules/ledger/ledger-query-descriptor";
 import {
-  buildDetailsQueryDescriptor,
   buildStatsQueryDescriptor,
   buildStreamQueryDescriptor,
 } from "@/modules/workspace/ledger-tab-query-descriptors";

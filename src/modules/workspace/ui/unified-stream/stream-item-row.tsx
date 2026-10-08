@@ -1,4 +1,4 @@
-import type { LedgerEntry } from "@/modules/ledger/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import type { SourceDocumentListItemDto } from "@/modules/source-document/contracts";
 import { SourceDocumentCard } from "@/modules/source-document/ui/SourceDocumentCard";
 import { memo, useCallback } from "react";
@@ -7,7 +7,7 @@ import type { RendererProps, UnifiedStreamItem } from "./types";
 interface UnifiedStreamItemRowProps {
   item: UnifiedStreamItem;
   mainCurrency: string;
-  onViewLedgerEntry?: (entry: LedgerEntry) => void;
+  onViewLedgerEntry?: (entry: LedgerEntryDto) => void;
   onViewSourceDetail: RendererProps["onViewSourceDetail"];
   onViewSourceDetailIntent?: (doc: SourceDocumentListItemDto) => void;
   onEditRetry?: (doc: SourceDocumentListItemDto) => void;

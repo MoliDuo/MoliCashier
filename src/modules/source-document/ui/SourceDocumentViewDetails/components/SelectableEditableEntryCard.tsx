@@ -1,6 +1,6 @@
 "use client";
 import { memo } from "react";
-import type { LedgerEntry, EntryCategory } from "@/modules/ledger/contracts";
+import type { LedgerEntryDto, EntryCategoryDto } from "@/modules/ledger/contracts";
 import { Card } from "@/components/ui/card";
 import { SelectableCardSurface } from "@/components/selectable-card-surface";
 import { cn } from "@/lib/utils";
@@ -8,8 +8,8 @@ import { EditableLedgerEntryItem } from "../../EditableLedgerEntryItem";
 import type { EntryEditData } from "@/modules/source-document/types";
 
 interface SelectableEditableEntryCardProps {
-  entry: LedgerEntry;
-  categories: EntryCategory[];
+  entry: LedgerEntryDto;
+  categories: EntryCategoryDto[];
   categoryPlaceholder: string;
   preferredCurrencies: string[];
   mainCurrency: string;

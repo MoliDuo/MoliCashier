@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import type { LedgerEntry } from "@/modules/ledger/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import { formatCurrencyAmount } from "@/lib/format/currency";
 import { EntryGroupHeader, groupSelectionState } from "@/components/EntryGroupHeader";
 import { LedgerEntryCard } from "./LedgerEntryCard";
@@ -9,9 +9,9 @@ import { DISPLAY_LOCALE } from "@/lib/constants";
 import { batchActionsCopy } from "@/copy/workspace";
 
 interface LedgerEntryGroupsViewProps {
-  groups: readonly { title: string; items: LedgerEntry[]; total: string }[];
+  groups: readonly { title: string; items: LedgerEntryDto[]; total: string }[];
   mainCurrency: string;
-  onView: (entry: LedgerEntry) => void;
+  onView: (entry: LedgerEntryDto) => void;
   selectionMode?: boolean;
   selectedIds?: readonly string[];
   disableUnselected?: boolean;

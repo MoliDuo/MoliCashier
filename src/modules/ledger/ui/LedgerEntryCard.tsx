@@ -1,4 +1,4 @@
-import type { LedgerEntry } from "@/modules/ledger/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import { EntryCardShell } from "@/components/entry-card-shell";
 import { SelectableCardSurface } from "@/components/selectable-card-surface";
 import { CategoryIcon } from "@/components/CategoryIcon";
@@ -13,8 +13,8 @@ import { useCategoryAssignmentEntryState } from "./category-assignment-entry-sta
 import { commonCopy } from "@/copy/common";
 
 interface LedgerEntryCardProps {
-  ledgerEntry: LedgerEntry;
-  onView?: (entry: LedgerEntry) => void;
+  ledgerEntry: LedgerEntryDto;
+  onView?: (entry: LedgerEntryDto) => void;
   className?: string;
   mainCurrency?: string;
   selectionMode?: boolean;

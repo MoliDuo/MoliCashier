@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useLedgerMutation } from "@/lib/mutations/use-ledger-mutation";
 import { openLedgerDetail } from "@/lib/navigation/ledger-detail-navigation";
 import type { useSelection } from "@/hooks/use-selection";
-import type { LedgerEntry } from "@/modules/ledger/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import {
   batchDeleteLedgerEntriesAction,
   batchUpdateLedgerEntriesAction,
@@ -40,7 +40,7 @@ export function useSourceDocumentEntryCommands({
 }: {
   id: string;
   detailKey: QueryKey;
-  savedEntries: readonly LedgerEntry[];
+  savedEntries: readonly LedgerEntryDto[];
   selection: ReturnType<typeof useSelection>;
   commitDetailSnapshot: (document: SourceDocumentDetailDto) => Promise<void>;
 }) {

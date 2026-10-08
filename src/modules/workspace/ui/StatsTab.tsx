@@ -5,7 +5,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { fetchForecast } from "@/modules/forecast/queries";
 import { fetchEnhancedStats } from "@/modules/stats/queries";
 import { StatsContentView, type StatsScale } from "@/modules/stats/ui/StatsContentView";
-import type { Ledger } from "@/modules/ledger/contracts";
+import type { LedgerDto } from "@/modules/ledger/contracts";
 import { civilDaysBetween, resolveComparison, type Period } from "@/modules/ledger/domain/period";
 import { DISPLAY_LOCALE, QUERY } from "@/lib/constants";
 import { formatCurrencyAmount } from "@/lib/format/currency";
@@ -28,7 +28,7 @@ const STATS_QUERY_DEBOUNCE_MS = 250;
 interface StatsTabProps {
   /** The book the charts are narrowed to; undefined means 总账. */
   bookId?: string | undefined;
-  ledger?: Ledger;
+  ledger?: LedgerDto;
   /** Today in the ledger's zone, which the period is counted from. */
   today: string;
   /** The ledger's zone, so the period pickers name days the ledger's way. */

@@ -22,8 +22,8 @@ import type {
   ActiveLedgerEntryDto,
   BatchEntryDateImpact,
   CategoryAssignmentMode,
-  CategoryAssignmentJob,
-  Ledger,
+  CategoryAssignmentJobDto,
+  LedgerDto,
   StartCategoryAssignmentErrorCode,
 } from "@/modules/ledger/contracts";
 import { buildDetailsQueryDescriptor } from "@/modules/ledger/ledger-query-descriptor";
@@ -60,7 +60,7 @@ interface EntryDateGroup {
 interface UseDetailsTabOptions {
   /** The book the list is narrowed to; undefined means 总账. */
   bookId?: string | undefined;
-  ledger?: Ledger | undefined;
+  ledger?: LedgerDto | undefined;
   period: Period;
   advancedFilters: LedgerAdvancedFilters;
   timeZone?: string | undefined;
@@ -319,7 +319,7 @@ export function useDetailsTab({
   }, []);
 
   const startAiCategory = useLedgerMutation<
-    CategoryAssignmentJob,
+    CategoryAssignmentJobDto,
     { requestKey: string; mode: CategoryAssignmentMode; ledgerEntryIds: string[] }
   >({
     waitFor: false,

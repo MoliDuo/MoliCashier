@@ -45,14 +45,19 @@ export const AI_ATTEMPT_DEADLINE_MS = 5 * 60_000;
 export const AI_CATEGORY_REQUEST_TIMEOUT_MS = 60_000;
 /** The most entries one category assignment can be started over. */
 export const CATEGORY_ASSIGNMENT_MAX_ENTRIES = 5000;
+/**
+ * The most entries of one document sent in one category assignment request. A
+ * document with more is asked in blocks of this size, each one a checkpoint.
+ */
+export const CATEGORY_ASSIGNMENT_REQUEST_CHUNK_SIZE = 50;
+
+/** The most records one page of 账目 holds; the browser asks for this many. */
+export const STREAM_PAGE_LIMIT = 20;
 
 /** How many images are decoded at once; a large photo takes a few hundred megabytes to decode. */
 export const IMAGE_PROCESSING_CONCURRENCY = 2;
 /** JPEG quality for a normalised receipt photo. */
 export const MAX_IMAGE_QUALITY = 85;
-
-/** How long the client treats a fetched source document as fresh. */
-export const SOURCE_DOC_STALE_TIME_MS = 120_000;
 
 /** How long a signed-in session survives without being renewed. */
 export const SESSION_MAX_AGE_DAYS = 14;

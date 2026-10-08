@@ -10,7 +10,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { syncLedgerAfterWrite } from "@/lib/mutations/ledger-sync";
 import type {
   CategoryAssignmentEntryStatesDto,
-  CategoryAssignmentJob,
+  CategoryAssignmentJobDto,
 } from "@/modules/ledger/contracts";
 import { isCategoryAssignmentJobActive } from "@/modules/ledger/ui/category-assignment-job-state";
 
@@ -24,12 +24,12 @@ const ERROR_POLL_INTERVALS_MS = [5_000, 10_000, 20_000, 30_000];
 /** A run's outcome that still has to reach the reader. */
 export interface CategoryAssignmentNotice {
   jobId: string;
-  job: CategoryAssignmentJob;
+  job: CategoryAssignmentJobDto;
 }
 
 export interface CategoryAssignmentJobState {
   /** The ledger's most recent run, or null when it has never had one. */
-  job: CategoryAssignmentJob | null;
+  job: CategoryAssignmentJobDto | null;
   isActive: boolean;
   isReadError: boolean;
   /**
@@ -44,14 +44,14 @@ export interface CategoryAssignmentJobState {
    * notice alive when the reader moves to another tab before it finishes, and
    * what reports a run whose first answer already says it is over.
    */
-  registerSubmittedJob: (job: CategoryAssignmentJob) => void;
+  registerSubmittedJob: (job: CategoryAssignmentJobDto) => void;
   /** Outcomes waiting for their toast; consumed once each, by the notifier. */
   notices: readonly CategoryAssignmentNotice[];
   consumeNotice: (jobId: string) => void;
 }
 
 /** Everything about a poll that a reader can see change. */
-function jobSignature(job: CategoryAssignmentJob): string {
+function jobSignature(job: CategoryAssignmentJobDto): string {
   return [
     job.status,
     job.processedCount,
@@ -84,7 +84,7 @@ export function useCategoryAssignmentJob(): CategoryAssignmentJobState {
   const [submittedJobIds, setSubmittedJobIds] = useState<readonly string[]>([]);
   const [reportedJobIds, setReportedJobIds] = useState<readonly string[]>([]);
   const [notices, setNotices] = useState<CategoryAssignmentNotice[]>([]);
-  const query = useQuery<CategoryAssignmentJob | null>({
+  const query = useQuery<CategoryAssignmentJobDto | null>({
     queryKey: queryKeys.categoryAssignment(),
     queryFn: ({ signal }) => fetchCategoryAssignmentJob({ signal }),
     refetchInterval: (query) => {
@@ -194,7 +194,7 @@ export function useCategoryAssignmentJob(): CategoryAssignmentJobState {
   useEffect(() => clearTrailingRefresh, [clearTrailingRefresh]);
 
   const registerSubmittedJob = useCallback(
-    (submitted: CategoryAssignmentJob) => {
+    (submitted: CategoryAssignmentJobDto) => {
       setSubmittedJobIds((current) =>
         current.includes(submitted.id) ? current : [...current, submitted.id]
       );

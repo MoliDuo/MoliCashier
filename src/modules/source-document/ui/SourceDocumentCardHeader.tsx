@@ -1,6 +1,6 @@
-import type { LedgerEntry } from "@/modules/ledger/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import type {
-  SourceDocument,
+  SourceDocumentDetailDto,
   SourceDocumentListItemDto,
   SourceDocumentProcessingStatus,
 } from "@/modules/source-document/contracts";
@@ -29,8 +29,8 @@ import {
 } from "@/copy/source-document";
 
 interface SourceDocumentCardHeaderProps {
-  sourceDocument: SourceDocument | SourceDocumentListItemDto;
-  ledgerEntries: LedgerEntry[];
+  sourceDocument: SourceDocumentDetailDto | SourceDocumentListItemDto;
+  ledgerEntries: LedgerEntryDto[];
   mainCurrency: string;
   isRetrying: boolean;
   isCancelling: boolean;

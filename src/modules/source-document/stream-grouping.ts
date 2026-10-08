@@ -1,4 +1,5 @@
-import type { SourceDocumentListItemDto, SourceDocumentLedgerEntryDto } from "./contracts";
+import type { SourceDocumentListItemDto } from "./contracts";
+import type { LedgerEntryEmbeddedViewDto } from "@/modules/ledger/contracts";
 import { add } from "@/lib/money/decimal";
 
 /**
@@ -12,7 +13,7 @@ import { add } from "@/lib/money/decimal";
 
 interface UnifiedStreamItem {
   sourceDocument: SourceDocumentListItemDto;
-  ledgerEntries: SourceDocumentLedgerEntryDto[];
+  ledgerEntries: LedgerEntryEmbeddedViewDto[];
   /** The day the record counts on, as the server keeps it (yyyy-MM-dd). */
   documentDate: string;
 }
@@ -33,7 +34,7 @@ export interface UnifiedStreamGroup {
 
 function addEntries(
   group: UnifiedStreamGroup,
-  entries: SourceDocumentLedgerEntryDto[],
+  entries: LedgerEntryEmbeddedViewDto[],
   mainCurrency?: string
 ): void {
   for (const entry of entries) {

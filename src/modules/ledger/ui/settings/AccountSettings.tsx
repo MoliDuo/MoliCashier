@@ -3,7 +3,7 @@
 import type {
   BookDto,
   CreatedServiceCredentialDto,
-  ServiceCredential,
+  ServiceCredentialDto,
 } from "@/modules/ledger/contracts";
 import { ServiceCredentialSection } from "../ServiceCredentialSection";
 import { SettingsField } from "@/components/SettingsField";
@@ -17,7 +17,7 @@ import { settingsCopy } from "@/copy/settings";
 interface AccountSettingsProps {
   /** The address the identity provider vouched for when this session signed in. */
   userEmail?: string;
-  credentials: ServiceCredential[];
+  credentials: ServiceCredentialDto[];
   isPending: boolean;
   books: readonly BookDto[];
   onCreateCredential: (input: {

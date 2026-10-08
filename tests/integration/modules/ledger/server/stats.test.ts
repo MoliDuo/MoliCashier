@@ -4,7 +4,7 @@ import { getTestDb } from "tests/setup";
 import { entryCategories, ledgerEntries, ledgers } from "@/persistence";
 import { sourceDocuments } from "@/persistence/schema/source-document";
 import { randomUUID } from "node:crypto";
-import { getLedgerStatsAction } from "@/modules/ledger/server/stats";
+import { calculateLedgerStats } from "@/modules/ledger/server/stats";
 import {
   activateTestSourceDocumentProjection,
   ensureTestLedgerBooks,
@@ -47,7 +47,7 @@ async function seedEntry(
   return doc;
 }
 
-describe("getLedgerStatsAction", () => {
+describe("calculateLedgerStats", () => {
   beforeEach(async () => {
     const db = getTestDb();
     await db.insert(ledgers).values({
@@ -57,7 +57,7 @@ describe("getLedgerStatsAction", () => {
   });
 
   it("returns zero values for empty ledger", async () => {
-    const result = await getLedgerStatsAction({});
+    const result = await calculateLedgerStats({});
     expect(result.totals).toHaveLength(0);
     expect(result.trend).toHaveLength(0);
     expect(result.convertedTotal).not.toBeNull();
@@ -71,7 +71,7 @@ describe("getLedgerStatsAction", () => {
     await seedEntry(db, { amount: "50.00", currency: "CNY" });
     await seedEntry(db, { amount: "20.00", currency: "USD" });
 
-    const result = await getLedgerStatsAction({});
+    const result = await calculateLedgerStats({});
     const cny = result.totals.find((t) => t.currency === "CNY");
     const usd = result.totals.find((t) => t.currency === "USD");
 
@@ -91,7 +91,7 @@ describe("getLedgerStatsAction", () => {
       currency: "USD",
     });
 
-    const result = await getLedgerStatsAction({ currency: " usd " });
+    const result = await calculateLedgerStats({ currency: " usd " });
 
     expect(result.convertedTotal).toEqual({ total: "12.5", currency: "USD" });
     expect(result.totals).toEqual([{ currency: "USD", total: "12.5", count: 1 }]);
@@ -117,7 +117,7 @@ describe("getLedgerStatsAction", () => {
       categoryId,
     });
 
-    const result = await getLedgerStatsAction({});
+    const result = await calculateLedgerStats({});
 
     expect(result.byCategory).toContainEqual({
       categoryId,
@@ -135,7 +135,7 @@ describe("getLedgerStatsAction", () => {
     await seedEntry(db, { amount: "10.00", currency: "CNY", entryDate: "2024-01-01" });
     await seedEntry(db, { amount: "20.00", currency: "CNY", entryDate: "2024-01-02" });
 
-    const result = await getLedgerStatsAction({});
+    const result = await calculateLedgerStats({});
     expect(result.trend).toHaveLength(3);
     const firstTrend = result.trend[0];
     const secondTrend = result.trend[1];
@@ -154,7 +154,7 @@ describe("getLedgerStatsAction", () => {
     await seedEntry(db, { amount: "200.00", currency: "CNY", entryDate: "2024-02-01" });
     await seedEntry(db, { amount: "300.00", currency: "CNY", entryDate: "2024-03-01" });
 
-    const result = await getLedgerStatsAction({ startDate: "2024-02-01" });
+    const result = await calculateLedgerStats({ startDate: "2024-02-01" });
     const cny = result.totals.find((t) => t.currency === "CNY");
     expect(cny!.count).toBe(2);
     expect(cny!.total).toBe("500");
@@ -166,7 +166,7 @@ describe("getLedgerStatsAction", () => {
     await seedEntry(db, { amount: "200.00", currency: "CNY", entryDate: "2024-02-01" });
     await seedEntry(db, { amount: "300.00", currency: "CNY", entryDate: "2024-03-01" });
 
-    const result = await getLedgerStatsAction({ endDate: "2024-02-01" });
+    const result = await calculateLedgerStats({ endDate: "2024-02-01" });
     const cny = result.totals.find((t) => t.currency === "CNY");
     expect(cny!.count).toBe(2);
     expect(cny!.total).toBe("300");
@@ -184,7 +184,7 @@ describe("getLedgerStatsAction", () => {
     await seedEntry(db, { amount: "100.00", currency: "CNY", categoryId: catId });
     await seedEntry(db, { amount: "200.00", currency: "CNY" }); // no category
 
-    const result = await getLedgerStatsAction({
+    const result = await calculateLedgerStats({
       categoryId: catId,
     });
     const cny = result.totals.find((t) => t.currency === "CNY");
@@ -197,7 +197,7 @@ describe("getLedgerStatsAction", () => {
     await seedEntry(db, { amount: "100.00", currency: "CNY" });
     await seedEntry(db, { amount: "50.00", currency: "USD" });
 
-    const result = await getLedgerStatsAction({
+    const result = await calculateLedgerStats({
       currency: "USD",
     });
     expect(result.totals).toHaveLength(1);
@@ -211,7 +211,7 @@ describe("getLedgerStatsAction", () => {
     await seedEntry(db, { amount: "50.00", currency: "CNY" });
     await seedEntry(db, { amount: "200.00", currency: "CNY" });
 
-    const result = await getLedgerStatsAction({
+    const result = await calculateLedgerStats({
       minAmount: "100",
     });
     const cny = result.totals.find((t) => t.currency === "CNY");
@@ -224,7 +224,7 @@ describe("getLedgerStatsAction", () => {
     await seedEntry(db, { amount: "50.00", currency: "CNY" });
     await seedEntry(db, { amount: "200.00", currency: "CNY" });
 
-    const result = await getLedgerStatsAction({
+    const result = await calculateLedgerStats({
       maxAmount: "100",
     });
     const cny = result.totals.find((t) => t.currency === "CNY");
@@ -242,7 +242,7 @@ describe("getLedgerStatsAction", () => {
       entryDate: "2024-01-15",
     });
 
-    const result = await getLedgerStatsAction({});
+    const result = await calculateLedgerStats({});
     expect(result.convertedTotal).not.toBeNull();
     expect(result.convertedTotal?.currency).toBe("CNY");
     expect(result.convertedTotal?.total).toBe("720");
@@ -261,7 +261,7 @@ describe("getLedgerStatsAction", () => {
       entryDate: "2024-01-15",
     });
 
-    const result = await getLedgerStatsAction({});
+    const result = await calculateLedgerStats({});
 
     expect(result.convertedTotal?.total).toBe("50");
     expect(result.unconvertedCount).toBe(1);
@@ -278,7 +278,7 @@ describe("getLedgerStatsAction", () => {
     await seedEntry(db, { amount: "100.00", currency: "CNY" });
     await seedEntry(db, { amount: "50.00", currency: "CNY" });
 
-    const result = await getLedgerStatsAction({});
+    const result = await calculateLedgerStats({});
     expect(result.convertedTotal).not.toBeNull();
     expect(result.convertedTotal?.total).toBe("150");
     expect(result.convertedTotal?.currency).toBe("CNY");
@@ -306,7 +306,7 @@ describe("getLedgerStatsAction", () => {
     }) as typeof client.query;
 
     try {
-      await getLedgerStatsAction({});
+      await calculateLedgerStats({});
     } finally {
       client.query = originalQuery;
     }
@@ -324,15 +324,15 @@ describe("getLedgerStatsAction", () => {
     await seedEntry(db, { amount: "100.00", categoryId: catId });
     await seedEntry(db, { amount: "30.00" });
 
-    const result = await getLedgerStatsAction({ categoryId: "__uncategorized__" });
+    const result = await calculateLedgerStats({ categoryId: "__uncategorized__" });
 
     expect(result.totals).toEqual([expect.objectContaining({ currency: "CNY", total: "30" })]);
   });
 
   it("refuses a query it cannot read instead of totalling something else", async () => {
-    await expect(getLedgerStatsAction({ minAmount: "abc" })).rejects.toThrow("Validation failed");
+    await expect(calculateLedgerStats({ minAmount: "abc" })).rejects.toThrow("Validation failed");
     // The internal flag is spelled by the sentinel on the wire, never directly.
-    await expect(getLedgerStatsAction({ uncategorizedOnly: true })).rejects.toThrow(
+    await expect(calculateLedgerStats({ uncategorizedOnly: true })).rejects.toThrow(
       "Validation failed"
     );
   });
@@ -376,7 +376,7 @@ describe("getLedgerStatsAction", () => {
       });
       await activateTestSourceDocumentProjection(db, sourceDoc.id);
 
-      const stats = await getLedgerStatsAction({});
+      const stats = await calculateLedgerStats({});
 
       expect(stats.convertedTotal?.currency).toBe("CNY");
       expect(stats.convertedTotal?.total).toBeCloseTo(617.11, 1);

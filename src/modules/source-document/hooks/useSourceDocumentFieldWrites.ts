@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { QueryKey } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useLedgerMutation } from "@/lib/mutations/use-ledger-mutation";
-import type { LedgerEntry } from "@/modules/ledger/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import { batchUpdateLedgerEntriesAction } from "@/modules/ledger/server-actions/entries";
 import type { SourceDocumentDetailDto } from "@/modules/source-document/contracts";
 import type { DocumentPatch } from "@/modules/source-document/detail-types";
@@ -52,7 +52,7 @@ export function useSourceDocumentFieldWrites({
   id: string;
   detailKey: QueryKey;
   sourceDocument: SourceDocumentDetailDto | null;
-  savedEntries: readonly LedgerEntry[];
+  savedEntries: readonly LedgerEntryDto[];
   refetch: () => Promise<{ data?: SourceDocumentDetailDto | null | undefined }>;
 }) {
   const [pending, setPending] = useState<PendingWrites>(NO_PENDING_WRITES);

@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { LedgerEntry } from "@/modules/ledger/contracts";
-import type { SourceDocument } from "@/modules/source-document/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
+import type { SourceDocumentDetailDto } from "@/modules/source-document/contracts";
 import { SourceDocumentCard } from "@/modules/source-document/ui/SourceDocumentCard";
 
 vi.mock("@/modules/currency/ui/AmountDisplay", () => ({
@@ -13,7 +13,7 @@ vi.mock("@/modules/currency/ui/amount-text", () => ({
   AmountText: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
 }));
 
-const sourceDocument: SourceDocument = {
+const sourceDocument: SourceDocumentDetailDto = {
   id: "doc-1",
   version: 1,
   latestAttemptId: null,
@@ -33,7 +33,7 @@ const sourceDocument: SourceDocument = {
   errorCode: null,
 };
 
-const ledgerEntry: LedgerEntry = {
+const ledgerEntry: LedgerEntryDto = {
   id: "entry-1",
   categoryId: null,
   sourceDocumentId: "doc-1",

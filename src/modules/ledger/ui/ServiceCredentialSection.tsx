@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Trash2, Copy, Check } from "lucide-react";
 import type {
   BookDto,
-  ServiceCredential,
+  ServiceCredentialDto,
   CreatedServiceCredentialDto,
 } from "@/modules/ledger/contracts";
 import { toast } from "sonner";
@@ -35,7 +35,7 @@ import { commonCopy } from "@/copy/common";
 import { serviceCredentialsCopy, settingsBooksCopy } from "@/copy/settings";
 
 interface ServiceCredentialSectionProps {
-  credentials: ServiceCredential[];
+  credentials: ServiceCredentialDto[];
   /** The live books; a key's book can be picked at creation and changed later. */
   books: readonly BookDto[];
   onCreateCredential: (input: {
@@ -60,7 +60,7 @@ export function ServiceCredentialSection({
   const [newCredName, setNewCredName] = useState("");
   const [newCredBookId, setNewCredBookId] = useState(firstBookId);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [credentialToDelete, setCredentialToDelete] = useState<ServiceCredential | null>(null);
+  const [credentialToDelete, setCredentialToDelete] = useState<ServiceCredentialDto | null>(null);
   const [createdCredential, setCreatedCredential] = useState<CreatedServiceCredentialDto | null>(
     null
   );

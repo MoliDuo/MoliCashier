@@ -1,9 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { SourceDocument } from "@/modules/source-document/contracts";
+import type { SourceDocumentDetailDto } from "@/modules/source-document/contracts";
 import { SourceDocumentDetailStatusPanels } from "@/modules/source-document/ui/SourceDocumentDetailStatusPanels";
 
-const baseDocument: SourceDocument = {
+const baseDocument: SourceDocumentDetailDto = {
   id: "doc-1",
   version: 1,
   latestAttemptId: null,
@@ -23,7 +23,7 @@ const baseDocument: SourceDocument = {
   errorCode: null,
 };
 
-function renderPanels(sourceDocument: SourceDocument) {
+function renderPanels(sourceDocument: SourceDocumentDetailDto) {
   return render(
     <SourceDocumentDetailStatusPanels
       sourceDocument={sourceDocument}

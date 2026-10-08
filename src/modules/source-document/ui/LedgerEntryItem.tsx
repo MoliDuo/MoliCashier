@@ -1,5 +1,5 @@
 import { memo } from "react";
-import type { LedgerEntry } from "@/modules/ledger/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { textRoleClassName } from "@/components/typography";
 import { cva, type VariantProps } from "class-variance-authority";
@@ -32,7 +32,7 @@ const itemVariants = cva(
 );
 
 export interface LedgerEntryItemProps extends VariantProps<typeof itemVariants> {
-  ledgerEntry: LedgerEntry;
+  ledgerEntry: LedgerEntryDto;
   mainCurrency?: string;
   sourceDocumentEntryDate?: string | null;
   onView?: () => void;

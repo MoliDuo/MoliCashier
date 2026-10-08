@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type {
-  EntryCategory,
+  EntryCategoryDto,
   SaveEntryCategoriesErrorCode,
   SaveEntryCategoriesInput,
 } from "@/modules/ledger/contracts";
@@ -21,9 +21,9 @@ import { settingsCopy } from "@/copy/settings";
 export type { CategoryDraft, EditSession } from "./category-draft-model";
 
 interface UseCategoryManagementDraftOptions {
-  categories: EntryCategory[];
-  onSaveCategories: (input: SaveEntryCategoriesInput) => Promise<EntryCategory[]>;
-  onReloadCategories?: (() => Promise<EntryCategory[]>) | undefined;
+  categories: EntryCategoryDto[];
+  onSaveCategories: (input: SaveEntryCategoriesInput) => Promise<EntryCategoryDto[]>;
+  onReloadCategories?: (() => Promise<EntryCategoryDto[]>) | undefined;
   isSaving: boolean;
 }
 

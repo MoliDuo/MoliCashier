@@ -5,7 +5,7 @@ import { classifyFailure, retryDelayMs } from "@/lib/background/retry";
 import { holdLease } from "@/lib/db/lease";
 import { applyCategoryAssignments } from "@/modules/source-document/server/category-assignments";
 import { isSuccessfulLoadImageResult, loadStoredFilesForAI } from "@/server/processing/evidence";
-import { BACKGROUND_MAX_ATTEMPTS } from "@/config/tuning";
+import { BACKGROUND_MAX_ATTEMPTS, CATEGORY_ASSIGNMENT_REQUEST_CHUNK_SIZE } from "@/config/tuning";
 import type { CategoryAssignmentDocumentWork, ClaimedCategoryAssignmentJob } from "./lease";
 import {
   claimCategoryAssignmentJob,
@@ -21,8 +21,6 @@ import {
 } from "./lease";
 import { loadCategoryAssignmentDocumentGroups } from "@/server/category-assignment/document-groups";
 import { decideEntryCategories } from "@/server/category-assignment/decide-entry-categories";
-
-const REQUEST_CHUNK_SIZE = 50;
 
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
   // An abort that came while the next document was being looked up has already fired, and an
@@ -105,7 +103,7 @@ async function processDocument(
         }
         for (
           let chunkIndex = document.completedChunkCount;
-          chunkIndex * REQUEST_CHUNK_SIZE < group.subjects.length;
+          chunkIndex * CATEGORY_ASSIGNMENT_REQUEST_CHUNK_SIZE < group.subjects.length;
           chunkIndex += 1
         ) {
           if (signal.aborted) {
@@ -117,8 +115,8 @@ async function processDocument(
           const chunk = {
             ...group,
             subjects: group.subjects.slice(
-              chunkIndex * REQUEST_CHUNK_SIZE,
-              (chunkIndex + 1) * REQUEST_CHUNK_SIZE
+              chunkIndex * CATEGORY_ASSIGNMENT_REQUEST_CHUNK_SIZE,
+              (chunkIndex + 1) * CATEGORY_ASSIGNMENT_REQUEST_CHUNK_SIZE
             ),
           };
           const aiStartedAt = Date.now();
