@@ -216,6 +216,9 @@ src/copy/                 全部界面文案，按界面区域分文件
   超出返回 429 和 `Retry-After`。只有一个进程，所以不需要共享存储；记住的凭证数有上限。
 - **日志。** 只记关联 id 和经 `logIdentifier` 标记的标识，邮箱一律哈希。不记原始邮箱、bearer token、
   授权码、令牌、图片内容或服务商负载。
+- **响应头。** 应用在 `next.config.ts` 里给所有路由加 `X-Content-Type-Options`、`Referrer-Policy`、
+  `Permissions-Policy` 和不需要 nonce 的 CSP（`frame-ancestors` 等）；HSTS 由前面的反向代理（Traefik）统一加，
+  应用不重复设置。
 - 外部调用（汇率、AI、对象存储、OIDC 提供方）放在数据库事务和账本锁之外。一次性和带租约的流程用条件写、
   行锁或 fencing token。
 
