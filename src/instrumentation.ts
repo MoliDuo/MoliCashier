@@ -1,4 +1,4 @@
-import { validateStartupEnv } from "@/lib/env/startup";
+import { startupEnvWarnings, validateStartupEnv } from "@/lib/env/startup";
 import { logger } from "@/lib/logger";
 export async function register() {
   // Only run on server-side runtime (not edge or browser)
@@ -20,6 +20,7 @@ export async function register() {
       },
       "Service configuration status"
     );
+    for (const warning of startupEnvWarnings(startupEnv)) logger.warn(warning);
   } catch (error) {
     logger.error({ error }, "Failed during startup initialization");
     throw error;

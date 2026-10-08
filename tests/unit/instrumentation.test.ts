@@ -16,8 +16,11 @@ vi.mock("@/lib/logger", () => ({
   logger,
 }));
 
+const startupEnvWarnings = vi.fn((): string[] => []);
+
 vi.mock("@/lib/env/startup", () => ({
   validateStartupEnv,
+  startupEnvWarnings,
 }));
 
 const startBackgroundRuntime = vi.fn();
@@ -48,6 +51,15 @@ describe("instrumentation.register", () => {
 
     expect(startBackgroundRuntime).toHaveBeenCalledTimes(1);
     vi.unstubAllEnvs();
+  });
+
+  it("logs what the startup settings should not be, and still starts", async () => {
+    startupEnvWarnings.mockReturnValueOnce(["AUTH_SECRET is shorter than 32 characters"]);
+    const { register } = await import("@/instrumentation");
+
+    await register();
+
+    expect(logger.warn).toHaveBeenCalledWith("AUTH_SECRET is shorter than 32 characters");
   });
 
   it("rethrows startup env validation failures", async () => {
