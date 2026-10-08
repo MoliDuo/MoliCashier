@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { ZodError } from "zod";
 import { getTestDb } from "tests/setup";
 import { createTestSourceDocument, createTestLedger } from "tests/helpers/schema-setup";
 import { ledgerEntries, ledgers } from "@/persistence";
@@ -62,5 +63,15 @@ describe("previewSourceDocumentDateImpactAction", () => {
       affectedEntryCount: 2,
       sourceDocumentIds: [withEntries.sourceDocumentId, empty.sourceDocumentId],
     });
+  });
+
+  it("refuses an input without the entry id list instead of reading it", async () => {
+    const empty = await documentWithEntries(0);
+
+    await expect(
+      previewSourceDocumentDateImpactAction({
+        sourceDocumentIds: [empty.sourceDocumentId],
+      } as never)
+    ).rejects.toBeInstanceOf(ZodError);
   });
 });

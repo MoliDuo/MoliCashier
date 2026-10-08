@@ -1,5 +1,5 @@
-import { LedgerPageSkeleton } from "@/components/skeletons";
+import { ProtectedPageSkeleton } from "./_page-skeleton";
 
 export default function ProtectedLoading() {
-  return <LedgerPageSkeleton />;
+  return <ProtectedPageSkeleton />;
 }

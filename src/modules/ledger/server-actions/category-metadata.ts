@@ -1,10 +1,10 @@
 "use server";
 
 import { parseEntryCategoryId } from "../contract-schemas";
-import { withLedgerAccess } from "../access";
+import { withLedgerAction } from "../action-access";
 import { generateEntryCategoryMetadata } from "../server/category-metadata";
 
-export const generateEntryCategoryMetadataAction = withLedgerAccess(
+export const generateEntryCategoryMetadataAction = withLedgerAction(
   async (inputCategoryId: string) =>
     generateEntryCategoryMetadata({ categoryId: parseEntryCategoryId(inputCategoryId) })
 );

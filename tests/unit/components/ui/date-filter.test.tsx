@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expectTextRole } from "tests/helpers/class-tables";
 import { DateFilter } from "@/components/ui/date-filter";
+import { LedgerTimeZoneProvider } from "@/lib/ledger-time-zone";
 import { commonCopy } from "@/copy/common";
 import { calendarCopy, dateFilterCopy } from "@/copy/controls";
 
@@ -15,9 +16,31 @@ describe("DateFilter", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(2026, 8, 11, 12));
 
-    render(<DateFilter value="2026-09-11" onChange={() => {}} readOnly />);
+    const runtimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    render(<DateFilter value="2026-09-11" onChange={() => {}} readOnly timeZone={runtimeZone} />);
 
     expect(screen.getByText(commonCopy.today)).toBeInTheDocument();
+  });
+
+  it("takes today from the ledger's zone for the label and the calendar", () => {
+    // 20:00 UTC on 1 March is already 2 March in Tokyo.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(Date.UTC(2026, 2, 1, 20)));
+    const onChange = vi.fn();
+
+    render(
+      <LedgerTimeZoneProvider timeZone="Asia/Tokyo">
+        <DateFilter value="2026-03-02" onChange={onChange} />
+      </LedgerTimeZoneProvider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(commonCopy.today) }));
+    expect(screen.getByRole("button", { name: "2026年3月2日星期一" })).toHaveAttribute(
+      "aria-current",
+      "date"
+    );
+    fireEvent.click(screen.getByRole("button", { name: calendarCopy.yesterday }));
+    expect(onChange).toHaveBeenCalledWith(new Date(2026, 2, 1));
   });
 
   it("renders a date-only string without shifting it to the previous day", () => {

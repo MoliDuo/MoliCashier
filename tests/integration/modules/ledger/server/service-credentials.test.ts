@@ -70,6 +70,13 @@ vi.mock("@/lib/storage/s3", () => ({
 // Mock Task Runtime
 // Mock Tasks
 
+/** Creates a key the test expects to be accepted. */
+async function createCredential(input: { name: string; bookId: string }) {
+  const result = await createServiceCredentialAction(input);
+  if (!result.ok) throw new Error(`Expected the key to be created, got ${result.code}`);
+  return result.credential;
+}
+
 describe("Service Credentials & Ledger Entry Ingestion", () => {
   beforeEach(async () => {
     const db = getTestDb();
@@ -80,7 +87,7 @@ describe("Service Credentials & Ledger Entry Ingestion", () => {
 
   it("should create and list service credentials via Actions", async () => {
     // Create Credential - returns data with one-time token
-    const createRes = await createServiceCredentialAction({
+    const createRes = await createCredential({
       name: "Test Credential",
       bookId: await testBookId(getTestDb()),
     });
@@ -117,13 +124,28 @@ describe("Service Credentials & Ledger Entry Ingestion", () => {
     expect(listedCredential.tokenSuffix).toBe(createRes.tokenSuffix);
   });
 
-  it("rejects blank credential name with ValidationError", async () => {
+  it("refuses a blank credential name with a code", async () => {
     await expect(
       createServiceCredentialAction({
         name: "",
         bookId: await testBookId(getTestDb()),
       } as never)
-    ).rejects.toThrow(ValidationError);
+    ).resolves.toEqual({ ok: false, code: "invalid" });
+  });
+
+  it("names a book that is not available apart from the key limit", async () => {
+    await expect(
+      createServiceCredentialAction({ name: "Lost book", bookId: crypto.randomUUID() })
+    ).resolves.toEqual({ ok: false, code: "book_unavailable" });
+
+    const bookId = await testBookId(getTestDb());
+    for (let index = 0; index < 20; index += 1) {
+      await createCredential({ name: `Key ${index}`, bookId });
+    }
+    await expect(createServiceCredentialAction({ name: "One too many", bookId })).resolves.toEqual({
+      ok: false,
+      code: "limit_reached",
+    });
   });
 
   it("rejects invalid credential id with ValidationError", async () => {
@@ -318,7 +340,7 @@ describe("Service Credentials & Ledger Entry Ingestion", () => {
   it("should delete service credential via Action", async () => {
     const db = getTestDb();
     // Create credential via action to get proper hash
-    const createRes = await createServiceCredentialAction({
+    const createRes = await createCredential({
       name: "Delete Credential",
       bookId: await testBookId(getTestDb()),
     });
@@ -335,7 +357,7 @@ describe("Service Credentials & Ledger Entry Ingestion", () => {
 
   it("tracks last use and rejects authentication immediately after revoke", async () => {
     const db = getTestDb();
-    const credential = await createServiceCredentialAction({
+    const credential = await createCredential({
       name: "Lifecycle Credential",
       bookId: await testBookId(getTestDb()),
     });
@@ -375,7 +397,7 @@ describe("Service Credentials & Ledger Entry Ingestion", () => {
 
   it("throttles lastUsedAt updates to once per five minutes", async () => {
     const db = getTestDb();
-    const credential = await createServiceCredentialAction({
+    const credential = await createCredential({
       name: "Throttle Credential",
       bookId: await testBookId(getTestDb()),
     });
@@ -422,7 +444,7 @@ describe("Service Credentials & Ledger Entry Ingestion", () => {
 
   it("should return credentials with prefix/suffix via getLedgerSettingsAction", async () => {
     // Create a credential via action to get proper hash-based credential
-    const created = await createServiceCredentialAction({
+    const created = await createCredential({
       name: "New Credential",
       bookId: await testBookId(getTestDb()),
     });

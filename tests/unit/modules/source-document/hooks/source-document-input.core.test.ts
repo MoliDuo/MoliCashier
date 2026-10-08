@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   buildSubmitPayload,
+  createSubmissionsEqual,
   parseStoredInputDraft,
   sourceDocumentPayloadsEqual,
   submitErrorMessageKey,
@@ -66,10 +67,10 @@ describe("sourceDocumentPayloadsEqual", () => {
 });
 
 describe("parseStoredInputDraft", () => {
-  it("accepts text with a picked or default date", () => {
-    expect(parseStoredInputDraft({ text: "午饭", entryDate: 1 })).toEqual({
+  it("accepts text with a picked calendar day or the default date", () => {
+    expect(parseStoredInputDraft({ text: "午饭", entryDate: "2026-07-17" })).toEqual({
       text: "午饭",
-      entryDate: 1,
+      entryDate: "2026-07-17",
     });
     expect(parseStoredInputDraft({ text: "", entryDate: null })).toEqual({
       text: "",
@@ -77,11 +78,37 @@ describe("parseStoredInputDraft", () => {
     });
   });
 
+  it("reads a draft from before dates were stored as days as the day it picked", () => {
+    expect(
+      parseStoredInputDraft({ text: "午饭", entryDate: new Date(2026, 6, 17).getTime() })
+    ).toEqual({ text: "午饭", entryDate: "2026-07-17" });
+  });
+
   it("refuses anything else", () => {
     expect(parseStoredInputDraft(null)).toBeNull();
     expect(parseStoredInputDraft({ text: 1, entryDate: null })).toBeNull();
     expect(parseStoredInputDraft({ text: "", entryDate: Number.NaN })).toBeNull();
-    expect(parseStoredInputDraft({ text: "", entryDate: "2026-07-17" })).toBeNull();
+    expect(parseStoredInputDraft({ text: "", entryDate: "17/07/2026" })).toBeNull();
+    expect(parseStoredInputDraft({ text: "", entryDate: "2026-7-17" })).toBeNull();
+  });
+});
+
+describe("createSubmissionsEqual", () => {
+  const payload = { documentDate: "2026-07-17", text: "Lunch", storedFileIds: [] };
+
+  it("reuses the key only for the same input sent to the same book", () => {
+    expect(
+      createSubmissionsEqual(
+        { bookId: "book-1", payload },
+        { bookId: "book-1", payload: { ...payload, storedFileIds: [] } }
+      )
+    ).toBe(true);
+    expect(
+      createSubmissionsEqual({ bookId: "book-1", payload }, { bookId: "book-2", payload })
+    ).toBe(false);
+    expect(createSubmissionsEqual({ bookId: null, payload }, { bookId: "book-1", payload })).toBe(
+      false
+    );
   });
 });
 

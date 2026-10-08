@@ -24,6 +24,8 @@ export type SourceDocumentInputProps = SourceDocumentInputBaseProps &
     | {
         mode: "retry";
         sourceDocumentId: string;
+        /** The record's latest attempt; a draft typed against another one is dropped. */
+        draftBasis: string | null;
         initialData: NonNullable<SourceDocumentInputBaseProps["initialData"]>;
       }
   );

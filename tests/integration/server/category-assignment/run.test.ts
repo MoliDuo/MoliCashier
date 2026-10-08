@@ -432,6 +432,28 @@ describe("running a category assignment job", () => {
     expect(await storedJob(job.id)).toMatchObject({ status: "running", claimToken: null });
   });
 
+  it("does not wait out a retry when shutdown came while the next document was looked up", async () => {
+    const { job, now } = await jobWithLaterDocument("1 hour");
+    const transport = model();
+    const shutdown = new AbortController();
+    const actual = vi.mocked(nextCategoryAssignmentDocument).getMockImplementation()!;
+    // The first lookup hands out the due document; the second, which finds only the later one,
+    // sees the shutdown arrive before it answers "wait".
+    vi.mocked(nextCategoryAssignmentDocument)
+      .mockImplementationOnce(actual)
+      .mockImplementationOnce(async (...args) => {
+        const next = await actual(...args);
+        shutdown.abort();
+        return next;
+      });
+
+    await expect(runNextCategoryAssignmentJob(shutdown.signal)).resolves.toBe(true);
+
+    expect((await documentWork(job.id, now.documentId)).status).toBe("succeeded");
+    expect(transport.complete).toHaveBeenCalledTimes(1);
+    expect(await storedJob(job.id)).toMatchObject({ status: "running", claimToken: null });
+  });
+
   it("hands the job back even when the run fails outside a document", async () => {
     const categories = await seedLedger();
     const document = await addDocument(1);

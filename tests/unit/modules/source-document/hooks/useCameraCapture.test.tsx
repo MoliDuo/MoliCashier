@@ -217,6 +217,23 @@ describe("useCameraCapture", () => {
 
     expect(stop).toHaveBeenCalledTimes(1);
   });
+  it("releases a camera that finished focusing after the viewfinder closed", async () => {
+    const camera = fakeCamera({ focusModes: ["continuous"], focusSetting: "single-shot" });
+    let finishFocus: () => void = () => {};
+    camera.applyConstraints.mockImplementation(
+      () => new Promise<void>((resolve) => (finishFocus = resolve))
+    );
+    stubMediaDevices({ getUserMedia: async () => camera.stream });
+
+    const { result, unmount } = renderCamera(true);
+    await waitFor(() => expect(camera.applyConstraints).toHaveBeenCalledTimes(1));
+
+    unmount();
+    await act(async () => finishFocus());
+
+    expect(camera.stop).toHaveBeenCalledTimes(1);
+    expect(result.current.status).toBe("starting");
+  });
 });
 
 describe("useCameraCapture rear camera choice", () => {

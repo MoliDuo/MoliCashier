@@ -39,7 +39,11 @@ export function AuthLoginPage({
   };
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-bg px-4 py-8">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="flex min-h-dvh items-center justify-center bg-bg px-4 py-8"
+    >
       <div className="w-full max-w-md">
         <div className="mb-6 text-center">
           <Image
@@ -115,6 +119,6 @@ export function AuthLoginPage({
           </div>
         ) : null}
       </div>
-    </div>
+    </main>
   );
 }

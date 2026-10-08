@@ -6,6 +6,9 @@ export const LEDGER_ROUTES = ["records", "entries", "stats", "settings"] as cons
 
 export type LedgerTab = (typeof LEDGER_ROUTES)[number];
 
+/** The routes that read a period; moving between them carries it along. */
+export const LEDGER_PERIOD_TABS: ReadonlySet<LedgerTab> = new Set(["records", "entries", "stats"]);
+
 export function isLedgerTab(value: string | null | undefined): value is LedgerTab {
   return value != null && LEDGER_ROUTES.includes(value as LedgerTab);
 }

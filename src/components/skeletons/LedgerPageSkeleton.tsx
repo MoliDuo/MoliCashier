@@ -8,8 +8,9 @@ import {
 } from "./TabSkeletons";
 
 /**
- * Skeleton component for the main ledger page
- * Shows immediately while server-side data is loading
+ * The whole ledger page while its first server render is on the way: the bars
+ * and the skeleton of the route being opened. It is only a picture, so it
+ * names no landmarks; the real page brings its own <main>.
  */
 export function LedgerPageSkeleton({ page = "records" }: { page?: LedgerTab }) {
   const contentByPage: Record<LedgerTab, ReactNode> = {
@@ -22,16 +23,16 @@ export function LedgerPageSkeleton({ page = "records" }: { page?: LedgerTab }) {
   return (
     <div aria-hidden="true" className="min-h-screen bg-bg text-text">
       {/* Header skeleton */}
-      <header className="sticky top-0 z-header border-b border-border bg-surface">
+      <div className="sticky top-0 z-header border-b border-border bg-surface pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-3 sm:px-4 md:px-6">
           <div className="h-4 w-16 animate-pulse rounded bg-surface2" />
           <div className="h-9 w-9 animate-pulse rounded-md bg-primary/20" />
         </div>
-      </header>
+      </div>
 
-      <main className="relative z-content mx-auto w-full max-w-6xl px-3 py-4 sm:px-4 md:px-6">
+      <div className="relative z-content mx-auto w-full max-w-6xl px-3 py-4 sm:px-4 md:px-6">
         {contentByPage[page]}
-      </main>
+      </div>
     </div>
   );
 }

@@ -33,6 +33,7 @@ import { SettingsSection } from "@/components/SettingsSection";
 import { useCategoryAssignment } from "./category-assignment-context";
 import { commonCopy } from "@/copy/common";
 import { settingsCopy } from "@/copy/settings";
+import { CATEGORY_NAME_MAX_LENGTH } from "@/modules/ledger/category-limits";
 
 interface CategorySectionProps {
   /** Carries `entryCount`, shown beside each category. */
@@ -64,6 +65,7 @@ export function CategorySection({
     setNewCategoryName,
     editSession,
     setEditSession,
+    editNameTaken,
     deleteTarget,
     setDeleteTarget,
     discardManagementOpen,
@@ -274,6 +276,7 @@ export function CategorySection({
               value={newCategoryName}
               name="newCategoryName"
               autoComplete="off"
+              maxLength={CATEGORY_NAME_MAX_LENGTH}
               onChange={(event) => setNewCategoryName(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
@@ -332,6 +335,7 @@ export function CategorySection({
       <CategoryEditDialog
         editSession={editSession}
         setEditSession={setEditSession}
+        nameTaken={editNameTaken}
         onRequestClose={requestEditClose}
         onCommit={commitEdit}
       />

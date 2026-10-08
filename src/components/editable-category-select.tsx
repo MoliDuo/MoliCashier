@@ -50,7 +50,10 @@ export function EditableCategorySelect({
     if (iconOnly) {
       return (
         <span
-          className={cn("inline-flex min-h-11 w-8 shrink-0 items-center justify-center", className)}
+          className={cn(
+            "inline-flex min-h-11 w-8 max-md:w-11 shrink-0 items-center justify-center",
+            className
+          )}
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-surface2 text-text">
             {selectedCategory ? (
@@ -96,7 +99,7 @@ export function EditableCategorySelect({
             textRoleClassName("body", "inline-flex min-h-11 items-center gap-1 rounded px-3 py-1"),
             "cursor-pointer transition-colors",
             iconOnly
-              ? "w-8 shrink-0 justify-center gap-0 px-0"
+              ? "w-8 max-md:w-11 shrink-0 justify-center gap-0 px-0"
               : "border border-transparent hover:bg-surface2 hover:border-border/50",
             !iconOnly &&
               (selectedCategory ? "bg-primary/10 text-primary" : "text-muted-foreground"),

@@ -70,8 +70,10 @@ describe("useLedgerPageEnvironment", () => {
 
     const { result } = renderEnvironment({ withInitialData: false });
 
-    await waitFor(() => expect(getLedgerActionMock).toHaveBeenCalledWith());
-    expect(getEntryCategoriesActionMock).toHaveBeenCalledWith();
+    await waitFor(() =>
+      expect(getLedgerActionMock).toHaveBeenCalledWith({ signal: expect.any(AbortSignal) })
+    );
+    expect(getEntryCategoriesActionMock).toHaveBeenCalledWith({ signal: expect.any(AbortSignal) });
     await waitFor(() => expect(result.current.environment.mainCurrency).toBe("EUR"));
   });
 

@@ -1,11 +1,14 @@
 "use server";
-import { ValidationError } from "@/lib/errors";
+import { AppError, ValidationError } from "@/lib/errors";
+import { logError } from "@/lib/error-handlers";
 import { requestBackgroundWork } from "@/server/background/wake";
 import type {
   CategoryAssignmentCandidateSnapshot,
   CategoryAssignmentMode,
   CategoryAssignmentJobDto,
+  StartCategoryAssignmentErrorCode,
   StartCategoryAssignmentInput,
+  StartCategoryAssignmentResult,
 } from "@/modules/ledger/contracts";
 import {
   parseCancelCategoryAssignmentInput,
@@ -13,7 +16,7 @@ import {
   parseStartCategoryAssignmentInput,
 } from "../contract-schemas";
 import { toCategoryAssignmentJobDto } from "@/modules/ledger/server/category-assignment-job-dto";
-import { withLedgerAccess } from "../access";
+import { withLedgerAction } from "../action-access";
 import { listCategories } from "../server/categories";
 import { getLedgerSettings } from "../server/settings";
 import {
@@ -74,20 +77,44 @@ async function start(
 }
 
 /**
+ * A production browser sees a thrown action error only as a generic message,
+ * so the refusals the page explains come back as codes.
+ */
+function toStartCategoryAssignmentErrorCode(error: unknown): StartCategoryAssignmentErrorCode {
+  if (!(error instanceof AppError)) return "unexpected";
+  switch (error.code) {
+    case "CONFLICT":
+      return "busy";
+    case "VALIDATION_ERROR":
+      return "invalid";
+    default:
+      return "unexpected";
+  }
+}
+
+/**
  * Starts a run over the selected entries in one call; replaying the same
  * request key returns the run it started.
  */
-export const startCategoryAssignmentAction = withLedgerAccess(
-  async (input: StartCategoryAssignmentInput) => start(parseStartCategoryAssignmentInput(input))
+export const startCategoryAssignmentAction = withLedgerAction(
+  async (input: StartCategoryAssignmentInput): Promise<StartCategoryAssignmentResult> => {
+    try {
+      return { ok: true, job: await start(parseStartCategoryAssignmentInput(input)) };
+    } catch (error) {
+      const code = toStartCategoryAssignmentErrorCode(error);
+      if (code === "unexpected") logError("category-assignment:start", error);
+      return { ok: false, code };
+    }
+  }
 );
 
-export const cancelCategoryAssignmentAction = withLedgerAccess(async (input: { jobId: string }) => {
+export const cancelCategoryAssignmentAction = withLedgerAction(async (input: { jobId: string }) => {
   const validated = parseCancelCategoryAssignmentInput(input);
   await cancelCategoryAssignment({ jobId: validated.jobId });
   return loadJob(validated.jobId);
 });
 
-export const retryCategoryAssignmentFailuresAction = withLedgerAccess(
+export const retryCategoryAssignmentFailuresAction = withLedgerAction(
   async (input: { jobId: string; requestKey: string }) => {
     const validated = parseRetryCategoryAssignmentInput(input);
     const retry = await retryCategoryAssignmentFailures({
@@ -99,7 +126,7 @@ export const retryCategoryAssignmentFailuresAction = withLedgerAccess(
   }
 );
 
-export const retryCategoryAssignmentLatestAction = withLedgerAccess(
+export const retryCategoryAssignmentLatestAction = withLedgerAction(
   async (input: { jobId: string; requestKey: string }) => {
     const validated = parseRetryCategoryAssignmentInput(input);
     const latest = await resolveLatestConflictSelection({

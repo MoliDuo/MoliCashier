@@ -428,10 +428,10 @@ test("books production files an API upload into the book its key is bound to", a
   await openTab(page, "设置");
   await addBook(page, bookName);
 
-  await page.getByRole("button", { name: "新建密钥", exact: true }).click();
+  await page.getByRole("button", { name: "新建 API 密钥", exact: true }).click();
   const createDialog = page.getByRole("dialog").last();
   await createDialog
-    .getByLabel("密钥名称 (例如: 自动记账脚本)", { exact: true })
+    .getByLabel("密钥名称（例如：自动记账脚本）", { exact: true })
     .fill(credentialName);
   await createDialog.getByLabel("分账", { exact: true }).press("ArrowDown");
   await page.getByRole("option", { name: bookName, exact: true }).click();

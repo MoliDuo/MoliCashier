@@ -228,8 +228,8 @@ export const EditableLedgerEntryItem = memo(function EditableLedgerEntryItem({
             </Popover>
 
             <CalculatorInput
-              value={parseAmount(displayData.amount)}
-              onChange={(v) => handleChange("amount", v.toFixed(amountDecimals))}
+              value={displayData.amount ?? "0"}
+              onChange={(v) => handleChange("amount", v)}
               displayClassName={amountTextClassName("item")}
               allowNegative={parseAmount(displayData.amount) < 0}
               preserveDirection

@@ -9,6 +9,12 @@ import { useOverlayHistory } from "@/lib/navigation/overlay-history";
 
 const DialogDepthContext = React.createContext(0);
 
+/**
+ * Marks an inline editor whose Esc cancels its own edit; an Esc pressed inside
+ * it leaves the surrounding dialog open.
+ */
+const ESCAPE_CANCELS_SELECTOR = "[data-escape-cancels]";
+
 function Dialog({
   closeOnBack = true,
   ...props
@@ -84,6 +90,7 @@ const DialogContent = React.forwardRef<
       hideCloseButton = false,
       onExitComplete,
       onInteractOutside,
+      onEscapeKeyDown,
       onOpenAutoFocus,
       onCloseAutoFocus,
       style,
@@ -119,6 +126,16 @@ const DialogContent = React.forwardRef<
             onExitComplete?.();
           }}
           {...props}
+          onEscapeKeyDown={(event) => {
+            // Radix reads Escape in the document's capture phase, before an
+            // inline editor sees it, so Esc there would close the whole dialog.
+            // A control marked `data-escape-cancels` uses Esc to cancel its own edit.
+            if (event.target instanceof Element && event.target.closest(ESCAPE_CANCELS_SELECTOR)) {
+              event.preventDefault();
+              return;
+            }
+            onEscapeKeyDown?.(event);
+          }}
           onInteractOutside={(event) => {
             if (event.target instanceof Element && event.target.closest("[data-sonner-toast]")) {
               event.preventDefault();

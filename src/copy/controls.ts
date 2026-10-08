@@ -11,6 +11,13 @@ export const calculatorCopy = {
   delete: "删除",
   calculate: "计算",
   confirm: "确认",
+  clearAll: "AC",
+  clearAllLabel: "全部清除",
+  error: "无法计算",
+  add: "加",
+  subtract: "减",
+  multiply: "乘",
+  divide: "除",
 };
 
 export const calendarCopy = {
@@ -19,7 +26,6 @@ export const calendarCopy = {
   clear: "清除",
   previousMonth: "上个月",
   nextMonth: "下个月",
-  weekDays: ["日", "一", "二", "三", "四", "五", "六"],
   weekDaysMon: ["一", "二", "三", "四", "五", "六", "日"],
   currency: "货币",
   noData: "暂无数据",
@@ -52,6 +58,7 @@ export const periodBarCopy = {
   apply: "应用",
   from: "开始日期",
   to: "结束日期",
+  customTooLong: ({ days }: { days: number }) => `自定义区间最长 ${days} 天，请缩短后再应用。`,
   previousYear: "上一年",
   nextYear: "下一年",
   yearName: ({ year }: { year: number }) => `${year}年`,

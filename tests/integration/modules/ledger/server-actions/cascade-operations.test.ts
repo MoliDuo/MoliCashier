@@ -377,12 +377,14 @@ describe("D1: Delete Source Document → Related Entries Deleted", () => {
 
 async function removeCategoryFromCollection(categoryId: string) {
   const categories = await listCategories();
-  return saveEntryCategoriesAction({
+  const result = await saveEntryCategoriesAction({
     expectedRevision: await computeCategoryCollectionRevision(categories),
     categories: categories
       .filter((category) => category.id !== categoryId)
       .map(({ id, name, description, icon }) => ({ id, name, description, icon })),
   });
+  if (!result.ok) throw new Error(`Expected the save to succeed, got ${result.code}`);
+  return result.categories;
 }
 async function readUncategorizedCount() {
   return (await getLedgerSettingsAction()).uncategorizedCount;

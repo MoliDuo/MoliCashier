@@ -7,6 +7,7 @@ import {
   UUID_REGEX,
 } from "@/lib/validation";
 import { MAX_BATCH_SIZE } from "@/lib/batch-ids";
+import { CATEGORY_DESCRIPTION_MAX_LENGTH, CATEGORY_NAME_MAX_LENGTH } from "./category-limits";
 import { CATEGORY_ASSIGNMENT_MAX_ENTRIES } from "@/config/tuning";
 import { isValidTimeZone } from "@/lib/date-utils";
 import { MAX_SEARCH_LENGTH, normalizeSearchTerm } from "@/lib/search";
@@ -148,8 +149,8 @@ const saveEntryCategoriesInputSchema = strictObjectSchema({
       strictObjectSchema({
         id: uuidSchema.optional(),
         clientId: uuidSchema.optional(),
-        name: z.string().trim().min(1).max(100),
-        description: z.string().max(500).nullable(),
+        name: z.string().trim().min(1).max(CATEGORY_NAME_MAX_LENGTH),
+        description: z.string().max(CATEGORY_DESCRIPTION_MAX_LENGTH).nullable(),
         icon: z.string().max(100).nullable(),
       }).superRefine((category, context) => {
         if ((category.id == null) === (category.clientId == null)) {

@@ -57,7 +57,7 @@ src/app/                  路由与 API handler：认证、校验、调用、映
   healthz                 容器健康检查，返回 {ok, version}（version 是构建的提交哈希）
   login、api/auth         登录说明页，以及 OIDC 登录与回调
 src/modules/<m>/          auth、currency、forecast、ledger、source-document、stats、workspace
-  server-actions/         Zod 校验 + withLedgerAccess，然后直接调用 server/ 的函数；只用于命令
+  server-actions/         Zod 校验 + withLedgerAction，然后直接调用 server/ 的函数；只用于命令
   queries.ts              本模块的类型化读取，建立在无类型的 postLedgerQuery 传输层之上
   server/                 drizzle 数据访问与事务（"server-only"）
   domain/                 纯决策：状态、金额、解析、提示词；不碰数据库、框架和 IO
@@ -345,7 +345,9 @@ UTC 18:00（ECB 已发布当天汇率）运行一次 `runDailyMaintenance`（`sr
 - **读取。** React Query，经 `/api/ledger-queries` 这个会话查询路由，包括页面预取；
   各模块的 `queries.ts` 在无类型的 `postLedgerQuery` 传输层上给读取加类型。server action 是串行执行的，
   只用于命令。
-- **写入。** 用集中定义的 query key 和 `useLedgerMutation`。完成后走和刷新同一条路：先重新读一次同步版本，
+- **写入。** 用集中定义的 query key 和 `useLedgerMutation`，失败默认提示"保存失败"，自己说明失败的调用方传 `null`。
+  server action 抛出的错误在生产环境只剩一句通用信息，所以界面要分辨的拒绝（重名、冲突、额度）以
+  `{ ok: false, code }` 返回；未登录的 action 由 `withLedgerAction` 跳去登录，`/api/ledger-queries` 仍回 401。完成后走和刷新同一条路：先重新读一次同步版本，
   版本变了由刷新让全部可见的账本查询失效；版本没变（写的是凭证、分账这类触发器不记的表）就直接让它们失效。
   没有按资源分组的失效表，不去修补筛选窗口，也不维护客户端实体仓库。两个人、一个账本，多刷新几个可见查询的
   代价远小于漏刷一个。
@@ -371,7 +373,8 @@ UTC 18:00（ECB 已发布当天汇率）运行一次 `runDailyMaintenance`（`sr
   连续拆分用这个快照发出下一条命令。后台的列表和统计刷新不能让一次成功的命令一直处于 pending：命令可以只等它自己的详情
   （`waitFor`），或完全不等刷新（`waitFor: false`）。
 - **选择时列表冻结。** 批量选择期间列表查询暂停（`enabled: false`），后台刷新不会在选中项下面换掉行；
-  退出选择后过期的查询自动重新读取。批量对话框操作的就是此刻的选择，不需要快照和比对。
+  退出选择后过期的查询自动重新读取，所以批量操作全部成功后直接退出选择，只有失败的项留在选择里。
+  批量对话框操作的就是此刻的选择，不需要快照和比对。
   账目、明细和账单详情共用同一套选择呈现（`SelectionBar` 的全选框和计数，还有未加载的页时计数写成"已加载"；手机上全选和计数在顶栏，动作在操作栏），各自只提供自己有的批量动作；
   批量改日期的影响预览（`useBatchDatePreview`）和翻页去重（`uniquePagedItems`）也只有一份。
 - **统计的口径。** 总额、分类的"较上期"都和上期的同一段日子比（进行中的周期截到今天，上期截到同一天）；
@@ -447,7 +450,9 @@ UTC 18:00（ECB 已发布当天汇率）运行一次 `runDailyMaintenance`（`sr
   统计各自的水位线（`ledger_sync_state`）。刷新时比较水位线和观察者的版本，不需要变更历史。改主币种会推进全部水位线。
 - 刷新只有一个驱动：`useLedgerSync`（`src/modules/workspace/hooks/useLedgerSync.ts`），在 ledger layout 里挂一次，
   账本的每个路由都受它照看。它的 query key 是 `["ledger-sync"]`，不在 `["ledger"]` 前缀下，失效时不会刷新自己。
-- 版本一变，就让全部可见的 `["ledger"]` 查询失效，不区分是哪类资源变了。响应里还报告是否还有处理中的票据：
+- 版本一变，就让全部可见的 `["ledger"]` 查询失效，不区分是哪类资源变了。某个查询读失败由所在页面显示，
+  刷新驱动照样记下新版本，不会因此每次轮询都再失效一遍；写入后的刷新仍会提示"已保存，但无法刷新"。
+  查询 key 里是相对周期，所以账本时区跨天时也让可见查询失效一次。响应里还报告是否还有处理中的票据：
   有过渡中的工作时，可见页面每 3 秒轮询，否则每 30 秒比对一次版本，另一个人记的账不用离开页面也会出现；
   后台不轮询，获得焦点或重新联网时刷新。
 - 处理中标记只有两个来源：刷新接口本身，以及首屏注水时的初始数据。列表不写它。
@@ -460,7 +465,8 @@ UTC 18:00（ECB 已发布当天汇率）运行一次 `runDailyMaintenance`（`sr
   `draft:<kind>:<id>`，只存可 JSON 化的字段，选中的图片只在页面生命周期内留在内存。
 - 关闭表单、用浏览器历史离开，都不询问；下次打开时恢复草稿，并提示"有未保存的修改 · 放弃"。账单详情没有草稿：
   每个字段改完就写库。
-- 已有记录的草稿记着它基于的版本，记录被改过时，草稿按冲突拒绝。
+- 已有记录的草稿记着它基于的提取尝试（`latestAttemptId`），记录在别处重新处理过时，草稿按冲突丢弃并提示。
+  草稿里的日期存为账本的 `YYYY-MM-DD`。
 - 只有主动点"取消编辑"时才确认放弃。后退从不被拦下询问，只会关掉最上层的对话框。对话框退出用 Radix 的
   关闭焦点生命周期，不依赖可能永远不触发的 CSS 动画事件。
 - 主动退出登录时清掉本机的全部草稿、记住的分账（`cashier:` 前缀的 key 和分账 cookie），主题保留。

@@ -12,6 +12,7 @@ import {
   takeDraftFromMemory,
   writeDraft,
 } from "@/lib/drafts";
+import { formatDateTimeForApi, parseDateString } from "@/lib/date-utils";
 import { useLedgerMutation } from "@/lib/mutations/use-ledger-mutation";
 import { fireAndForget } from "@/lib/safe-async";
 import { MAX_FILES } from "@/lib/storage/upload-policy";
@@ -26,10 +27,10 @@ import {
   areImagesEqual,
   buildSubmitPayload,
   createDraftDateState,
+  createSubmissionsEqual,
   parseStoredInputDraft,
   releaseEditableImage,
   snapshotPayload,
-  sourceDocumentPayloadsEqual,
   submitErrorMessageKey,
   toEditableImages,
   toModalImages,
@@ -51,10 +52,13 @@ interface MemoryInputDraft {
   text: string;
   images: EditableInputImage[];
   dateState: DraftDateState;
+  /** The record's latest attempt the draft was made against; null for a new record. */
+  basis: string | null;
 }
 
 interface CreateVariables {
   payload: SourceDocumentSubmitPayload;
+  bookId: string | null;
   clientSubmissionId: string;
   signal: AbortSignal;
 }
@@ -66,28 +70,59 @@ interface RetryVariables {
 
 interface CreateSubmissionIdentity {
   payload: SourceDocumentSubmitPayload;
+  bookId: string | null;
   clientSubmissionId: string;
   uploadedPayload: SourceDocumentSubmitPayload | null;
 }
 
+interface RestoredDraft {
+  draft: MemoryInputDraft | null;
+  /** A draft was found but made against an earlier attempt, so it was dropped. */
+  discardedStale: boolean;
+}
+
+/**
+ * The draft this form left last time. A retry draft records the attempt it was
+ * typed against; once the record has been reprocessed since, the draft no
+ * longer describes its input and is dropped rather than submitted over it.
+ */
 function restoreDraft(
   key: string,
+  basis: string | null,
   initialData: SourceDocumentInputInitialData | undefined,
   timeZone: string | undefined
-): MemoryInputDraft | null {
+): RestoredDraft {
   const initialDate = createDraftDateState(initialData, timeZone);
   const kept = takeDraftFromMemory<MemoryInputDraft>(key);
-  // A default date kept overnight is yesterday by now; only a hand-picked one stays.
-  if (kept != null) return kept.dateState.touched ? kept : { ...kept, dateState: initialDate };
+  if (kept != null) {
+    if (kept.basis !== basis) {
+      kept.images.forEach(releaseEditableImage);
+      clearDraft(key);
+      return { draft: null, discardedStale: true };
+    }
+    // A default date kept overnight is yesterday by now; only a hand-picked one stays.
+    return {
+      draft: kept.dateState.touched ? kept : { ...kept, dateState: initialDate },
+      discardedStale: false,
+    };
+  }
   const stored = readDraft(key, parseStoredInputDraft);
-  if (stored == null) return null;
+  if (stored == null) return { draft: null, discardedStale: false };
+  if (stored.basis !== basis) {
+    clearDraft(key);
+    return { draft: null, discardedStale: true };
+  }
   return {
-    text: stored.data.text,
-    images: toEditableImages(initialData?.images),
-    dateState:
-      stored.data.entryDate == null
-        ? initialDate
-        : { ...initialDate, entryDate: new Date(stored.data.entryDate), touched: true },
+    draft: {
+      text: stored.data.text,
+      images: toEditableImages(initialData?.images),
+      dateState:
+        stored.data.entryDate == null
+          ? initialDate
+          : { ...initialDate, entryDate: parseDateString(stored.data.entryDate), touched: true },
+      basis,
+    },
+    discardedStale: false,
   };
 }
 
@@ -112,10 +147,14 @@ export function useSourceDocumentInput(props: SourceDocumentInputProps) {
   const { onSuccess, onPendingChange, onDirtyChange, initialData, timeZone, bookId } = props;
   const [target] = useState(() =>
     props.mode === "retry"
-      ? { mode: "retry" as const, sourceDocumentId: props.sourceDocumentId }
-      : { mode: "create" as const, sourceDocumentId: null }
+      ? {
+          mode: "retry" as const,
+          sourceDocumentId: props.sourceDocumentId,
+          draftBasis: props.draftBasis,
+        }
+      : { mode: "create" as const, sourceDocumentId: null, draftBasis: null }
   );
-  const { mode, sourceDocumentId } = target;
+  const { mode, sourceDocumentId, draftBasis } = target;
   // Where this form's unsaved input is kept.
   const storageKey =
     sourceDocumentId != null
@@ -124,8 +163,13 @@ export function useSourceDocumentInput(props: SourceDocumentInputProps) {
 
   // --- The draft ------------------------------------------------------------
 
-  const [restored] = useState(() => restoreDraft(storageKey, initialData, timeZone));
+  const [{ draft: restored, discardedStale }] = useState(() =>
+    restoreDraft(storageKey, draftBasis, initialData, timeZone)
+  );
   const [restoredFromDraft, setRestoredFromDraft] = useState(restored != null);
+  useEffect(() => {
+    if (discardedStale) toast.warning(sourceDocumentInputCopy.staleDraftDiscarded);
+  }, [discardedStale]);
   const [text, setText] = useState(restored?.text ?? initialData?.text ?? "");
   const [images, setImages] = useState<EditableInputImage[]>(
     () => restored?.images ?? toEditableImages(initialData?.images)
@@ -152,6 +196,10 @@ export function useSourceDocumentInput(props: SourceDocumentInputProps) {
 
   /** After a submit: the form starts over empty and nothing is kept. */
   const resetDraft = () => {
+    // The dialog usually closes in the same tick, before this reset renders; the
+    // unmount cleanup must already see a clean form, or it keeps the submitted
+    // input as a draft for the next opening.
+    latestRef.current = { ...latestRef.current, isDraftDirty: false };
     setText("");
     replaceImages([]);
     setDateState(createDraftDateState(undefined, timeZone));
@@ -196,11 +244,11 @@ export function useSourceDocumentInput(props: SourceDocumentInputProps) {
     entryDate.getTime() !== dateState.baseline;
   const hasInput = text !== "" || images.length > 0;
 
-  const latestRef = useRef({ text, images, dateState, isDraftDirty, storageKey });
+  const latestRef = useRef({ text, images, dateState, isDraftDirty, storageKey, draftBasis });
   useEffect(() => {
     imagesRef.current = images;
-    latestRef.current = { text, images, dateState, isDraftDirty, storageKey };
-  }, [dateState, storageKey, images, isDraftDirty, text]);
+    latestRef.current = { text, images, dateState, isDraftDirty, storageKey, draftBasis };
+  }, [dateState, draftBasis, storageKey, images, isDraftDirty, text]);
 
   useEffect(() => {
     if (!isDraftDirty) {
@@ -209,10 +257,10 @@ export function useSourceDocumentInput(props: SourceDocumentInputProps) {
     }
     const stored: StoredInputDraft = {
       text,
-      entryDate: dateState.touched ? dateState.entryDate.getTime() : null,
+      entryDate: dateState.touched ? formatDateTimeForApi(dateState.entryDate) : null,
     };
-    writeDraft(storageKey, stored);
-  }, [dateState, storageKey, isDraftDirty, text]);
+    writeDraft(storageKey, stored, draftBasis);
+  }, [dateState, draftBasis, storageKey, isDraftDirty, text]);
 
   // Closing the form keeps an unsaved draft, images included, for the next
   // opening on this page; only a clean form lets its images go.
@@ -224,6 +272,7 @@ export function useSourceDocumentInput(props: SourceDocumentInputProps) {
           text: latest.text,
           images: latest.images,
           dateState: latest.dateState,
+          basis: latest.draftBasis,
         };
         keepDraftInMemory(latest.storageKey, kept);
         return;
@@ -312,7 +361,7 @@ export function useSourceDocumentInput(props: SourceDocumentInputProps) {
       setMonotonicProgress({ phase: "submitting", percent: 90 });
       return createSourceDocumentAction(
         {
-          ...(bookId == null ? {} : { bookId }),
+          ...(variables.bookId == null ? {} : { bookId: variables.bookId }),
           ...(uploadedPayload.text == null ? {} : { text: uploadedPayload.text }),
           storedFileIds: uploadedPayload.storedFileIds,
           ...(uploadedPayload.documentDate == null
@@ -371,12 +420,11 @@ export function useSourceDocumentInput(props: SourceDocumentInputProps) {
     setProgress({ phase: "preparing", percent: 0 });
     if (mode === "create") {
       const currentIdentity = createSubmissionIdentityRef.current;
-      if (
-        currentIdentity == null ||
-        !sourceDocumentPayloadsEqual(currentIdentity.payload, payload)
-      ) {
+      const submission = { bookId: bookId ?? null, payload };
+      if (currentIdentity == null || !createSubmissionsEqual(currentIdentity, submission)) {
         createSubmissionIdentityRef.current = {
           payload: snapshotPayload(payload),
+          bookId: submission.bookId,
           clientSubmissionId: crypto.randomUUID(),
           uploadedPayload: null,
         };
@@ -397,6 +445,7 @@ export function useSourceDocumentInput(props: SourceDocumentInputProps) {
       }
       createMutation.mutate({
         payload,
+        bookId: createSubmissionIdentityRef.current!.bookId,
         clientSubmissionId: createSubmissionIdentityRef.current!.clientSubmissionId,
         signal: controller.signal,
       });
@@ -449,7 +498,11 @@ export function useSourceDocumentInput(props: SourceDocumentInputProps) {
       if (mountedRef.current) setPendingFileCount(pendingFileReservationsRef.current);
     }
 
-    if (!mountedRef.current) return;
+    if (!mountedRef.current) {
+      // The form went away while the files loaded; nothing will show them.
+      for (const result of results) if (result.kind === "ready") releaseEditableImage(result.image);
+      return;
+    }
 
     const loadedImages = results.flatMap((result) => {
       if (result.kind === "too-large") {
@@ -463,13 +516,15 @@ export function useSourceDocumentInput(props: SourceDocumentInputProps) {
       return [result.image];
     });
     const acceptedImages = loadedImages.slice(0, Math.max(0, MAX_FILES - imageCountRef.current));
+    loadedImages.slice(acceptedImages.length).forEach(releaseEditableImage);
     if (acceptedImages.length < loadedImages.length) toast.error(tooManyImages);
     if (acceptedImages.length === 0) return;
     imageCountRef.current += acceptedImages.length;
-    replaceImages((previousImages) => [
-      ...previousImages,
-      ...acceptedImages.slice(0, Math.max(0, MAX_FILES - previousImages.length)),
-    ]);
+    replaceImages((previousImages) => {
+      const fitting = acceptedImages.slice(0, Math.max(0, MAX_FILES - previousImages.length));
+      acceptedImages.slice(fitting.length).forEach(releaseEditableImage);
+      return [...previousImages, ...fitting];
+    });
   };
 
   const addImageFiles = (files: File[]) => {

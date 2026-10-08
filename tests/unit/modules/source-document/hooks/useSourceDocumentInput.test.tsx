@@ -14,6 +14,7 @@ const {
   retrySourceDocumentActionMock,
   toastErrorMock,
   toastSuccessMock,
+  toastWarningMock,
   uploadSubmissionImagesMock,
 } = vi.hoisted(() => ({
   createSourceDocumentActionMock: vi.fn(),
@@ -21,6 +22,7 @@ const {
   retrySourceDocumentActionMock: vi.fn(),
   toastErrorMock: vi.fn(),
   toastSuccessMock: vi.fn(),
+  toastWarningMock: vi.fn(),
   uploadSubmissionImagesMock: vi.fn(),
 }));
 
@@ -31,7 +33,7 @@ vi.mock("@/modules/source-document/server-actions/retry", () => ({
   editRetrySourceDocumentAction: retrySourceDocumentActionMock,
 }));
 vi.mock("sonner", () => ({
-  toast: { error: toastErrorMock, success: toastSuccessMock },
+  toast: { error: toastErrorMock, success: toastSuccessMock, warning: toastWarningMock },
 }));
 vi.mock("@/modules/source-document/hooks/source-document-input-images", () => ({
   loadSourceDocumentInputFiles: loadFilesMock,
@@ -119,6 +121,7 @@ describe("useSourceDocumentInput", () => {
     retrySourceDocumentActionMock.mockReset();
     toastErrorMock.mockReset();
     toastSuccessMock.mockReset();
+    toastWarningMock.mockReset();
     loadFilesMock.mockReset();
     uploadSubmissionImagesMock.mockReset();
     uploadSubmissionImagesMock.mockImplementation(async (payload: unknown) => payload);
@@ -224,6 +227,39 @@ describe("useSourceDocumentInput", () => {
       expect(revokeObjectURL).toHaveBeenCalledWith("blob:kept");
       expect(revokeObjectURL).toHaveBeenCalledTimes(4);
     });
+    it("releases images that finish loading after the form closed", async () => {
+      const revokeObjectURL = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+      let finishLoading: (results: unknown[]) => void = () => {};
+      loadFilesMock.mockReturnValue(new Promise((resolve) => (finishLoading = resolve)));
+      const { result, unmount } = renderInput();
+
+      act(() => result.current.addImageFiles([imageFile()]));
+      unmount();
+      await act(async () => finishLoading([objectUrlImage("blob:late")]));
+
+      expect(revokeObjectURL).toHaveBeenCalledWith("blob:late");
+    });
+
+    it("releases the loaded images that no longer fit", async () => {
+      const revokeObjectURL = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+      const { MAX_FILES } = await import("@/lib/storage/upload-policy");
+      const { result } = renderInput();
+      const filled = Array.from({ length: MAX_FILES - 1 }, (_, index) => `blob:fill-${index}`);
+      loadFilesMock.mockResolvedValueOnce(filled.map(objectUrlImage));
+      act(() => result.current.addImageFiles(filled.map(() => imageFile())));
+      await waitFor(() => expect(result.current.images).toHaveLength(MAX_FILES - 1));
+
+      // A load that comes back with more images than the slot it reserved.
+      loadFilesMock.mockResolvedValueOnce([
+        objectUrlImage("blob:fits"),
+        objectUrlImage("blob:extra"),
+      ]);
+      act(() => result.current.addImageFiles([imageFile()]));
+      await waitFor(() => expect(result.current.images).toHaveLength(MAX_FILES));
+
+      expect(revokeObjectURL).toHaveBeenCalledWith("blob:extra");
+      expect(revokeObjectURL).not.toHaveBeenCalledWith("blob:fits");
+    });
   });
 
   describe("draft", () => {
@@ -266,6 +302,7 @@ describe("useSourceDocumentInput", () => {
       const { result, isDirty } = renderInput({
         mode: "retry",
         sourceDocumentId: "source-1",
+        draftBasis: null,
         initialData,
       });
 
@@ -308,6 +345,78 @@ describe("useSourceDocumentInput", () => {
       } finally {
         vi.useRealTimers();
       }
+    });
+
+    it("stores a picked date as a calendar day and still reads the old millisecond form", () => {
+      const key = "draft:new-record-ai:new";
+      const first = renderInput({ timeZone: "UTC" });
+      act(() => first.result.current.setText("早餐"));
+      act(() => first.result.current.setEntryDate(parseDateString("2026-07-20")));
+      expect(JSON.parse(window.localStorage.getItem(key)!).data).toEqual({
+        text: "早餐",
+        entryDate: "2026-07-20",
+      });
+      first.unmount();
+
+      clearAllDrafts();
+      window.localStorage.setItem(
+        key,
+        JSON.stringify({
+          v: 1,
+          savedAt: Date.now(),
+          basis: null,
+          data: { text: "旧草稿", entryDate: new Date(2026, 6, 18).getTime() },
+        })
+      );
+      const legacy = renderInput({ timeZone: "UTC" });
+      expect(legacy.result.current.text).toBe("旧草稿");
+      expect(formatDateTimeForApi(legacy.result.current.entryDate)).toBe("2026-07-18");
+    });
+
+    it("drops a retry draft typed against an earlier attempt", () => {
+      const seed = {
+        mode: "retry" as const,
+        sourceDocumentId: "source-1",
+        initialData: { text: "Original", entryDate: "2026-08-19" },
+      };
+      const first = renderInput({ ...seed, draftBasis: "attempt-1" });
+      act(() => first.result.current.setText("Unsaved"));
+      first.unmount();
+
+      // Same attempt: the draft comes back.
+      const same = renderInput({ ...seed, draftBasis: "attempt-1" });
+      expect(same.result.current.text).toBe("Unsaved");
+      same.unmount();
+      expect(toastWarningMock).not.toHaveBeenCalled();
+
+      // Reprocessed elsewhere since: neither the kept nor the stored copy survives.
+      const reprocessed = renderInput({ ...seed, draftBasis: "attempt-2" });
+      expect(reprocessed.result.current.text).toBe("Original");
+      expect(reprocessed.result.current.restoredFromDraft).toBe(false);
+      expect(toastWarningMock).toHaveBeenCalledWith(sourceDocumentInputCopy.staleDraftDiscarded);
+      expect(window.localStorage.getItem("draft:retry:source-1")).toBeNull();
+    });
+
+    it("keeps nothing once a retry is submitted and the dialog closes with it", async () => {
+      retrySourceDocumentActionMock.mockResolvedValue({ status: "processing" });
+      const seed = {
+        mode: "retry" as const,
+        sourceDocumentId: "source-1",
+        draftBasis: "attempt-1",
+        initialData: { text: "Original", entryDate: "2026-08-19" },
+      };
+      const onSuccess = vi.fn();
+      const view = renderInput({ ...seed, onSuccess });
+      // The dialog unmounts the form from inside the success callback.
+      onSuccess.mockImplementation(() => view.unmount());
+      act(() => view.result.current.setText("Corrected"));
+
+      act(() => view.result.current.handleSubmit());
+      await waitFor(() => expect(onSuccess).toHaveBeenCalledTimes(1));
+
+      const reopened = renderInput(seed);
+      expect(reopened.result.current.text).toBe("Original");
+      expect(reopened.result.current.restoredFromDraft).toBe(false);
     });
 
     it("does not reinitialize a mounted draft when a refreshed seed arrives", () => {
@@ -356,6 +465,7 @@ describe("useSourceDocumentInput", () => {
       const seed = {
         mode: "retry" as const,
         sourceDocumentId: "source-1",
+        draftBasis: null,
         initialData: { entryDate: "2026-08-19" },
       };
       const { result, rerender } = renderInput({ ...seed, timeZone: "UTC" });
@@ -487,6 +597,26 @@ describe("useSourceDocumentInput", () => {
       expect(createSourceDocumentActionMock.mock.calls[1]?.[1]).not.toBe(firstSubmissionId);
     });
 
+    it("uses a new submission identity when the book changes", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      createSourceDocumentActionMock.mockRejectedValue(new Error("server unavailable"));
+      const { result, rerender } = renderInput({ bookId: "book-1" });
+      act(() => result.current.setText("Lunch"));
+
+      act(() => result.current.handleSubmit());
+      await waitFor(() => expect(createSourceDocumentActionMock).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(result.current.isSubmitting).toBe(false));
+
+      rerender({ bookId: "book-2" });
+      act(() => result.current.handleSubmit());
+      await waitFor(() => expect(createSourceDocumentActionMock).toHaveBeenCalledTimes(2));
+
+      const [first, second] = createSourceDocumentActionMock.mock.calls;
+      expect(first?.[0]).toMatchObject({ bookId: "book-1" });
+      expect(second?.[0]).toMatchObject({ bookId: "book-2" });
+      expect(second?.[1]).not.toBe(first?.[1]);
+    });
+
     it("cancels before the deferred mutation starts", async () => {
       let startMutation: FrameRequestCallback | undefined;
       vi.stubGlobal(
@@ -519,6 +649,7 @@ describe("useSourceDocumentInput", () => {
       const { result, onSuccess } = renderInput({
         mode: "retry",
         sourceDocumentId: "source-1",
+        draftBasis: null,
         initialData: { text: "Original", entryDate: "2026-07-17" },
       });
 
@@ -557,6 +688,7 @@ describe("SourceDocumentInput", () => {
         <SourceDocumentInput
           mode="retry"
           sourceDocumentId={id}
+          draftBasis={null}
           initialData={{ text: "Original", entryDate: "2026-07-17" }}
           onSuccess={onSuccess}
         />

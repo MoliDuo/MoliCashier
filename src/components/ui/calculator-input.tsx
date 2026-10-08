@@ -4,21 +4,18 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { Delete, Check, Equal, Calculator } from "lucide-react";
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden";
-import {
-  amountToMinorUnitDigits,
-  digitsToAmount,
-  digitsToMinorUnitDisplay,
-  useCalculatorState,
-} from "./use-calculator-state";
+import { parseTypedAmount, toFixedAmount, useCalculatorState } from "./use-calculator-state";
+import { compare } from "@/lib/money/decimal";
 import { calculatorCopy } from "@/copy/controls";
 
 interface CalculatorInputProps {
-  value: number;
-  onChange: (value: number) => void;
+  /** The amount as a decimal string. */
+  value: string;
+  /** Receives the new amount as a decimal string with `maxDecimals` places, rounded half-up. */
+  onChange: (value: string) => void;
   displayClassName?: string;
   ariaLabel?: string;
   disabled?: boolean;
-  inlineInputMode?: "decimal" | "minor-unit";
   allowNegative?: boolean;
   preserveDirection?: boolean;
   maxDecimals?: number;
@@ -32,7 +29,6 @@ export function CalculatorInput({
   displayClassName,
   ariaLabel: externalAriaLabel,
   disabled = false,
-  inlineInputMode = "decimal",
   allowNegative = false,
   preserveDirection = false,
   maxDecimals = 2,
@@ -42,18 +38,29 @@ export function CalculatorInput({
   const [inputValue, setInputValue] = React.useState<string>("");
   const [inputError, setInputError] = React.useState<string | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const displayButtonRef = React.useRef<HTMLButtonElement>(null);
+  /** Set when a key ends the inline edit, so focus returns to the amount it replaced. */
+  const refocusDisplayRef = React.useRef(false);
+  const errorId = React.useId();
   const containerRef = React.useRef<HTMLDivElement>(null);
   const originalInputValueRef = React.useRef("");
   const committedRef = React.useRef(false);
+
+  const isAllowed = React.useCallback(
+    (nextValue: string): boolean => {
+      const negative = compare(nextValue, "0") < 0;
+      if (!allowNegative && negative) return false;
+      if (!preserveDirection) return true;
+      return compare(toFixedAmount(value, maxDecimals), "0") < 0 ? negative : !negative;
+    },
+    [allowNegative, maxDecimals, preserveDirection, value]
+  );
 
   const calculator = useCalculatorState({
     value,
     maxDecimals,
     onConfirm: (nextValue) => {
-      if (
-        (!allowNegative && nextValue < 0) ||
-        (preserveDirection && (value < 0 ? nextValue >= 0 : nextValue < 0))
-      ) {
+      if (!isAllowed(nextValue)) {
         setInputError(calculatorCopy.invalidValue);
         return;
       }
@@ -70,26 +77,17 @@ export function CalculatorInput({
       inputRef.current.focus();
       inputRef.current.select();
     }
+    if (mode === "display" && refocusDisplayRef.current) {
+      refocusDisplayRef.current = false;
+      displayButtonRef.current?.focus();
+    }
   }, [mode]);
 
   const confirmInputValue = React.useCallback((): boolean => {
     if (committedRef.current) return true;
-    if (inlineInputMode === "minor-unit") {
-      onChange(digitsToAmount(inputValue));
-      committedRef.current = true;
-      setInputError(null);
-      setMode("display");
-      return true;
-    }
-
-    const numValue = parseFloat(inputValue);
-    if (
-      Number.isFinite(numValue) &&
-      inputValue.trim() !== "" &&
-      (allowNegative || numValue >= 0) &&
-      (!preserveDirection || (value < 0 ? numValue < 0 : numValue >= 0))
-    ) {
-      onChange(parseFloat(numValue.toFixed(maxDecimals)));
+    const nextValue = parseTypedAmount(inputValue, maxDecimals);
+    if (nextValue !== null && isAllowed(nextValue)) {
+      onChange(nextValue);
       committedRef.current = true;
       setInputError(null);
       setMode("display");
@@ -98,7 +96,7 @@ export function CalculatorInput({
 
     setInputError(calculatorCopy.invalidValue);
     return false;
-  }, [allowNegative, inlineInputMode, inputValue, maxDecimals, onChange, preserveDirection, value]);
+  }, [inputValue, isAllowed, maxDecimals, onChange]);
 
   React.useEffect(() => {
     if (mode !== "input") return;
@@ -118,14 +116,8 @@ export function CalculatorInput({
 
   const handleStartInput = () => {
     committedRef.current = false;
-    const nextInputValue =
-      inlineInputMode === "minor-unit"
-        ? value === 0
-          ? ""
-          : amountToMinorUnitDigits(value)
-        : value === 0
-          ? ""
-          : value.toFixed(maxDecimals);
+    const fixed = toFixedAmount(value, maxDecimals);
+    const nextInputValue = compare(fixed, "0") === 0 ? "" : fixed;
     originalInputValueRef.current = nextInputValue;
     setInputValue(nextInputValue);
     setInputError(null);
@@ -142,9 +134,11 @@ export function CalculatorInput({
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      confirmInputValue();
+      refocusDisplayRef.current = true;
+      if (!confirmInputValue()) refocusDisplayRef.current = false;
     } else if (e.key === "Escape") {
       e.preventDefault();
+      refocusDisplayRef.current = true;
       setInputValue(originalInputValueRef.current);
       setInputError(null);
       setMode("display");
@@ -157,16 +151,6 @@ export function CalculatorInput({
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (inlineInputMode === "minor-unit") {
-      const nextDigits = e.target.value.replace(/\D/g, "");
-      if (nextDigits === "" && e.target.value !== "") {
-        return;
-      }
-      setInputValue(nextDigits);
-      setInputError(null);
-      return;
-    }
-
     const newValue = e.target.value;
     const decimalPattern = new RegExp(
       `^${allowNegative ? "-?" : ""}\\d*(?:\\.\\d{0,${maxDecimals}})?$`
@@ -191,6 +175,7 @@ export function CalculatorInput({
   if (mode === "display") {
     return (
       <button
+        ref={displayButtonRef}
         type="button"
         className={cn(
           "cursor-pointer hover:opacity-80 transition-opacity",
@@ -201,7 +186,7 @@ export function CalculatorInput({
         onClick={handleStartInput}
         aria-label={ariaLabel}
       >
-        <span className="tabular-nums">{value.toFixed(maxDecimals)}</span>
+        <span className="tabular-nums">{toFixedAmount(value, maxDecimals)}</span>
       </button>
     );
   }
@@ -209,21 +194,20 @@ export function CalculatorInput({
   // Input mode: inline input with calculator button
   if (mode === "input") {
     return (
-      <div ref={containerRef}>
+      // Esc cancels this edit; a dialog around it stays open.
+      <div ref={containerRef} data-escape-cancels="">
         <div className="flex items-center gap-2">
           <input
             ref={inputRef}
             type="text"
-            inputMode={inlineInputMode === "minor-unit" ? "numeric" : "decimal"}
-            value={
-              inlineInputMode === "minor-unit" ? digitsToMinorUnitDisplay(inputValue) : inputValue
-            }
+            inputMode="decimal"
+            value={inputValue}
             onChange={handleInputChange}
             onKeyDown={handleInputKeyDown}
             onBlur={handleInputBlur}
             aria-label={ariaLabel}
             aria-invalid={inputError !== null}
-            aria-describedby={inputError === null ? undefined : "calculator-input-error"}
+            aria-describedby={inputError === null ? undefined : errorId}
             className={cn(
               "w-28 border-0 bg-transparent p-0 text-center tabular-nums shadow-none sm:w-32",
               displayClassName
@@ -242,7 +226,7 @@ export function CalculatorInput({
           </button>
         </div>
         {inputError === null ? null : (
-          <p id="calculator-input-error" role="alert" className="mt-1 text-xs text-destructive">
+          <p id={errorId} role="alert" className="mt-1 text-xs text-destructive">
             {inputError}
           </p>
         )}
@@ -258,6 +242,11 @@ export function CalculatorInput({
         className="w-72 max-w-[calc(100vw-2rem)] p-4 gap-0 [&>button:last-child]:hidden"
         aria-describedby={undefined}
         onKeyDown={calculator.handleKeyDown}
+        onCloseAutoFocus={(event) => {
+          // The opener unmounted with the inline input; return focus to the amount.
+          event.preventDefault();
+          displayButtonRef.current?.focus();
+        }}
       >
         <VisuallyHidden.Root>
           <DialogTitle>{calculatorCopy.title}</DialogTitle>
@@ -280,7 +269,7 @@ export function CalculatorInput({
               calculator.state.hasResult ? "text-primary" : "text-text"
             )}
           >
-            {calculator.state.displayValue}
+            {calculator.state.error ? calculatorCopy.error : calculator.state.displayValue}
           </span>
           {inputError === null ? null : (
             <p role="alert" className="mt-1 text-xs text-destructive">
@@ -291,8 +280,13 @@ export function CalculatorInput({
 
         {/* Keypad */}
         <div className="grid grid-cols-4 gap-2">
-          <button type="button" onClick={calculator.handleClear} className={functionBtn}>
-            AC
+          <button
+            type="button"
+            onClick={calculator.handleClear}
+            aria-label={calculatorCopy.clearAllLabel}
+            className={functionBtn}
+          >
+            {calculatorCopy.clearAll}
           </button>
           <button
             type="button"
@@ -305,6 +299,7 @@ export function CalculatorInput({
           <button
             type="button"
             onClick={() => calculator.handleOperator("÷")}
+            aria-label={calculatorCopy.divide}
             className={operatorBtn}
           >
             ÷
@@ -322,6 +317,7 @@ export function CalculatorInput({
           <button
             type="button"
             onClick={() => calculator.handleOperator("×")}
+            aria-label={calculatorCopy.multiply}
             className={operatorBtn}
           >
             ×
@@ -339,6 +335,7 @@ export function CalculatorInput({
           <button
             type="button"
             onClick={() => calculator.handleOperator("-")}
+            aria-label={calculatorCopy.subtract}
             className={operatorBtn}
           >
             −
@@ -356,6 +353,7 @@ export function CalculatorInput({
           <button
             type="button"
             onClick={() => calculator.handleOperator("+")}
+            aria-label={calculatorCopy.add}
             className={operatorBtn}
           >
             +

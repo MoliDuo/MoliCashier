@@ -81,7 +81,9 @@ describe("设置 book list data range", () => {
     // the retired book hidden for the whole stale window.
     expect(await screen.findByText(ARCHIVED.name)).toBeInTheDocument();
     expect(screen.getByText(LIVE.name)).toBeInTheDocument();
-    expect(getBooksIncludingArchivedAction).toHaveBeenCalledWith();
+    expect(getBooksIncludingArchivedAction).toHaveBeenCalledWith({
+      signal: expect.any(AbortSignal),
+    });
     expect(getBooksAction).not.toHaveBeenCalled();
   });
 

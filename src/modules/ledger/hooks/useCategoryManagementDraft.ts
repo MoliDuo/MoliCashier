@@ -1,7 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { EntryCategory, SaveEntryCategoriesInput } from "@/modules/ledger/contracts";
+import type {
+  EntryCategory,
+  SaveEntryCategoriesErrorCode,
+  SaveEntryCategoriesInput,
+} from "@/modules/ledger/contracts";
+import { refusalCode } from "@/lib/errors";
 import { computeCategoryCollectionRevision } from "@/modules/ledger/category-collection-revision";
 import { clearDraft, draftKey, readDraft, writeDraft } from "@/lib/drafts";
 import {
@@ -64,6 +69,17 @@ function parseStoredCategoryDraft(data: unknown): StoredCategoryDraft | null {
 }
 
 /**
+ * Category names are unique; the draft says so before the save would be refused.
+ * The key being edited does not collide with itself.
+ */
+function nameTaken(categories: CategoryDraft[], name: string, exceptKey?: string): boolean {
+  return (
+    name !== "" &&
+    categories.some((category) => category.key !== exceptKey && category.name.trim() === name)
+  );
+}
+
+/**
  * The category list's edit session. The list saves as one batch, so its edits
  * are a draft: kept across a reload, restored on return, and asked about only
  * when the reader cancels them. A list that changed elsewhere since the draft
@@ -94,6 +110,9 @@ export function useCategoryManagementDraft({
   const [editSession, setEditSession] = useState<EditSession | null>(null);
   const [discardEditOpen, setDiscardEditOpen] = useState(false);
   const editDirty = editSession != null && !editDraftEqual(editSession.original, editSession.draft);
+  const editNameTaken =
+    editSession != null &&
+    nameTaken(draftOrder, editSession.draft.name.trim(), editSession.draft.key);
 
   const hasCategoryDraft = dirty || newCategoryName.trim() !== "" || editDirty;
   const serverMoved = managing && !categoryDraftsEqual(serverDraft, incomingDraft);
@@ -147,6 +166,10 @@ export function useCategoryManagementDraft({
   const createCategory = () => {
     const name = newCategoryName.trim();
     if (name === "" || isSaving) return;
+    if (nameTaken(draftOrder, name)) {
+      setSaveError(settingsCopy.categoryNameTaken);
+      return;
+    }
     const clientId = crypto.randomUUID();
     setDraftOrder((current) => [
       ...current,
@@ -192,7 +215,7 @@ export function useCategoryManagementDraft({
   };
 
   const commitEdit = () => {
-    if (editSession == null) return;
+    if (editSession == null || editNameTaken) return;
     const updated = editSession.draft;
     setDraftOrder((current) =>
       current.map((category) =>
@@ -227,11 +250,9 @@ export function useCategoryManagementDraft({
       });
       leaveManagement(saved.map(toCategoryDraft));
     } catch (error) {
-      const errorCode =
-        typeof error === "object" && error != null && "code" in error
-          ? (error as { code?: unknown }).code
-          : undefined;
-      if (errorCode === "CONFLICT") setSaveConflict(true);
+      const code = refusalCode<SaveEntryCategoriesErrorCode>(error);
+      if (code === "conflict") setSaveConflict(true);
+      else if (code === "assignment_active") setSaveError(settingsCopy.categoryAssignmentActive);
       else setSaveError(settingsCopy.saveCategoriesFailed);
     }
   };
@@ -255,6 +276,8 @@ export function useCategoryManagementDraft({
     setNewCategoryName,
     editSession,
     setEditSession,
+    /** The edited name is already another category's. */
+    editNameTaken,
     deleteTarget,
     setDeleteTarget,
     discardManagementOpen,

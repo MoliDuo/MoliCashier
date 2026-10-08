@@ -59,17 +59,20 @@ export function useConvertedAmount(
       normalizedTo ?? "__missing_to__",
       conversionDate ?? "__invalid_date__"
     ),
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       if (normalizedFrom == null || normalizedTo == null) {
         return { converted: amount };
       }
 
-      const result = await fetchConvertedAmount({
-        amount,
-        from: normalizedFrom,
-        to: normalizedTo,
-        ...(conversionDate != null ? { date: conversionDate } : {}),
-      });
+      const result = await fetchConvertedAmount(
+        {
+          amount,
+          from: normalizedFrom,
+          to: normalizedTo,
+          ...(conversionDate != null ? { date: conversionDate } : {}),
+        },
+        { signal }
+      );
       if (typeof result.converted !== "string" || !isValidDecimal(result.converted)) {
         throw new Error("Invalid currency conversion result");
       }

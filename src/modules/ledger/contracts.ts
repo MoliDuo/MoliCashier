@@ -56,6 +56,16 @@ export type ServiceCredential = ServiceCredentialDto;
 export type CreatedServiceCredentialDto = ServiceCredentialDto & { token: string };
 export type CreatedServiceCredential = CreatedServiceCredentialDto;
 
+/**
+ * Why a new key was refused. The two conflicts are kept apart: a book that is gone
+ * or archived is not the 20-key cap.
+ */
+export type CreateServiceCredentialErrorCode =
+  "book_unavailable" | "limit_reached" | "invalid" | "unexpected";
+export type CreateServiceCredentialResult =
+  | { ok: true; credential: CreatedServiceCredentialDto }
+  | { ok: false; code: CreateServiceCredentialErrorCode };
+
 export type EntryCategoryDto = {
   id: string;
   name: string;
@@ -69,6 +79,15 @@ export type EntryCategory = EntryCategoryDto;
 
 export type EntryCategoryWithCountDto = EntryCategoryDto & { entryCount: number };
 export type EntryCategoryWithCount = EntryCategoryWithCountDto;
+
+/**
+ * `conflict`: the collection changed since the draft was loaded. `assignment_active`:
+ * a category run uses one of the categories, so the collection waits for it.
+ */
+export type SaveEntryCategoriesErrorCode =
+  "conflict" | "assignment_active" | "invalid" | "unexpected";
+export type SaveEntryCategoriesResult =
+  { ok: true; categories: EntryCategoryDto[] } | { ok: false; code: SaveEntryCategoriesErrorCode };
 
 interface SaveEntryCategoryTargetDto {
   id?: string;
@@ -134,6 +153,12 @@ export interface CategoryAssignmentJobDto {
   evidenceIncomplete: boolean;
 }
 export type CategoryAssignmentJob = CategoryAssignmentJobDto;
+
+/** `busy`: another run is active, or the selection changed under the request. */
+export type StartCategoryAssignmentErrorCode = "busy" | "invalid" | "unexpected";
+export type StartCategoryAssignmentResult =
+  | { ok: true; job: CategoryAssignmentJobDto }
+  | { ok: false; code: StartCategoryAssignmentErrorCode };
 
 export interface CategoryAssignmentEntryResultDto {
   ledgerEntryId: string;

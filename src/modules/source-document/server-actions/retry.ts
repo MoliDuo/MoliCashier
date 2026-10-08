@@ -6,7 +6,7 @@ import {
   retrySourceDocumentInputSchema,
   type RetrySourceDocumentInputContract,
 } from "@/modules/source-document/contract-schemas";
-import { withLedgerAccess } from "@/modules/ledger/access";
+import { withLedgerAction } from "@/modules/ledger/action-access";
 
 /**
  * Direct Retry: retry an existing source document with immutable evidence.
@@ -17,7 +17,7 @@ import { withLedgerAccess } from "@/modules/ledger/access";
  * Direct retry never accepts input overrides — it always inherits evidence.
  * For editing evidence before retry, use `editRetrySourceDocumentAction`.
  */
-export const retrySourceDocumentAction = withLedgerAccess(
+export const retrySourceDocumentAction = withLedgerAction(
   async (sourceDocumentId: string): Promise<RetrySourceDocumentResponseDto> => {
     const result = await retrySourceDocument({
       sourceDocumentId: parseSourceDocumentId(sourceDocumentId),
@@ -35,7 +35,7 @@ export const retrySourceDocumentAction = withLedgerAccess(
  *
  * For a simple re-parse with no changes, use `retrySourceDocumentAction`.
  */
-export const editRetrySourceDocumentAction = withLedgerAccess(
+export const editRetrySourceDocumentAction = withLedgerAction(
   async (
     sourceDocumentId: string,
     input: RetrySourceDocumentInputContract

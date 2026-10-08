@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 import { createStore, useStore, type StoreApi } from "zustand";
-import type { LedgerTab } from "@/lib/ledger-tabs";
+import { LEDGER_PERIOD_TABS, type LedgerTab } from "@/lib/ledger-tabs";
 
 interface WorkspaceState {
   /** False until the ledger's content has mounted; the navigation waits for it. */
@@ -27,6 +27,11 @@ interface WorkspaceState {
   /** Each route's last query, so returning to a tab returns to its filters. */
   routeQueries: Partial<Record<LedgerTab, string>>;
   rememberRouteQuery: (tab: LedgerTab, query: string) => void;
+  /**
+   * The last route that showed a period. 设置 has none, so a tab opened from
+   * there takes the period from this route's remembered query.
+   */
+  lastPeriodTab: LedgerTab | null;
   /**
    * The list on screen as a phone's top bar prints it in the middle, or null
    * when no list is being browsed. Taking it down also folds the
@@ -115,12 +120,15 @@ function createWorkspaceStore(initialBookId: string | null): WorkspaceStore {
     bookId: initialBookId,
     setBookId: (bookId) => set((state) => (state.bookId === bookId ? state : { bookId })),
     routeQueries: {},
+    lastPeriodTab: null,
     rememberRouteQuery: (tab, query) =>
-      set((state) =>
-        state.routeQueries[tab] === query
-          ? state
-          : { routeQueries: { ...state.routeQueries, [tab]: query } }
-      ),
+      set((state) => {
+        const lastPeriodTab = LEDGER_PERIOD_TABS.has(tab) ? tab : state.lastPeriodTab;
+        if (state.routeQueries[tab] === query && state.lastPeriodTab === lastPeriodTab) {
+          return state;
+        }
+        return { routeQueries: { ...state.routeQueries, [tab]: query }, lastPeriodTab };
+      }),
     headerSummary: null,
     setHeaderSummary: (headerSummary) =>
       set((state) => {

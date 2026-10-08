@@ -27,7 +27,7 @@ export const AI_OUTPUT_COPY = {
     otherItems: "其他商品",
     unattributedAdjustment: "未归因账单调整",
     reconciliationNote: "根据账单总额自动补齐的差额项目。",
-    untitledDocument: "未命名单据",
+    untitledDocument: "未命名账单",
     invalidContent: "无效内容",
     unnamedItem: "未命名项目",
     unsupportedCurrency: "这张单据使用的币种（{currencies}）暂不支持记账。",

@@ -8,14 +8,14 @@ import {
   applyDuplicateSuggestionInputSchema,
   dismissDuplicateSuggestionInputSchema,
 } from "@/modules/source-document/contract-schemas";
-import { withLedgerAccess } from "@/modules/ledger/access";
+import { withLedgerAction } from "@/modules/ledger/action-access";
 
-export const applyDuplicateSuggestionAction = withLedgerAccess(async (input: unknown) => {
+export const applyDuplicateSuggestionAction = withLedgerAction(async (input: unknown) => {
   const validated = applyDuplicateSuggestionInputSchema.parse(input);
   return applyDuplicateSuggestion(validated);
 });
 
-export const dismissDuplicateSuggestionAction = withLedgerAccess(async (input: unknown) => {
+export const dismissDuplicateSuggestionAction = withLedgerAction(async (input: unknown) => {
   const validated = dismissDuplicateSuggestionInputSchema.parse(input);
   return dismissDuplicateSuggestion(validated);
 });

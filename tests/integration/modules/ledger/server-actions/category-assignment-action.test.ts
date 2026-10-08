@@ -111,7 +111,7 @@ describe("submitSelection", () => {
     });
     await drainBackground();
 
-    expect(job).toMatchObject({ total: 2, appliedCount: 0 });
+    expect(job).toMatchObject({ ok: true, job: { total: 2, appliedCount: 0 } });
     const stored = await getCategoryAssignmentJobAction();
     expect(stored).toMatchObject({
       status: "succeeded",
@@ -194,7 +194,7 @@ describe("submitSelection", () => {
         ledgerEntryIds: entryIds,
         candidateCategoryIds: [food.id],
       })
-    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    ).resolves.toEqual({ ok: false, code: "invalid" });
   });
 
   it("rejects a candidate category that is not in the ledger", async () => {
@@ -210,7 +210,7 @@ describe("submitSelection", () => {
         ledgerEntryIds: entryIds,
         candidateCategoryIds: [food.id, crypto.randomUUID()],
       })
-    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    ).resolves.toEqual({ ok: false, code: "invalid" });
     await expect(getCategoryAssignmentJobAction()).resolves.toBeNull();
   });
 
@@ -229,7 +229,7 @@ describe("submitSelection", () => {
         ledgerEntryIds: entryIds,
         candidateCategoryIds: [food.id, home.id],
       })
-    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    ).resolves.toEqual({ ok: false, code: "invalid" });
     await expect(getCategoryAssignmentJobAction()).resolves.toBeNull();
   });
 
@@ -277,7 +277,7 @@ describe("submitSelection", () => {
           ledgerEntryIds: entryIds,
           candidateCategoryIds: [food.id, home.id],
         })
-      ).rejects.toMatchObject({ code: "CONFLICT" });
+      ).resolves.toEqual({ ok: false, code: "busy" });
     } finally {
       held.reject(new Error("released"));
     }
@@ -298,8 +298,11 @@ describe("submitSelection", () => {
 
     const first = await startCategoryAssignmentAction(input);
     const replay = await startCategoryAssignmentAction(input);
-    expect(replay.id).toBe(first.id);
-    expect(replay.total).toBe(2);
+    expect(first.ok).toBe(true);
+    expect(replay).toMatchObject({
+      ok: true,
+      job: { id: first.ok ? first.job.id : null, total: 2 },
+    });
   });
 
   it("refuses a selection above the entry limit before reading it", async () => {
@@ -310,6 +313,6 @@ describe("submitSelection", () => {
         mode: { kind: "clear" },
         ledgerEntryIds: Array.from({ length: 5001 }, () => crypto.randomUUID()),
       })
-    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    ).resolves.toEqual({ ok: false, code: "invalid" });
   });
 });

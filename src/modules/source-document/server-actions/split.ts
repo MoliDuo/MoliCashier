@@ -6,9 +6,9 @@ import type {
   SplitSourceDocumentResultDto,
 } from "@/modules/source-document/contracts";
 import { splitSourceDocumentInputSchema } from "@/modules/source-document/contract-schemas";
-import { withLedgerAccess } from "@/modules/ledger/access";
+import { withLedgerAction } from "@/modules/ledger/action-access";
 
-export const splitSourceDocumentAction = withLedgerAccess(
+export const splitSourceDocumentAction = withLedgerAction(
   async (input: SplitSourceDocumentInput): Promise<SplitSourceDocumentResultDto> => {
     const validated = splitSourceDocumentInputSchema.parse(input);
     return splitSourceDocumentAtomically(validated);

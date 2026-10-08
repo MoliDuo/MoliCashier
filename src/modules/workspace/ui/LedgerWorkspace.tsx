@@ -1,6 +1,7 @@
 "use client";
 import { useMemo, type ReactNode } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { AppError } from "@/lib/errors";
 import { LedgerTimeZoneProvider } from "@/lib/ledger-time-zone";
 import { ledgerTabFromPathname } from "@/lib/ledger-tabs";
 import { readLedgerDetailParam } from "@/lib/navigation/ledger-detail-navigation";
@@ -26,7 +27,13 @@ import { ledgerPageCopy } from "@/copy/app";
 interface LedgerWorkspaceProps {
   /** Today in the ledger's zone as the server dated it, so the first render agrees. */
   ledgerToday?: string | undefined;
+  /** Shown while the ledger itself is still being read: the route's skeleton. */
+  pendingFallback?: ReactNode;
   children: ReactNode;
+}
+
+function isLedgerMissing(error: unknown): boolean {
+  return error instanceof AppError && error.statusCode === 404;
 }
 
 /** Only before the ledger itself has loaded; the ledger always names its zone. */
@@ -37,7 +44,11 @@ const DEFAULT_TIME_ZONE = "Asia/Shanghai";
  * new-record dialog, the detail sheets and the queries every route reads.
  * The route itself arrives as `children`.
  */
-export function LedgerWorkspace({ ledgerToday, children }: LedgerWorkspaceProps) {
+export function LedgerWorkspace({
+  ledgerToday,
+  pendingFallback = null,
+  children,
+}: LedgerWorkspaceProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const activeTab = ledgerTabFromPathname(pathname);
@@ -49,6 +60,7 @@ export function LedgerWorkspace({ ledgerToday, children }: LedgerWorkspaceProps)
 
   const {
     ledger,
+    ledgerQuery,
     categoriesQuery,
     categories,
     categoriesHaveNoData,
@@ -86,8 +98,14 @@ export function LedgerWorkspace({ ledgerToday, children }: LedgerWorkspaceProps)
   );
 
   if (value == null) {
+    // Only a 404 means there is no ledger. A read still on its way shows the
+    // route's skeleton, and one that failed offers to try again.
+    if (ledgerQuery.isPending) return pendingFallback;
+    if (!isLedgerMissing(ledgerQuery.error)) {
+      return <LedgerQueryErrorBanner empty onRetry={() => void ledgerQuery.refetch()} />;
+    }
     return (
-      <div className="flex min-h-screen items-center justify-center bg-bg">
+      <div className="flex min-h-[50dvh] items-center justify-center">
         <h1 className={textRoleClassName("pageTitle")}>{ledgerPageCopy.notFound}</h1>
       </div>
     );

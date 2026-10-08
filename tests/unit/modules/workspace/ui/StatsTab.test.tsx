@@ -104,7 +104,10 @@ describe("StatsTab", () => {
     renderStatsTab();
 
     expect(await screen.findByRole("heading", { name: "分类预测" })).toBeInTheDocument();
-    expect(fetchForecast).toHaveBeenCalledWith({ period: { range: "month", offset: 0 } });
+    expect(fetchForecast).toHaveBeenCalledWith(
+      { period: { range: "month", offset: 0 } },
+      { signal: expect.any(AbortSignal) }
+    );
     expect(screen.getByText("预计本期").nextElementSibling).toHaveTextContent("¥170.00");
   });
 
@@ -200,7 +203,10 @@ describe("StatsTab", () => {
     renderStatsTab();
 
     await waitFor(() =>
-      expect(fetchEnhancedStats).toHaveBeenCalledWith({ period: { range: "week", offset: -1 } })
+      expect(fetchEnhancedStats).toHaveBeenCalledWith(
+        { period: { range: "week", offset: -1 } },
+        { signal: expect.any(AbortSignal) }
+      )
     );
     // A past week has nowhere left to head.
     expect(fetchForecast).not.toHaveBeenCalled();

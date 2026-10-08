@@ -6,6 +6,7 @@ function makeItem(overrides: Partial<SourceDocumentListItemDto> = {}): SourceDoc
   return {
     id: "00000000-0000-4000-8000-000000000001",
     version: 1,
+    latestAttemptId: null,
     title: "Coffee receipt",
     text: null,
     processingStatus: "completed",

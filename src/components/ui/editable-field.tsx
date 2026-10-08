@@ -157,6 +157,8 @@ export function EditableField({
     return (
       <div
         className={cn(containerStyles, "bg-surface2/50 border-border/50", displayClassName)}
+        // Esc cancels this edit; the dialog around it stays open.
+        data-escape-cancels=""
         onPointerDown={(e) => e.stopPropagation()}
       >
         <div className="flex-1 min-w-0 relative">
@@ -178,11 +180,12 @@ export function EditableField({
                 "text-inherit font-inherit leading-inherit",
                 // Textarea specific
                 "resize-none overflow-hidden min-h-0",
-                inputClassName
+                inputClassName,
+                // Desktop matches the text it replaces; phones stay at 16px so
+                // iOS Safari does not zoom in when the field takes focus.
+                "max-md:text-base md:text-[length:inherit]"
               )}
               style={{
-                // Ensure font size matches display
-                fontSize: "inherit",
                 lineHeight: "inherit",
                 fontWeight: "inherit",
               }}
@@ -205,11 +208,12 @@ export function EditableField({
                 "text-inherit font-inherit leading-inherit",
                 // Compact height for non-textarea inputs
                 "h-auto px-1",
-                inputClassName
+                inputClassName,
+                // Desktop matches the text it replaces; phones stay at 16px so
+                // iOS Safari does not zoom in when the field takes focus.
+                "max-md:text-base md:text-[length:inherit]"
               )}
               style={{
-                // Ensure font size matches display
-                fontSize: "inherit",
                 lineHeight: "inherit",
                 fontWeight: "inherit",
               }}

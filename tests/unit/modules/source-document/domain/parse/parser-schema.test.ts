@@ -75,7 +75,7 @@ describe("parser-schema", () => {
       "zh-CN"
     );
 
-    expect(parsed.title).toBe("未命名单据");
+    expect(parsed.title).toBe("未命名账单");
   });
 
   it("drops a zero-amount row and keeps the rest of the receipt", () => {

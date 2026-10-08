@@ -53,6 +53,7 @@ export function CategoryAssignmentTasks({
       queryClient.setQueryData(queryKeys.categoryAssignment(), saved);
       toast.info(batchActionsCopy.categoryJobCancelled);
     },
+    onError: () => toast.error(batchActionsCopy.categoryJobStopFailed),
   });
   const retryLatest = useMutation({
     mutationFn: (jobId: string) => {
@@ -66,6 +67,7 @@ export function CategoryAssignmentTasks({
       retryLatestKeyRef.current = null;
       setResultsOpen(false);
     },
+    onError: () => toast.error(batchActionsCopy.categoryJobRetryFailed),
   });
   const retry = useMutation({
     mutationFn: (jobId: string) => {
@@ -79,6 +81,7 @@ export function CategoryAssignmentTasks({
       retryKeyRef.current = null;
       setResultsOpen(false);
     },
+    onError: () => toast.error(batchActionsCopy.categoryJobRetryFailed),
   });
   // The toast's buttons outlive the render that made them, so they reach the
   // mutation and the refresh through refs instead of capturing this render's.

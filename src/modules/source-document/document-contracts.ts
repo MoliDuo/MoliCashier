@@ -19,6 +19,8 @@ interface SourceDocumentSummaryDto {
   id: string;
   bookId?: string | null;
   version: number;
+  /** The latest parse attempt; null for a record entered or split off by hand. */
+  latestAttemptId: string | null;
   title: string | null;
   processingStatus: SourceDocumentProcessingStatus | null;
   failureKind: AttemptFailureKind | null;

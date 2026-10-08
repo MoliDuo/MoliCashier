@@ -18,7 +18,8 @@ const buttonVariants = cva(
       },
       size: {
         default: "h-11 px-4 py-2",
-        sm: "h-9 rounded-md px-3 text-sm",
+        // Phones get the 44px touch target; the desktop keeps the compact size.
+        sm: "h-9 rounded-md px-3 text-sm max-md:min-h-11",
         lg: "h-12 rounded-md px-8",
         icon: "h-11 w-11",
         "icon-sm": "h-9 w-9",

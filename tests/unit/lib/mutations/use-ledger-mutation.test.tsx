@@ -8,6 +8,8 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useLedgerMutation } from "@/lib/mutations/use-ledger-mutation";
+import { invalidateVisibleLedger } from "@/lib/mutations/ledger-sync";
+import { commonCopy } from "@/copy/common";
 import { queryKeys } from "@/lib/query-keys";
 
 const { toastSuccessMock, toastErrorMock } = vi.hoisted(() => ({
@@ -367,6 +369,38 @@ describe("useLedgerMutation", () => {
     expect(queryFn.mock.calls.length).toBeLessThanOrEqual(12);
   });
 
+  it("says 保存失败 when the caller names no message of its own", async () => {
+    const { wrapper } = setup();
+    const { result } = renderHook(
+      () => useLedgerMutation({ mutationFn: async () => Promise.reject(new Error("down")) }),
+      { wrapper }
+    );
+
+    await act(async () => {
+      await result.current.mutateAsync().catch(() => undefined);
+    });
+
+    expect(toastErrorMock).toHaveBeenCalledExactlyOnceWith(commonCopy.saveFailed);
+  });
+
+  it("stays quiet when the caller reports the failure itself", async () => {
+    const { wrapper } = setup();
+    const { result } = renderHook(
+      () =>
+        useLedgerMutation({
+          mutationFn: async () => Promise.reject(new Error("down")),
+          errorMessage: null,
+        }),
+      { wrapper }
+    );
+
+    await act(async () => {
+      await result.current.mutateAsync().catch(() => undefined);
+    });
+
+    expect(toastErrorMock).not.toHaveBeenCalled();
+  });
+
   describe("with the ledger's sync version on screen", () => {
     function renderWithSync(nextVersion: string) {
       const { queryClient, wrapper } = setup();
@@ -397,6 +431,36 @@ describe("useLedgerMutation", () => {
       // The sync read is the one that invalidates when the version moves; the
       // stub here does not, so the mutation must not have done it either.
       expect(invalidate).not.toHaveBeenCalled();
+    });
+
+    it("still says the refresh failed when a list the moved version invalidated fails", async () => {
+      const { queryClient, wrapper } = setup();
+      queryClient.setQueryData(queryKeys.ledgerSync(), { version: "1" });
+      // Like the refresh driver: the version moved, so it invalidates the visible
+      // ledger and does not fail itself when a list cannot read.
+      const sync = vi.fn(async () => {
+        await invalidateVisibleLedger(queryClient).catch(() => undefined);
+        return { version: "2" };
+      });
+      const list = vi
+        .fn()
+        .mockResolvedValueOnce("list")
+        .mockRejectedValue(new Error("list is down"));
+      const { result } = renderHook(
+        () => ({
+          sync: useQuery({ queryKey: queryKeys.ledgerSync(), queryFn: sync, staleTime: Infinity }),
+          list: useQuery({ queryKey: ["ledger", "entries", {}], queryFn: list }),
+          mutation: useLedgerMutation({ mutationFn: async () => "saved", successMessage: null }),
+        }),
+        { wrapper }
+      );
+      await waitFor(() => expect(result.current.list.isSuccess).toBe(true));
+
+      await act(async () => {
+        await result.current.mutation.mutateAsync();
+      });
+
+      expect(toastErrorMock).toHaveBeenCalledWith(commonCopy.savedRefreshFailed);
     });
 
     it("invalidates the visible ledger itself when the version stayed", async () => {

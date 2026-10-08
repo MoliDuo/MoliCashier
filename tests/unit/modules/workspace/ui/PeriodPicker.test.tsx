@@ -2,6 +2,8 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { PeriodPicker } from "@/modules/workspace/ui/PeriodPicker";
+import { MAX_PERIOD_DAYS } from "@/modules/ledger/domain/period";
+import { periodBarCopy } from "@/copy/controls";
 
 const TODAY = "2026-09-27";
 
@@ -80,5 +82,24 @@ describe("PeriodPicker", () => {
       from: "2026-09-01",
       to: "2026-09-30",
     });
+  });
+
+  it("refuses a custom span longer than one read covers, and says so", async () => {
+    const onChange = vi.fn();
+    render(
+      <PeriodPicker
+        period={{ range: "custom", from: "2010-01-01", to: TODAY }}
+        today={TODAY}
+        onChange={onChange}
+      />
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      periodBarCopy.customTooLong({ days: MAX_PERIOD_DAYS })
+    );
+    const apply = screen.getByRole("button", { name: periodBarCopy.apply });
+    expect(apply).toBeDisabled();
+    await userEvent.click(apply);
+    expect(onChange).not.toHaveBeenCalled();
   });
 });
