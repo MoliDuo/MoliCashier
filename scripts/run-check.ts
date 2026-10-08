@@ -14,11 +14,13 @@ interface TaskResult {
  * The gate, as stages of npm scripts. A stage's scripts run side by side and
  * the next stage starts only when every one of them passed, so a formatting
  * or type error fails in seconds instead of after the test suite. The build
- * waits for `tsc` because both write `.next/types`.
+ * waits for `tsc` because both write `.next/types`. Beside the coverage run,
+ * the unit suite runs again at Asia/Singapore, so date code that only holds
+ * at UTC fails here rather than in a reader's evening.
  */
 export const CHECK_STAGES: readonly (readonly string[])[] = [
   ["format:check", "check:architecture", "check:dead-code", "lint", "tsc"],
-  ["test:coverage", "build:check"],
+  ["test:coverage", "test:unit:sg", "build:check"],
 ];
 
 function formatSeconds(durationMs: number): string {

@@ -28,6 +28,7 @@
     "test:smoke": "tsx --conditions=react-server scripts/run-smoke.ts",
     "test:demo": "tsx --conditions=react-server scripts/run-demo.ts --test",
     "test": "tsx scripts/run-vitest.ts run --config vitest.config.mts --project=unit-node --project=unit-dom",
+    "test:unit:sg": "tsx scripts/run-vitest.ts --time-zone=Asia/Singapore run --config vitest.config.mts --project=unit-node --project=unit-dom",
     "test:watch": "tsx scripts/run-vitest.ts --watch --config vitest.config.mts --project=unit-node --project=unit-dom",
     "test:all": "tsx scripts/run-vitest.ts run --config vitest.config.mts",
     "test:integration": "tsx scripts/run-vitest.ts run --config vitest.config.mts --project=integration-node --reporter=dot",

@@ -8,6 +8,7 @@
 | 命令                       | 内容                                        | 需要             |
 | -------------------------- | ------------------------------------------- | ---------------- |
 | `npm test`                 | 单元测试（unit-node、unit-dom）             | Node.js 24       |
+| `npm run test:unit:sg`     | 在 Asia/Singapore 时区再跑一遍单元测试      | Node.js 24       |
 | `npm run test:watch`       | 监视模式的单元测试                          | Node.js 24       |
 | `npm run test:integration` | 集成测试（integration-node）                | Docker           |
 | `npm run test:all`         | 全部 Vitest 项目                            | Docker           |
@@ -19,7 +20,7 @@
 
 `npm run check` 分两个阶段（`scripts/run-check.ts`）：先并行跑 `format:check`、`check:architecture`、
 `check:dead-code`、`lint` 和 `tsc`（`next typegen && tsc --noEmit`），任何一项失败就停，不再进入测试；全部通过后并行跑
-`test:coverage` 和 `build:check`。门禁构建设置 `CASHIER_CHECK_BUILD=1`，跳过 Next 自带的第二遍类型检查，
+`test:coverage`、`test:unit:sg` 和 `build:check`。门禁构建设置 `CASHIER_CHECK_BUILD=1`，跳过 Next 自带的第二遍类型检查，
 因为 `tsc` 已经带着生成的路由类型检查过；Docker 镜像的构建不设置它，保留 Next 自带的类型检查。构建完成后 `scripts/check-protected-route-bundle.ts`
 量出受保护路由的客户端包，超过 250 KB（gzip）就失败。每个脚本的输出在它结束时整段打印，最后一张耗时表
 指出慢在哪一步。ESLint 和 Prettier 的缓存放在 `node_modules/.cache/`。
@@ -37,6 +38,8 @@
   AI 只有一种替身：`tests/helpers/fake-ai.ts` 的 `fakeAiTransport(responder)`，用 `setAiTransportForTests`
   装上，或用 `generateVia(transport)` 交给接收生成函数的代码；真实的 `generateStructured` 照常运行，
   所以 JSON 解析、修复和错误码都在测试覆盖之内。
+- 测试默认跑在 UTC（`TZ` 为空，不跟随本机时区）；`npm run test:unit:sg` 用 `CASHIER_TEST_TZ=Asia/Singapore`
+  再跑一遍单元测试，`npm run check` 也跑它，只在 UTC 下才对的日期代码会在这一轮失败。
 - **集成测试**验证 PostgreSQL 行为、路由和 server action 的组合、事务、并发，以及落库的服务端函数。
 - **每个服务端函数只有一份实现，直接测它。** 用真实数据库调用它；只 mock 它调用的外部边界，
   不 mock 数据库、仓储或同仓库的其他模块，也不写只断言调用参数的测试。
