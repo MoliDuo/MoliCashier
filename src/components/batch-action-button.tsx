@@ -38,6 +38,9 @@ export function BatchActionButton({
   variant,
   ...props
 }: BatchActionButtonProps) {
+  // Where only the short label shows, the button still names the whole action.
+  const fullLabel =
+    shortLabel != null && typeof children === "string" ? { "aria-label": children } : {};
   if (orientation === "stacked") {
     return (
       <Button
@@ -49,6 +52,7 @@ export function BatchActionButton({
           variant === "destructive" && "text-danger hover:text-danger",
           className
         )}
+        {...fullLabel}
         {...props}
       >
         {loading ? (
@@ -70,6 +74,7 @@ export function BatchActionButton({
       // A phone row has to fit four actions beside the back button at 360px;
       // the toolbar tier's padding would push the fourth onto its own line.
       className={cn(TOOLBAR_CONTROL_CLASS, "gap-1 px-2 sm:gap-1.5 sm:px-2.5", className)}
+      {...fullLabel}
       {...props}
     >
       {loading ? (

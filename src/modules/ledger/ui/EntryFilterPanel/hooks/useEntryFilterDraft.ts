@@ -2,9 +2,18 @@
 import * as React from "react";
 import type { SourceDocumentProcessingStatus } from "@/modules/source-document/types";
 import { countActiveEntryFilters, type EntryFilters } from "@/modules/ledger/filters";
-import { compare, DECIMAL_STRING_PATTERN } from "@/lib/money/decimal";
+import { compare, DECIMAL_STRING_PATTERN, normalizeDecimalInput } from "@/lib/money/decimal";
 
-function normalizeAmountRange(filters: EntryFilters): EntryFilters {
+/**
+ * The amounts as they are applied: a half-typed value is read as what it means,
+ * and a range typed the wrong way round is turned around.
+ */
+export function normalizeAmountRange(draft: EntryFilters): EntryFilters {
+  const filters: EntryFilters = {
+    ...draft,
+    minAmount: normalizeDecimalInput(draft.minAmount),
+    maxAmount: normalizeDecimalInput(draft.maxAmount),
+  };
   const { minAmount, maxAmount } = filters;
 
   if (

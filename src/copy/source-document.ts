@@ -69,7 +69,7 @@ export const sourceDocumentDetailCopy = {
   rawContent: "原始输入",
   rawEvidence: "原始凭证",
   entriesTab: "明细",
-  evidenceTab: (v: { count: string | number }) => `原始凭证 (${v.count})`,
+  evidenceTab: (v: { count: string | number }) => `原始凭证（${v.count}）`,
   processingReadOnly: "账单正在处理，处理完成前不能修改。",
   entryReplaced: "账单已被重新处理，已刷新为最新内容",
   titleLabel: "账单标题",

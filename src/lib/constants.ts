@@ -10,11 +10,6 @@
  */
 export const DISPLAY_LOCALE = "zh-CN";
 
-// Time constants (milliseconds)
-export const TIME = {
-  SECOND: 1000,
-} as const;
-
 // Time constants (seconds)
 export const TIME_SECONDS = {
   DAY: 86400,

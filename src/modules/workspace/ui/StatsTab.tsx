@@ -100,7 +100,7 @@ export function StatsTab({
       : statsDescriptor;
   const statsQuery = useQuery({
     queryKey: scopeDescriptor.queryKey,
-    queryFn: () => fetchEnhancedStats(scopeDescriptor.input),
+    queryFn: ({ signal }) => fetchEnhancedStats(scopeDescriptor.input, { signal }),
     staleTime: QUERY.DEFAULT_STALE_TIME_MS,
     refetchOnWindowFocus: false,
   });
@@ -108,7 +108,7 @@ export function StatsTab({
   const forecastPeriod = scopeDescriptor.input.period;
   const forecastQuery = useQuery({
     queryKey: scopeDescriptor.forecastQueryKey,
-    queryFn: () => fetchForecast(scopeDescriptor.input),
+    queryFn: ({ signal }) => fetchForecast(scopeDescriptor.input, { signal }),
     enabled:
       forecastPeriod.range !== "all" &&
       forecastPeriod.range !== "custom" &&
@@ -167,7 +167,9 @@ export function StatsTab({
       <StatsContentView
         periodBar={
           <ListControlsDrop
-            summary={{ total, period: formatPeriodLabel(period, today), filtered: false }}
+            // The label names the period the total was counted over, which lags
+            // the picked one while its figures load.
+            summary={{ total, period: formatPeriodLabel(contentPeriod, today), filtered: false }}
             period={period}
             today={today}
             onPeriodChange={setPeriod}

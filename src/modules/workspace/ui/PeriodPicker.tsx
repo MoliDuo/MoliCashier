@@ -8,6 +8,8 @@ import { formatDateTimeForApi } from "@/lib/date-utils";
 import { cn } from "@/lib/utils";
 import {
   CALENDAR_RANGES,
+  civilDaysBetween,
+  MAX_PERIOD_DAYS,
   MAX_PERIOD_OFFSET,
   MIN_PERIOD_OFFSET,
   monthPeriod,
@@ -56,6 +58,7 @@ export function PeriodPicker({ period, today, onChange, timeZone, className }: P
   );
   const [from, setFrom] = useState(current?.from ?? today);
   const [to, setTo] = useState(current?.to ?? today);
+  const customTooLong = from <= to && civilDaysBetween(from, to) + 1 > MAX_PERIOD_DAYS;
   const selectedKey = periodKey(period);
 
   const choose = (range: PeriodRange) => {
@@ -195,10 +198,17 @@ export function PeriodPicker({ period, today, onChange, timeZone, className }: P
               {...(timeZone != null ? { timeZone } : {})}
             />
           </div>
+          {/* The server reads at most this many days at once; a longer span is
+              refused here rather than cut short without a word. */}
+          {customTooLong ? (
+            <p role="alert" className={textRoleClassName("meta", "text-destructive")}>
+              {periodBarCopy.customTooLong({ days: MAX_PERIOD_DAYS })}
+            </p>
+          ) : null}
           <Button
             type="button"
             className="w-full"
-            disabled={from > to}
+            disabled={from > to || customTooLong}
             onClick={() => onChange({ range: "custom", from, to })}
           >
             {periodBarCopy.apply}

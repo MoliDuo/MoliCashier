@@ -93,6 +93,21 @@ describe("EntryFilterPanel", () => {
     expect(screen.queryByRole("dialog", { name: "筛选" })).not.toBeInTheDocument();
   });
 
+  it("applies a half-typed amount as the number it means", async () => {
+    const user = userEvent.setup();
+    const onFiltersChange = vi.fn();
+    render(<EntryFilterPanel filters={{}} onFiltersChange={onFiltersChange} />);
+
+    await openPanel();
+    await user.type(screen.getByRole("textbox", { name: "最小金额" }), "007.");
+    await user.type(screen.getByRole("textbox", { name: "最大金额" }), "-");
+    await user.click(screen.getByRole("button", { name: "应用筛选" }));
+
+    expect(onFiltersChange).toHaveBeenCalledWith(
+      expect.objectContaining({ minAmount: "7", maxAmount: null })
+    );
+  });
+
   // iOS Safari zooms the page into any field under 16px the moment it takes
   // focus, so the search box must neither grab focus nor render small on a phone.
   it("opens on its title and keeps the search box at 16px below md", async () => {

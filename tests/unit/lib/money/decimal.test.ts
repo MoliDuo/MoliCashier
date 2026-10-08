@@ -8,6 +8,7 @@ import {
   isValidDecimal,
   multiply,
   normalize,
+  normalizeDecimalInput,
   parse,
   round,
 } from "@/lib/money/decimal";
@@ -89,4 +90,26 @@ describe("currency precision", () => {
     expect(roundToCurrency("123.45", "JPY")).toBe("123");
     expect(roundToCurrency("1.2345", "BHD")).toBe("1.235");
   });
+});
+
+describe("normalizeDecimalInput", () => {
+  it.each([
+    ["1.", "1"],
+    [".5", "0.5"],
+    ["-.5", "-0.5"],
+    ["007", "7"],
+    ["00.50", "0.50"],
+    ["-007.", "-7"],
+    [" 12.3 ", "12.3"],
+    ["0", "0"],
+  ])("reads the half-typed %j as %j", (input, expected) => {
+    expect(normalizeDecimalInput(input)).toBe(expected);
+  });
+
+  it.each(["", "-", ".", "-.", "1e3", "1.2.3", "abc", null, undefined])(
+    "reads %j as no amount",
+    (input) => {
+      expect(normalizeDecimalInput(input)).toBeNull();
+    }
+  );
 });

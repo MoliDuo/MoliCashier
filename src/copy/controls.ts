@@ -58,6 +58,7 @@ export const periodBarCopy = {
   apply: "应用",
   from: "开始日期",
   to: "结束日期",
+  customTooLong: ({ days }: { days: number }) => `自定义区间最长 ${days} 天，请缩短后再应用。`,
   previousYear: "上一年",
   nextYear: "下一年",
   yearName: ({ year }: { year: number }) => `${year}年`,

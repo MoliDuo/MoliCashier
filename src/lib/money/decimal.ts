@@ -14,6 +14,22 @@ export const DECIMAL_STRING_PATTERN = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
 /** Amounts are stored as numeric(21,3), which leaves 18 digits before the point. */
 export const MAX_AMOUNT_INTEGER_DIGITS = 18;
 
+/**
+ * What a half-typed amount field means: "1." is 1, ".5" is 0.5, "007" is 7, and
+ * a lone "-" or "." means nothing. Anything else that is not a plain decimal
+ * also means nothing, so it is never passed on as a filter the URL would drop.
+ */
+export function normalizeDecimalInput(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? "";
+  const match = /^(-?)(\d*)(?:\.(\d*))?$/.exec(trimmed);
+  if (match == null) return null;
+  const [, sign = "", whole = "", fraction = ""] = match;
+  if (whole === "" && fraction === "") return null;
+  const integer = whole.replace(/^0+(?=\d)/, "") || "0";
+  const candidate = `${sign}${integer}${fraction === "" ? "" : `.${fraction}`}`;
+  return DECIMAL_STRING_PATTERN.test(candidate) ? candidate : null;
+}
+
 function toCanonical(value: Decimal): string {
   return value.isZero() ? "0" : value.toFixed();
 }

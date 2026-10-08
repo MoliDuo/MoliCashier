@@ -79,6 +79,22 @@ describe("useLedgerNavigation", () => {
     expect(result.current.navigation.hrefFor("settings")).toBe("/settings");
   });
 
+  it("carries the period through 设置 from the last route that showed one", () => {
+    pathname.current = "/settings";
+    search.current = "";
+    const { result } = renderHook(useHarness, { wrapper });
+    act(() => result.current.remember("stats", "categoryId=c1"));
+    act(() => result.current.remember("records", "range=year&offset=-1&search=tea"));
+    act(() => result.current.remember("settings", ""));
+
+    expect(result.current.navigation.hrefFor("stats")).toBe(
+      "/stats?categoryId=c1&range=year&offset=-1"
+    );
+    expect(result.current.navigation.hrefFor("records")).toBe(
+      "/records?range=year&offset=-1&search=tea"
+    );
+  });
+
   it("goes to an explicit query instead of the remembered one", () => {
     const { result } = renderHook(useHarness, { wrapper });
     act(() => result.current.remember("records", "period=lastMonth"));
