@@ -1,6 +1,6 @@
 # 部署
 
-Moli Cashier 部署在 Moli 服务器上的 Docker 里，地址 <https://cashier.xiangyu.pro>。推送到 `main` 后，`ci` 工作流通过，`deploy` 工作流自动构建镜像并部署。想自己托管看 [self-hosting.md](./self-hosting.md)。
+Moli Cashier 部署在 Moli 服务器上的 Docker 里，域名记在 `moli.yaml` 的 `deploy.domain`，下文写作 `<域名>`；应用目录写作 `<应用目录>`，部署工具目录写作 `<部署目录>`，真实路径由管理员维护，不进仓库。推送到 `main` 后，`ci` 工作流通过，`deploy` 工作流自动构建镜像并部署。想自己托管看 [self-hosting.md](./self-hosting.md)。
 
 ## 1. 名字与用途
 
@@ -16,9 +16,13 @@ Moli Cashier 部署在 Moli 服务器上的 Docker 里，地址 <https://cashier
 | `DEPLOY_SERVER`                  | 服务器在内网里的地址                                 |
 | `DEPLOY_SERVER_USER`             | 部署登录用的服务器账号                               |
 
-**服务器上 `/data/apps/cashier/.env`（权限 600，不进仓库）**
+**服务器上 `<应用目录>` 里的三个 env 文件（权限 600，不进仓库）**
 
-模板是 [deploy/env.example](../deploy/env.example)，变量说明见 [configuration.md](./configuration.md)。其中 `OIDC_CLIENT_ID` 是 `moli-cashier`，`OIDC_CLIENT_SECRET` 来自登录客户端的注册；`AUTH_SECRET`、`POSTGRES_PASSWORD`、S3 密钥用 `openssl rand -hex 24` 生成。更换 `AUTH_SECRET` 会让所有会话和 API 密钥失效。
+每个容器只读自己的文件：应用读 `.env`（模板 [deploy/env.example](../deploy/env.example)），数据库读
+`postgres.env`（模板 [deploy/postgres.env.example](../deploy/postgres.env.example)），对象存储和建桶任务读
+`s3.env`（模板 [deploy/s3.env.example](../deploy/s3.env.example)）。这样第三方镜像拿不到 AI、登录和签名密钥。
+同一个值在几个文件里要一致：`postgres.env` 的密码与 `.env` 的 `DATABASE_URL` 一致，`s3.env` 的四个值与 `.env` 的
+`S3_ACCESS_KEY_ID`、`S3_SECRET_ACCESS_KEY` 一致。`.env` 的变量说明见 [configuration.md](./configuration.md)。其中 `OIDC_CLIENT_ID` 是 `moli-cashier`，`OIDC_CLIENT_SECRET` 来自登录客户端的注册；`AUTH_SECRET`、`POSTGRES_PASSWORD`、S3 密钥用 `openssl rand -hex 24` 生成。更换 `AUTH_SECRET` 会让所有会话和 API 密钥失效。
 
 ## 2. 首次部署
 
@@ -27,9 +31,11 @@ Moli Cashier 部署在 Moli 服务器上的 Docker 里，地址 <https://cashier
 1. 建应用目录，放入 [deploy/](../deploy) 里的文件：
 
    ```bash
-   mkdir -p /data/apps/cashier/data && cd /data/apps/cashier
-   # 从仓库复制 docker-compose.yml、migrate.cmd、pre-deploy.sh，并 chmod +x pre-deploy.sh
-   cp env.example .env && chmod 600 .env   # 然后把 .env 里的占位值换成真实值
+   mkdir -p <应用目录>/data && cd <应用目录>
+   # 从仓库复制 docker-compose.yml、migrate.cmd、pre-deploy.sh，并 chmod +x pre-deploy.sh；
+   # 把 docker-compose.yml 里 Traefik 规则的 cashier.example.com 换成真实域名
+   cp env.example .env && cp postgres.env.example postgres.env && cp s3.env.example s3.env
+   chmod 600 .env postgres.env s3.env   # 然后把三个文件里的占位值换成真实值
    echo APP_TAG=init > .tag
    ```
 
@@ -40,9 +46,9 @@ Moli Cashier 部署在 Moli 服务器上的 Docker 里，地址 <https://cashier
    docker compose --env-file .tag up storage-bootstrap
    ```
 
-3. 在 `/data/apps/deploy/apps` 里加一行 `cashier`，登记这个应用。
-4. 登记登录客户端：客户端标识 `moli-cashier`，回调地址 `https://cashier.xiangyu.pro/auth/callback`，授权范围 `openid profile email groups`，并显式指定授权策略。把得到的密钥写进 `.env` 的 `OIDC_CLIENT_SECRET`。
-5. 如果已有一套旧部署，先停掉它，再把旧的数据目录整份复制到 `/data/apps/cashier/data`（数据库和对象存储都在里面），然后核对两边的容器名没有冲突。
+3. 在 `<部署目录>/apps` 里加一行 `cashier`，登记这个应用。
+4. 登记登录客户端：客户端标识 `moli-cashier`，回调地址 `https://<域名>/auth/callback`，授权范围 `openid profile email groups`，并显式指定授权策略。把得到的密钥写进 `.env` 的 `OIDC_CLIENT_SECRET`。
+5. 如果已有一套旧部署，先停掉它，再把旧的数据目录整份复制到 `<应用目录>/data`（数据库和对象存储都在里面），然后核对两边的容器名没有冲突。
 6. 触发部署（见第 3 节）。第一次部署会先执行 `pre-deploy.sh` 备份数据库，再迁移，再启动。
 7. 创建账本：
 
@@ -57,12 +63,15 @@ Moli Cashier 部署在 Moli 服务器上的 Docker 里，地址 <https://cashier
 - **看版本**：
 
   ```bash
-  curl -s https://cashier.xiangyu.pro/healthz
+  curl -s https://<域名>/healthz
   ```
 
   期望 `{"ok":true,"version":"<40 位提交哈希>"}`。
 
 迁移只加不删：新增表和列，要删的东西先停用，下一个版本再迁移删除。这样回滚到上一个版本时，旧代码仍能使用新结构。
+
+仓库里 `deploy/` 下的文件是服务器上那份的模板，改了不会自动生效：`docker-compose.yml`、`pre-deploy.sh`
+或 env 模板有变化时，由管理员把它们复制到 `<应用目录>`（compose 里的域名照旧换成真实值）。
 
 ## 4. 回滚
 
@@ -75,12 +84,14 @@ docker images --format '{{.Tag}}' moli-cashier
 再在服务器上执行（`<提交哈希>` 是上面列出的 40 位标签）：
 
 ```bash
-printf '%s %s rollback\n' cashier <提交哈希> | /data/apps/deploy/deploy-app
+printf '%s %s rollback\n' cashier <提交哈希> | <部署目录>/deploy-app
 ```
 
 服务器上没有那个镜像时，在 GitHub 里对该提交重新运行 `ci`，让它重新构建并部署。或者用 `git revert` 撤销有问题的提交，走正常的 PR 和部署。
 
-数据库不做反向迁移。迁移前的备份在 `/data/apps/cashier/backups/`（最近 5 份），只有迁移本身损坏了数据时才用它恢复：
+数据库不做反向迁移。每次部署前的备份在 `<应用目录>/backups/`：14 天内的全部保留，并且无论多旧都至少留最近 5 份。
+备份先写成临时文件，用 `pg_restore --list` 校验能读出目录后才改成正式文件名，目录和文件只有部署账号可读。
+它不只是为迁移准备的：某个版本悄悄写坏了数据、过几天才发现时，也从这里恢复：
 
 ```bash
 docker compose --env-file .tag exec -T postgres pg_restore -U cashier -d moli-cashier-db --clean --if-exists < backups/<文件名>.dump
@@ -88,8 +99,8 @@ docker compose --env-file .tag exec -T postgres pg_restore -U cashier -d moli-ca
 
 ## 5. 上线后的验证
 
-1. `https://cashier.xiangyu.pro/healthz` 返回 200，`version` 是刚部署的提交。
-2. 打开 <https://cashier.xiangyu.pro>，自动跳到统一登录，登录后回到账目页。
+1. `https://<域名>/healthz` 返回 200，`version` 是刚部署的提交。
+2. 打开 <https://<域名>>，自动跳到统一登录，登录后回到账目页。
 3. 上传一张小票，确认图片能显示、AI 能提取。
 
 ## 6. 常见故障
@@ -106,7 +117,7 @@ docker compose --env-file .tag exec -T postgres pg_restore -U cashier -d moli-ca
 
 ## 7. 数据导出
 
-数据都在 `/data/apps/cashier/data/` 下（`postgres` 和 `s3` 两个目录）。导出时停掉应用，整份复制；或者只导出数据库：
+数据都在 `<应用目录>/data/` 下（`postgres` 和 `s3` 两个目录）。导出时停掉应用，整份复制；或者只导出数据库：
 
 ```bash
 docker compose --env-file .tag exec -T postgres pg_dump -U cashier -Fc moli-cashier-db > cashier.dump
