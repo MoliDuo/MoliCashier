@@ -14,10 +14,17 @@ import { Textarea } from "@/components/ui/textarea";
 import type { EditSession } from "@/modules/ledger/hooks/useCategoryManagementDraft";
 import { commonCopy } from "@/copy/common";
 import { settingsCopy } from "@/copy/settings";
+import { textRoleClassName } from "@/components/typography";
+import {
+  CATEGORY_DESCRIPTION_MAX_LENGTH,
+  CATEGORY_NAME_MAX_LENGTH,
+} from "@/modules/ledger/category-limits";
 
 interface CategoryEditDialogProps {
   editSession: EditSession | null;
   setEditSession: (updater: (session: EditSession | null) => EditSession | null) => void;
+  /** The edited name is already another category's, so it cannot be kept. */
+  nameTaken: boolean;
   onRequestClose: () => void;
   onCommit: () => void;
 }
@@ -25,6 +32,7 @@ interface CategoryEditDialogProps {
 export function CategoryEditDialog({
   editSession,
   setEditSession,
+  nameTaken,
   onRequestClose,
   onCommit,
 }: CategoryEditDialogProps) {
@@ -49,6 +57,9 @@ export function CategoryEditDialog({
                 value={editSession.draft.name}
                 name="categoryName"
                 autoComplete="off"
+                maxLength={CATEGORY_NAME_MAX_LENGTH}
+                aria-invalid={nameTaken || undefined}
+                aria-describedby={nameTaken ? "category-name-taken" : undefined}
                 onChange={(event) =>
                   setEditSession((session) =>
                     session == null
@@ -60,6 +71,15 @@ export function CategoryEditDialog({
                 className="max-md:h-11"
               />
             </div>
+            {nameTaken ? (
+              <p
+                id="category-name-taken"
+                role="alert"
+                className={textRoleClassName("body", "text-destructive")}
+              >
+                {settingsCopy.categoryNameTaken}
+              </p>
+            ) : null}
             <Textarea
               value={editSession.draft.description}
               name="categoryDescription"
@@ -74,6 +94,7 @@ export function CategoryEditDialog({
                       }
                 )
               }
+              maxLength={CATEGORY_DESCRIPTION_MAX_LENGTH}
               aria-label={settingsCopy.categoryDescription}
               className="min-h-24 w-full"
             />
@@ -83,7 +104,11 @@ export function CategoryEditDialog({
           <Button type="button" variant="outline" onClick={onRequestClose}>
             {commonCopy.cancel}
           </Button>
-          <Button type="button" disabled={editSession?.draft.name.trim() === ""} onClick={onCommit}>
+          <Button
+            type="button"
+            disabled={editSession?.draft.name.trim() === "" || nameTaken}
+            onClick={onCommit}
+          >
             {commonCopy.save}
           </Button>
         </DialogFooter>

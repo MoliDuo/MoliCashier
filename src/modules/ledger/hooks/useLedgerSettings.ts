@@ -9,11 +9,14 @@ import { useLedgerMutation } from "@/lib/mutations/use-ledger-mutation";
 import { queryKeys } from "@/lib/query-keys";
 import { omitUndefinedProperties } from "@/lib/validation";
 import type { UpdateLedgerInput } from "@/modules/ledger/contract-schemas";
+import { ActionRefusedError, refusalCode } from "@/lib/errors";
 import type {
+  CreateServiceCredentialErrorCode,
   CreatedServiceCredential,
   EntryCategory,
   EntryCategoryWithCount,
   Ledger,
+  SaveEntryCategoriesErrorCode,
   SaveEntryCategoriesInput,
   ServiceCredential,
   UpdateLedgerActionErrorCode,
@@ -64,7 +67,7 @@ export function useLedgerSettings({
 
   const ledgerQuery = useQuery<Ledger | null>({
     queryKey: queryKeys.ledger(),
-    queryFn: () => fetchLedger(),
+    queryFn: ({ signal }) => fetchLedger({ signal }),
     initialData: initialLedger,
     staleTime: LEDGER.STALE_TIME_MS,
     refetchOnWindowFocus: true,
@@ -73,7 +76,7 @@ export function useLedgerSettings({
 
   const categoriesQuery = useQuery<EntryCategoryWithCount[]>({
     queryKey: queryKeys.entryCategories(),
-    queryFn: () => fetchEntryCategories(),
+    queryFn: ({ signal }) => fetchEntryCategories({ signal }),
     initialData: initialCategories,
     refetchInterval: categoryMetadataPolling,
     staleTime: LEDGER.STALE_TIME_MS,
@@ -85,7 +88,7 @@ export function useLedgerSettings({
     credentials: ServiceCredential[];
   }>({
     queryKey: queryKeys.ledgerSettings(),
-    queryFn: () => fetchLedgerSettings(),
+    queryFn: ({ signal }) => fetchLedgerSettings({ signal }),
     staleTime: LEDGER.STALE_TIME_MS,
     refetchOnWindowFocus: true,
   });
@@ -156,6 +159,8 @@ export function useLedgerSettings({
     { categoryId: string; requestId: number }
   >({
     mutationFn: ({ categoryId }) => generateEntryCategoryMetadataAction(categoryId),
+    // The category's row shows the failure and offers to try again.
+    errorMessage: null,
     // Restart the category list's polling until every category has its metadata.
     onSuccess: () => setMetadataPollingSession((session) => session + 1),
     onError: (_error, { categoryId, requestId }) => {
@@ -185,14 +190,39 @@ export function useLedgerSettings({
   );
 
   const saveCategories = useLedgerMutation<EntryCategory[], SaveEntryCategoriesInput>({
-    mutationFn: (input) => saveEntryCategoriesAction(input),
+    mutationFn: async (input) => {
+      const result = await saveEntryCategoriesAction(input);
+      if (!result.ok) throw new ActionRefusedError<SaveEntryCategoriesErrorCode>(result.code);
+      return result.categories;
+    },
     successMessage: settingsCopy.categoriesSaved,
-    errorMessage: settingsCopy.saveCategoriesFailed,
+    errorMessage: null,
     onSuccess: (saved, input) => {
-      queryClient.setQueryData(queryKeys.entryCategories(), saved);
+      // The list keeps each category's entry count, which a save does not
+      // change; a new category has none yet.
+      queryClient.setQueryData<EntryCategoryWithCount[]>(
+        queryKeys.entryCategories(),
+        (previous) => {
+          const counts = new Map(previous?.map((category) => [category.id, category.entryCount]));
+          return saved.map((category) => ({
+            ...category,
+            entryCount: counts.get(category.id) ?? 0,
+          }));
+        }
+      );
       for (const category of input.categories) {
         if (category.clientId != null) requestCategoryMetadata(category.clientId);
       }
+    },
+    onError: (error) => {
+      // A conflict is shown in the section itself, with the way to reload.
+      const code = refusalCode<SaveEntryCategoriesErrorCode>(error);
+      if (code === "conflict") return;
+      toast.error(
+        code === "assignment_active"
+          ? settingsCopy.categoryAssignmentActive
+          : settingsCopy.saveCategoriesFailed
+      );
     },
   });
 
@@ -200,16 +230,20 @@ export function useLedgerSettings({
     CreatedServiceCredential,
     { name: string; bookId: string }
   >({
-    mutationFn: (input) => createServiceCredentialAction(input),
+    mutationFn: async (input) => {
+      const result = await createServiceCredentialAction(input);
+      if (!result.ok) throw new ActionRefusedError<CreateServiceCredentialErrorCode>(result.code);
+      return result.credential;
+    },
     successMessage: settingsCopy.credentialCreated,
     errorMessage: null,
     onError: (error) => {
-      const code = (error as Error & { code?: unknown }).code;
       // Two different conflicts reach here: the 20-key cap and a book that is
       // gone or archived. Reporting both as the cap hid the real reason the
       // reader could not add a key.
-      if (code === "BOOK_UNAVAILABLE") toast.error(serviceCredentialsCopy.bookUnavailable);
-      else if (code === "CONFLICT") toast.error(serviceCredentialsCopy.maxActive);
+      const code = refusalCode<CreateServiceCredentialErrorCode>(error);
+      if (code === "book_unavailable") toast.error(serviceCredentialsCopy.bookUnavailable);
+      else if (code === "limit_reached") toast.error(serviceCredentialsCopy.maxActive);
       else toast.error(settingsCopy.createFailed);
     },
   });

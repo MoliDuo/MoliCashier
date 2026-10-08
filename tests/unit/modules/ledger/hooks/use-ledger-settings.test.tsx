@@ -10,6 +10,7 @@ import type {
 } from "@/modules/ledger/contracts";
 import { useLedgerSettings } from "@/modules/ledger/hooks/useLedgerSettings";
 import { getDefaultLedger } from "tests/helpers/default-ledger";
+import { serviceCredentialsCopy, settingsCopy } from "@/copy/settings";
 
 const {
   updateLedgerSettingsAction,
@@ -174,9 +175,10 @@ describe("useLedgerSettings", () => {
       expect(invalidate).not.toHaveBeenCalled();
     });
 
-    it("stores saved categories and refreshes the visible ledger", async () => {
+    it("stores saved categories with their entry counts and refreshes the visible ledger", async () => {
       const { result, queryClient } = setup();
-      saveAction.mockResolvedValue([{ ...category, name: "Dining" }]);
+      queryClient.setQueryData(queryKeys.entryCategories(), [{ ...category, entryCount: 3 }]);
+      saveAction.mockResolvedValue({ ok: true, categories: [{ ...category, name: "Dining" }] });
       const invalidate = vi.spyOn(queryClient, "invalidateQueries").mockResolvedValue();
 
       await act(async () => {
@@ -187,7 +189,7 @@ describe("useLedgerSettings", () => {
       });
 
       expect(queryClient.getQueryData(queryKeys.entryCategories())).toEqual([
-        { ...category, name: "Dining" },
+        { ...category, name: "Dining", entryCount: 3 },
       ]);
       expect(invalidate.mock.calls.map(([filters]) => filters!.queryKey)).toEqual([
         queryKeys.ledger(),
@@ -201,7 +203,7 @@ describe("useLedgerSettings", () => {
         resolveRefresh = resolve;
       });
       vi.spyOn(queryClient, "invalidateQueries").mockReturnValue(refresh);
-      saveAction.mockResolvedValue([{ ...category, name: "Dining" }]);
+      saveAction.mockResolvedValue({ ok: true, categories: [{ ...category, name: "Dining" }] });
 
       let mutation!: Promise<EntryCategory[]>;
       act(() => {
@@ -254,7 +256,10 @@ describe("useLedgerSettings", () => {
         uncategorizedCount: 0,
         credentials: [],
       });
-      createServiceCredentialAction.mockResolvedValueOnce(createdCredential);
+      createServiceCredentialAction.mockResolvedValueOnce({
+        ok: true,
+        credential: createdCredential,
+      });
       const { result } = setup(queryClient);
 
       let returned: CreatedServiceCredentialDto | undefined;
@@ -274,7 +279,10 @@ describe("useLedgerSettings", () => {
     });
 
     it("clears mutation data when the one-time result is dismissed", async () => {
-      createServiceCredentialAction.mockResolvedValueOnce(createdCredential);
+      createServiceCredentialAction.mockResolvedValueOnce({
+        ok: true,
+        credential: createdCredential,
+      });
       const { result } = setup();
 
       await act(async () => {
@@ -287,6 +295,60 @@ describe("useLedgerSettings", () => {
       act(() => result.current.createCredential.reset());
 
       await waitFor(() => expect(result.current.createCredential.data).toBeUndefined());
+    });
+
+    it.each([
+      ["book_unavailable", serviceCredentialsCopy.bookUnavailable],
+      ["limit_reached", serviceCredentialsCopy.maxActive],
+      ["unexpected", settingsCopy.createFailed],
+    ] as const)("explains a key refused with %s", async (code, message) => {
+      createServiceCredentialAction.mockResolvedValueOnce({ ok: false, code });
+      const { result } = setup();
+
+      await act(async () => {
+        await expect(
+          result.current.createCredential.mutateAsync({ name: "CLI", bookId: "book-1" })
+        ).rejects.toMatchObject({ code });
+      });
+
+      expect(toastError).toHaveBeenCalledExactlyOnceWith(message);
+    });
+  });
+
+  describe("category save refusals", () => {
+    it.each([
+      ["assignment_active", settingsCopy.categoryAssignmentActive],
+      ["invalid", settingsCopy.saveCategoriesFailed],
+    ] as const)("explains a save refused with %s", async (code, message) => {
+      saveAction.mockResolvedValueOnce({ ok: false, code });
+      const { result } = setup();
+
+      await act(async () => {
+        await expect(
+          result.current.saveCategories.mutateAsync({
+            expectedRevision: "a".repeat(64),
+            categories: [],
+          })
+        ).rejects.toMatchObject({ code });
+      });
+
+      expect(toastError).toHaveBeenCalledExactlyOnceWith(message);
+    });
+
+    it("leaves a conflict to the section, which offers to reload", async () => {
+      saveAction.mockResolvedValueOnce({ ok: false, code: "conflict" });
+      const { result } = setup();
+
+      await act(async () => {
+        await expect(
+          result.current.saveCategories.mutateAsync({
+            expectedRevision: "a".repeat(64),
+            categories: [],
+          })
+        ).rejects.toMatchObject({ code: "conflict" });
+      });
+
+      expect(toastError).not.toHaveBeenCalled();
     });
   });
 });

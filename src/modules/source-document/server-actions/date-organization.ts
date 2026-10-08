@@ -5,14 +5,14 @@ import {
   applyDateOrganizationInputSchema,
   dismissDateOrganizationInputSchema,
 } from "@/modules/source-document/contract-schemas";
-import { withLedgerAccess } from "@/modules/ledger/access";
+import { withLedgerAction } from "@/modules/ledger/action-access";
 
-export const applyDateOrganizationAction = withLedgerAccess(async (input: unknown) => {
+export const applyDateOrganizationAction = withLedgerAction(async (input: unknown) => {
   const validated = applyDateOrganizationInputSchema.parse(input);
   return applyDateOrganization(validated);
 });
 
-export const dismissDateOrganizationAction = withLedgerAccess(async (input: unknown) => {
+export const dismissDateOrganizationAction = withLedgerAction(async (input: unknown) => {
   const validated = dismissDateOrganizationInputSchema.parse(input);
   return dismissDateOrganization(validated);
 });

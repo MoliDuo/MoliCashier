@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { CurrencySection } from "@/modules/ledger/ui/CurrencySection";
 import { SettingsField } from "@/components/SettingsField";
+import { settingsCopy } from "@/copy/settings";
 
 describe("settings primitives", () => {
   it("updates the main-currency draft without opening a confirmation", () => {
@@ -42,6 +43,35 @@ describe("settings primitives", () => {
     expect(screen.queryByText("USD")).not.toBeInTheDocument();
     fireEvent.click(screen.getByText("JPY"));
     expect(onUpdateSettings).toHaveBeenCalledWith({ currencies: ["CNY", "USD", "JPY"] });
+  });
+
+  // "VEF" stands for any code the ledger stored while it was still offered.
+  it("shows a stored currency that is no longer offered, without offering it again", () => {
+    const onUpdateSettings = vi.fn();
+    render(
+      <CurrencySection
+        settings={{ mainCurrency: "CNY", currencies: ["CNY", "VEF"] }}
+        onUpdateSettings={onUpdateSettings}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /偏好货币/ }));
+    const retired = screen.getByText(settingsCopy.currencyRetired({ currency: "VEF" }));
+    fireEvent.click(retired);
+    expect(onUpdateSettings).toHaveBeenCalledWith({ currencies: ["CNY"] });
+  });
+
+  it("names a stored main currency that is no longer offered", () => {
+    render(
+      <CurrencySection
+        settings={{ mainCurrency: "VEF", currencies: ["VEF"] }}
+        onUpdateSettings={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("combobox", { name: "主货币" })).toHaveTextContent(
+      settingsCopy.currencyRetired({ currency: "VEF" })
+    );
   });
 });
 

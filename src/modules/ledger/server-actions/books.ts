@@ -1,6 +1,6 @@
 "use server";
 
-import { withLedgerAccess } from "../access";
+import { withLedgerAction } from "../action-access";
 import type { BookDto } from "@/modules/ledger/contracts";
 import {
   parseBookId,
@@ -78,7 +78,7 @@ async function runBookMutation(
   }
 }
 
-export const createBookAction = withLedgerAccess(
+export const createBookAction = withLedgerAction(
   (data: CreateBookInput): Promise<BookMutationResult> =>
     runBookMutation(async () => {
       const validated = parseCreateBookInput(data);
@@ -90,7 +90,7 @@ export const createBookAction = withLedgerAccess(
     })
 );
 
-export const updateBookAction = withLedgerAccess(
+export const updateBookAction = withLedgerAction(
   (bookId: string, data: UpdateBookInput): Promise<BookMutationResult> =>
     runBookMutation(async () => {
       const validatedId = parseBookId(bookId);
@@ -104,7 +104,7 @@ export const updateBookAction = withLedgerAccess(
     })
 );
 
-export const reorderBooksAction = withLedgerAccess(
+export const reorderBooksAction = withLedgerAction(
   (bookIds: string[]): Promise<BookMutationResult> =>
     runBookMutation(async () => {
       const validated = parseReorderBooksInput(bookIds);
@@ -118,7 +118,7 @@ export const reorderBooksAction = withLedgerAccess(
  * bound to it, or for the last live book; those come back as codes so 设置 can
  * say which one it is.
  */
-export const archiveBookAction = withLedgerAccess(
+export const archiveBookAction = withLedgerAction(
   async (bookId: string): Promise<BookMutationResult> => {
     try {
       const validatedId = parseBookId(bookId);
@@ -133,7 +133,7 @@ export const archiveBookAction = withLedgerAccess(
   }
 );
 
-export const restoreBookAction = withLedgerAccess(
+export const restoreBookAction = withLedgerAction(
   async (bookId: string): Promise<BookMutationResult> => {
     try {
       const validatedId = parseBookId(bookId);
@@ -151,7 +151,7 @@ export const restoreBookAction = withLedgerAccess(
   }
 );
 
-export const deleteBookAction = withLedgerAccess(
+export const deleteBookAction = withLedgerAction(
   async (bookId: string): Promise<BookMutationResult> => {
     try {
       const validatedId = parseBookId(bookId);

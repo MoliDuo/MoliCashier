@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { getCurrentSession } from "@/modules/auth/server/current-session";
 import { testSession } from "tests/helpers/session";
 import { saveEntryCategoriesAction } from "@/modules/ledger/server-actions/categories";
+import { SIGN_IN_PATH } from "@/modules/auth/constants";
 import {
   entryCategories,
   ledgerEntries,
@@ -21,6 +22,13 @@ import {
 import { computeCategoryCollectionRevision } from "@/modules/ledger/category-collection-revision";
 
 vi.mock("@/modules/auth/server/current-session", () => ({ getCurrentSession: vi.fn() }));
+
+/** Saves a collection the test expects to be accepted, and returns what was saved. */
+async function saveCategories(input: Parameters<typeof saveEntryCategoriesAction>[0]) {
+  const result = await saveEntryCategoriesAction(input);
+  if (!result.ok) throw new Error(`Expected the save to succeed, got ${result.code}`);
+  return result.categories;
+}
 
 describe("saveEntryCategoriesAction", () => {
   beforeEach(() => {
@@ -70,7 +78,7 @@ describe("saveEntryCategoriesAction", () => {
       await db.query.entryCategories.findMany()
     );
 
-    const saved = await saveEntryCategoriesAction({
+    const saved = await saveCategories({
       expectedRevision,
       categories: [
         {
@@ -109,7 +117,7 @@ describe("saveEntryCategoriesAction", () => {
         data: { title: "Edited title" },
       })
     ).toMatchObject({ updatedCount: 1 });
-    await saveEntryCategoriesAction({
+    await saveCategories({
       expectedRevision: await computeCategoryCollectionRevision(saved),
       categories: saved.map(({ id, name, description, icon }) => ({ id, name, description, icon })),
     });
@@ -159,7 +167,7 @@ describe("saveEntryCategoriesAction", () => {
         expectedRevision: await computeCategoryCollectionRevision(categories),
         categories: [],
       })
-    ).rejects.toMatchObject({ code: "CONFLICT" });
+    ).resolves.toEqual({ ok: false, code: "conflict" });
     expect(
       await db.query.entryCategories.findFirst({ where: eq(entryCategories.id, categoryId) })
     ).toBeDefined();
@@ -170,14 +178,14 @@ describe("saveEntryCategoriesAction", () => {
     expect(unchanged.every((document) => document.version === 1)).toBe(true);
   });
 
-  it("requires authentication before saving a collection", async () => {
+  it("sends a signed-out session to sign in before saving a collection", async () => {
     vi.mocked(getCurrentSession).mockResolvedValueOnce(null);
     await expect(
       saveEntryCategoriesAction({
         expectedRevision: await computeCategoryCollectionRevision([]),
         categories: [],
       })
-    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    ).rejects.toMatchObject({ digest: expect.stringContaining(SIGN_IN_PATH) });
   });
 
   it("allows every category to be edited and deleted", async () => {
@@ -211,7 +219,7 @@ describe("saveEntryCategoriesAction", () => {
           },
         ],
       })
-    ).resolves.toHaveLength(1);
+    ).resolves.toMatchObject({ ok: true, categories: [{ name: "Changed" }] });
 
     const active = await db.query.entryCategories.findMany({
       orderBy: entryCategories.sortOrder,
@@ -228,7 +236,7 @@ describe("saveEntryCategoriesAction", () => {
 
     await expect(
       saveEntryCategoriesAction({ expectedRevision: "invalid", categories: [] } as never)
-    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    ).resolves.toEqual({ ok: false, code: "invalid" });
     await expect(db.query.entryCategories.findMany()).resolves.toEqual([
       expect.objectContaining({ name: "Kept" }),
     ]);
@@ -258,7 +266,7 @@ describe("saveEntryCategoriesAction", () => {
         expectedRevision,
         categories: [{ id: categoryId, name: "Draft", description: null, icon: null }],
       })
-    ).rejects.toMatchObject({ code: "CONFLICT" });
+    ).resolves.toEqual({ ok: false, code: "conflict" });
     await expect(
       db.query.entryCategories.findFirst({ where: eq(entryCategories.id, categoryId) })
     ).resolves.toMatchObject({ name: "Changed elsewhere" });
@@ -281,7 +289,7 @@ describe("saveEntryCategoriesAction", () => {
       })
     );
 
-    await saveEntryCategoriesAction({
+    await saveCategories({
       expectedRevision,
       categories: [
         { id: aId, name: "B", description: null, icon: null },
@@ -319,7 +327,7 @@ describe("saveEntryCategoriesAction", () => {
       })
     );
 
-    const saved = await saveEntryCategoriesAction({
+    const saved = await saveCategories({
       expectedRevision,
       categories: categories.map((category, index) => ({
         id: category.id,

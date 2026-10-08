@@ -1,12 +1,12 @@
 "use server";
-import { withLedgerAccess } from "@/modules/ledger/access";
+import { withLedgerAction } from "@/modules/ledger/action-access";
 import { logError } from "@/lib/error-handlers";
 import type { UpdateLedgerActionResult } from "@/modules/ledger/contracts";
 import { parseUpdateLedgerInput, type UpdateLedgerInput } from "@/modules/ledger/contract-schemas";
 import { updateLedgerSettings } from "../server/settings";
 import { toUpdateLedgerActionErrorCode } from "./update-error";
 
-export const updateLedgerSettingsAction = withLedgerAccess(
+export const updateLedgerSettingsAction = withLedgerAction(
   async (data: UpdateLedgerInput): Promise<UpdateLedgerActionResult> => {
     try {
       const validated = parseUpdateLedgerInput(data);

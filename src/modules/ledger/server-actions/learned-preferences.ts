@@ -1,5 +1,5 @@
 "use server";
-import { withLedgerAccess } from "@/modules/ledger/access";
+import { withLedgerAction } from "@/modules/ledger/action-access";
 import { clearLearnedPreferences } from "../server/learned-preferences";
 
-export const clearLearnedPreferencesAction = withLedgerAccess(clearLearnedPreferences);
+export const clearLearnedPreferencesAction = withLedgerAction(clearLearnedPreferences);

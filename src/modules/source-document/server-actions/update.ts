@@ -4,12 +4,12 @@ import {
   batchUpdateSourceDocumentsInputSchema,
   type BatchUpdateSourceDocumentsInput,
 } from "@/modules/source-document/contract-schemas";
-import { withLedgerAccess } from "@/modules/ledger/access";
+import { withLedgerAction } from "@/modules/ledger/action-access";
 import { updateSourceDocuments } from "../server/updates";
 /**
  * Batch update multiple source documents.
  */
-export const batchUpdateSourceDocumentsAction = withLedgerAccess(
+export const batchUpdateSourceDocumentsAction = withLedgerAction(
   async (input: {
     sourceDocumentIds: string[];
     data: BatchUpdateSourceDocumentsInput;

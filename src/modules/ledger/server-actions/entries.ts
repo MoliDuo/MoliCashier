@@ -1,5 +1,5 @@
 "use server";
-import { withLedgerAccess } from "../access";
+import { withLedgerAction } from "../action-access";
 import {
   parseBatchUpdateLedgerEntriesInput,
   parseBatchUpdateLedgerEntryDatesInput,
@@ -24,7 +24,7 @@ import {
 } from "@/modules/source-document/contract-schemas";
 import type { PartialBatchCommandResult } from "@/modules/source-document/contracts";
 
-export const createLedgerEntryAction = withLedgerAccess(async (data: CreateLedgerEntryInput) => {
+export const createLedgerEntryAction = withLedgerAction(async (data: CreateLedgerEntryInput) => {
   const validated = parseCreateLedgerEntryInput(data);
   return addLedgerEntry({
     sourceDocumentId: validated.sourceDocumentId,
@@ -36,7 +36,7 @@ export const createLedgerEntryAction = withLedgerAccess(async (data: CreateLedge
   });
 });
 
-export const deleteLedgerEntryAction = withLedgerAccess(
+export const deleteLedgerEntryAction = withLedgerAction(
   async (sourceDocumentId: string, ledgerEntryId: string) => {
     const validatedSourceDocumentId = parseSourceDocumentId(sourceDocumentId);
     const validatedLedgerEntryId = parseLedgerEntryId(ledgerEntryId);
@@ -47,7 +47,7 @@ export const deleteLedgerEntryAction = withLedgerAccess(
   }
 );
 
-export const batchUpdateLedgerEntriesAction = withLedgerAccess(
+export const batchUpdateLedgerEntriesAction = withLedgerAction(
   async (
     sourceDocumentIds: string[],
     ledgerEntryIds: string[],
@@ -69,7 +69,7 @@ export const batchUpdateLedgerEntriesAction = withLedgerAccess(
   }
 );
 
-export const batchDeleteLedgerEntriesAction = withLedgerAccess(
+export const batchDeleteLedgerEntriesAction = withLedgerAction(
   async (sourceDocumentIds: string[], inputIds: string[]): Promise<PartialBatchCommandResult> => {
     const validatedSourceDocumentIds = parseSourceDocumentTargetIds(sourceDocumentIds);
     const ids = parseLedgerEntryIds(inputIds);
@@ -79,14 +79,14 @@ export const batchDeleteLedgerEntriesAction = withLedgerAccess(
     });
   }
 );
-export const previewBatchLedgerEntryDateAction = withLedgerAccess(async (inputIds: string[]) => {
+export const previewBatchLedgerEntryDateAction = withLedgerAction(async (inputIds: string[]) => {
   const entryIds = parseLedgerEntryIds(inputIds);
   return getBatchEntryDateImpact({
     ledgerEntryIds: entryIds,
   });
 });
 
-export const batchUpdateLedgerEntryDatesAction = withLedgerAccess(
+export const batchUpdateLedgerEntryDatesAction = withLedgerAction(
   async (sourceDocumentIds: string[], inputIds: string[], entryDate: string) => {
     const validatedSourceDocumentIds = parseSourceDocumentTargetIds(sourceDocumentIds);
     const validated = parseBatchUpdateLedgerEntryDatesInput({

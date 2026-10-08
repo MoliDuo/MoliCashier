@@ -17,6 +17,20 @@ import {
 } from "@/components/ui/select";
 import { settingsCopy } from "@/copy/settings";
 
+const supportedCurrencySet = new Set<string>(SUPPORTED_CURRENCIES);
+
+/**
+ * A currency the ledger already stores may have left the supported list. It is
+ * still shown — and can be dropped — but it is never offered as a new choice.
+ */
+function isRetiredCurrency(currency: string): boolean {
+  return !supportedCurrencySet.has(currency);
+}
+
+function currencyLabel(currency: string): string {
+  return isRetiredCurrency(currency) ? settingsCopy.currencyRetired({ currency }) : currency;
+}
+
 interface CurrencySectionProps {
   settings: Pick<Settings, "currencies" | "mainCurrency">;
   onUpdateSettings: (data: Partial<Settings>) => void;
@@ -36,13 +50,16 @@ function PreferredCurrenciesMenu({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const filteredCurrencies = SUPPORTED_CURRENCIES.filter((currency) =>
+  const retiredCurrencies = initialCurrencies.filter(isRetiredCurrency);
+  const filteredCurrencies = [...retiredCurrencies, ...SUPPORTED_CURRENCIES].filter((currency) =>
     currency.toLowerCase().includes(search.trim().toLowerCase())
   );
 
   const toggleCurrency = (currency: string) => {
     if (currency === mainCurrency) return;
-    const newCurrencies = initialCurrencies.includes(currency)
+    const selected = initialCurrencies.includes(currency);
+    if (!selected && isRetiredCurrency(currency)) return;
+    const newCurrencies = selected
       ? initialCurrencies.filter((current) => current !== currency)
       : [...initialCurrencies, currency];
     onUpdateSettings({ currencies: newCurrencies });
@@ -109,7 +126,7 @@ function PreferredCurrenciesMenu({
                   onCheckedChange={() => toggleCurrency(currency)}
                   disabled={disabled || isMainCurrency}
                 />
-                <span>{currency}</span>
+                <span>{currencyLabel(currency)}</span>
                 {isMainCurrency ? (
                   <span className={textRoleClassName("meta", "ml-auto")}>
                     {settingsCopy.mainCurrencyMustBeEnabled}
@@ -161,6 +178,11 @@ export function CurrencySection({
             <SelectValue />
           </SelectTrigger>
           <SelectContent position="popper">
+            {isRetiredCurrency(mainCurrency) ? (
+              <SelectItem value={mainCurrency} disabled>
+                {currencyLabel(mainCurrency)}
+              </SelectItem>
+            ) : null}
             {SUPPORTED_CURRENCIES.map((currency) => (
               <SelectItem key={currency} value={currency}>
                 {currency}

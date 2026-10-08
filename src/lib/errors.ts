@@ -61,3 +61,20 @@ export class BookUnavailableError extends AppError {
     super(message, "BOOK_UNAVAILABLE", 409);
   }
 }
+
+/**
+ * A server action that answered with `{ ok: false, code }`, raised again on the
+ * client so a mutation's error path can branch on the stable code. Never thrown
+ * on the server: an action's thrown error loses its code in production.
+ */
+export class ActionRefusedError<TCode extends string = string> extends Error {
+  constructor(public readonly code: TCode) {
+    super(code);
+    this.name = "ActionRefusedError";
+  }
+}
+
+/** The code an action refused with, or undefined for any other failure. */
+export function refusalCode<TCode extends string>(error: unknown): TCode | undefined {
+  return error instanceof ActionRefusedError ? (error.code as TCode) : undefined;
+}

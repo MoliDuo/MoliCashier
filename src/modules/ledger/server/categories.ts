@@ -6,7 +6,7 @@ import type {
   SaveEntryCategoriesInput,
 } from "@/modules/ledger/contracts";
 import { db } from "@/lib/db";
-import { ConflictError, ValidationError } from "@/lib/errors";
+import { AppError, ConflictError, ValidationError } from "@/lib/errors";
 import {
   categoryAssignmentJobs,
   entryCategories,
@@ -56,7 +56,13 @@ async function assertCategoryCandidatesMutable(
     )
     .limit(1)
     .then((rows) => rows[0]);
-  if (active != null) throw new ConflictError("CATEGORY_ASSIGNMENT_ACTIVE");
+  if (active != null) {
+    throw new AppError(
+      "A category assignment is using these categories",
+      "CATEGORY_ASSIGNMENT_ACTIVE",
+      409
+    );
+  }
 }
 
 export async function listCategories(): Promise<EntryCategoryDto[]> {
