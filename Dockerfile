@@ -1,7 +1,9 @@
 # Moli Cashier runs as one long-lived Node process. The image keeps the sources and the full
 # node_modules rather than a standalone output: the migration and the account commands run through
 # tsx, and both need them.
-FROM node:24-bookworm-slim
+# Pinned by digest so the image CI checked and the one the deploy builds start from the same base;
+# Dependabot moves the pin.
+FROM node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
 
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
@@ -27,7 +29,9 @@ RUN DATABASE_URL=postgresql://build:build@127.0.0.1:1/build \
     S3_ACCESS_KEY_ID=build \
     S3_SECRET_ACCESS_KEY=build \
     npm run build \
- && chown -R node:node /app
+ && mkdir -p .next/cache \
+ && chown -R node:node .next/cache
+# Root owns the sources, node_modules and the build: the server process can write only its cache.
 
 # The commit sha the deploy builds from; /healthz reports it so the deploy can confirm what is
 # running. Set after the build so a new sha does not invalidate the install and build layers.

@@ -1,5 +1,8 @@
 # Per-file false positives, each with a reason (Moli standard 004, 4.7.3).
 # Everything listed here is a fixture or a documentation example; no real credential.
+# The CI scan reads the whole history (MoliKit's gitleaks action runs `detect` with fetch-depth 0),
+# so paths that no longer exist stay listed: their old commits still hold the placeholder tokens.
+# Do not reuse one of these paths for a new file.
 [extend]
 useDefault = true
 

@@ -3,11 +3,13 @@
 .next
 .next-*
 .tmp
-.env
-.env.*
+**/.env
+**/.env.*
 !.env.example
 !.env.local.example
-node_modules
+**/node_modules
+.claude
+.worktrees
 coverage
 playwright-report
 test-results

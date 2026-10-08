@@ -17,8 +17,12 @@ concurrency:
 
 jobs:
   deploy:
-    # Only after ci succeeded on main
-    if: github.event.workflow_run.conclusion == 'success'
+    # Only after ci succeeded on a push to main in this repository: `branches` matches the head
+    # branch name, which a pull request from a fork named main would also carry.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
