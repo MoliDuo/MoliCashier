@@ -5,18 +5,18 @@
 
 ## 命令
 
-| 命令                       | 内容                                        | 需要             |
-| -------------------------- | ------------------------------------------- | ---------------- |
-| `npm test`                 | 单元测试（unit-node、unit-dom）             | Node.js 24       |
-| `npm run test:unit:sg`     | 在 Asia/Singapore 时区再跑一遍单元测试      | Node.js 24       |
-| `npm run test:watch`       | 监视模式的单元测试                          | Node.js 24       |
-| `npm run test:integration` | 集成测试（integration-node）                | Docker           |
-| `npm run test:all`         | 全部 Vitest 项目                            | Docker           |
-| `npm run test:coverage`    | 全部项目加覆盖率阈值（`vitest.config.mts`） | Docker           |
-| `npm run test:prepare`     | 只检查一次测试容器能否启动并释放            | Docker           |
-| `npm run test:smoke`       | Playwright smoke，桌面与移动 Chromium       | Docker、Chromium |
-| `npm run test:demo`        | 在 demo 工作区上跑 `@demo` 用例             | Docker、Chromium |
-| `npm run check`            | 提交前的完整门禁，包含 `test:coverage`      | Docker           |
+| 命令                       | 内容                                                    | 需要                     |
+| -------------------------- | ------------------------------------------------------- | ------------------------ |
+| `npm test`                 | 单元测试（unit-node、unit-dom）                         | Node.js 24               |
+| `npm run test:unit:sg`     | 在 Asia/Singapore 时区再跑一遍单元测试                  | Node.js 24               |
+| `npm run test:watch`       | 监视模式的单元测试                                      | Node.js 24               |
+| `npm run test:integration` | 集成测试（integration-node）                            | Docker                   |
+| `npm run test:all`         | 全部 Vitest 项目                                        | Docker                   |
+| `npm run test:coverage`    | 全部项目加覆盖率阈值（`vitest.config.mts`）             | Docker                   |
+| `npm run test:prepare`     | 只检查一次测试容器能否启动并释放                        | Docker                   |
+| `npm run test:smoke`       | Playwright smoke，桌面与移动 Chromium，加 iPhone WebKit | Docker、Chromium、WebKit |
+| `npm run test:demo`        | 在 demo 工作区上跑 `@demo` 用例                         | Docker、Chromium         |
+| `npm run check`            | 提交前的完整门禁，包含 `test:coverage`                  | Docker                   |
 
 `npm run check` 分两个阶段（`scripts/run-check.ts`）：先并行跑 `format:check`、`check:architecture`、
 `check:dead-code`、`lint` 和 `tsc`（`next typegen && tsc --noEmit`），任何一项失败就停，不再进入测试；全部通过后并行跑
@@ -26,7 +26,7 @@
 指出慢在哪一步。ESLint 和 Prettier 的缓存放在 `node_modules/.cache/`。
 
 跑单个文件：`npx vitest run tests/unit/path/to/file.test.ts`。Playwright 首次使用前运行
-`npx playwright install chromium`。
+`npx playwright install chromium webkit`；Linux 上 WebKit 还要系统库，用 `sudo npx playwright install-deps webkit` 装。
 
 数据库相关的命令只需要一个运行中的 Docker daemon，不需要 `.env`、真实凭证、固定端口或手动迁移。
 测试容器用 `postgres:17-alpine`，与生产的大版本一致，随机主机端口，Vitest 跑完即释放。首次运行会拉取镜像，比较慢。
@@ -111,7 +111,12 @@ advisory lock 和停机交还各有自己的测试；调度器测试用 fake tim
   `scripts/lib/seed.ts` 写入一个账本、两个分账和几个分类。用例需要的账单和会话一样，直接写进这个库。不会迁移、写入或清空任何已有的库。
 - 构建输出在 `.next-smoke`（`run-smoke.ts` 设置 `CASHIER_SMOKE_BUILD=1`，类型检查用 `tsconfig.smoke.json`），
   不碰门禁的 `.next`，所以同一份检出里可以同时跑 smoke 和 `npm run check`。
-- 桌面和移动场景串行运行，每个场景用新的浏览器上下文。
+- 浏览器经 HTTPS 访问应用，和生产一样：`scripts/smoke-https-proxy.ts` 用临时自签证书（`openssl` 现场生成）在 Next.js
+  前面做 TLS，`APP_URL` 指向它，Playwright 设置 `ignoreHTTPSErrors`。会话 cookie 是 Secure 的 `__Host-` cookie，
+  Linux 上的 WebKit 在明文 HTTP 下既不存也不发它。
+- 桌面和移动场景串行运行，每个场景用新的浏览器上下文。`iphone` 项目（`iPhone 15`，WebKit）只跑
+  `mobile-editing.spec.ts` 和 `books-production.spec.ts`，并且减少动效：Playwright 的 Linux WebKit 在菜单还在动画时
+  点击菜单项，偶尔会让页面崩溃。
 - 没有 dev 旁路，也不连真实的认证服务、AI 或对象存储。认证服务是 `scripts/smoke-oidc-server.ts` 的本地假 OIDC 提供方
   （`OIDC_ISSUER_URL` 指向它）：有 discovery、JWKS、授权、令牌（校验客户端密钥和 PKCE）和 userinfo 端点，
   没有登录表单，由 `POST /__sign-in-as` 指定"当前已登录的用户"。
@@ -120,7 +125,9 @@ advisory lock 和停机交还各有自己的测试；调度器测试用 fake tim
 - 集成测试用同一个假提供方（`tests/helpers/oidc-provider.ts` 在回环端口上启动它）测 `oidc.ts` 和两个路由：
   state、PKCE、nonce、过期、重放和只有 userinfo 带邮箱的情况。
 - 覆盖账本访问、新建记录、编辑、刷新后仍在、删除、退出登录、受保护页面的跳转，以及新建记录的草稿恢复、
-  账单字段和设置的即时保存、拆分后新账单替换当前详情、浏览器后退不再弹确认。
+  账单字段和设置的即时保存、拆分后新账单替换当前详情、浏览器后退不再弹确认。`mobile-editing.spec.ts` 代替原来在手机上
+  手动检查的几项：详情里编辑标题或金额时按 Esc 只取消编辑、不关闭详情；手机上主要页面里可输入的字段字号都不小于
+  16px（iOS Safari 不会放大）；设置里分类的新增、改名和删除。
 - 失败时截图和 trace 留在 `test-results/`，报告在 `playwright-report/`。
 
 `npm run test:demo` 在 demo 工作区（`npm run dev:demo` 的同一套数据）上跑带 `@demo` 标签的用例。

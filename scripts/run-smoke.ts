@@ -12,15 +12,17 @@ import { createDemoAiServer } from "./demo-ai-server";
 import { seedBooks, seedCategories, seedLedger } from "./lib/seed";
 import { tsxArgs } from "./lib/tsx";
 import { prepareTestPostgres } from "./prepare-test-postgres";
+import { createSelfSignedCertificate, createSmokeHttpsProxy } from "./smoke-https-proxy";
 import { createSmokeOidcServer } from "./smoke-oidc-server";
 import { createSmokeObjectStorage } from "./smoke-object-storage";
 
-// Next.js needs its port before it starts, because APP_URL carries
-// it, and it only binds after a build that takes a minute. A port the kernel
-// handed out and took back sits in the ephemeral range, where any outbound
-// connection in that minute (the build's own, Postgres clients) can claim it and
-// leave the server unable to listen. Picking below that range keeps it out of
-// the kernel's hands; the two helper servers bind port 0 and keep what they got.
+// Next.js needs its port before it starts, because the HTTPS proxy in front of
+// it forwards there, and it only binds after a build that takes a minute. A port
+// the kernel handed out and took back sits in the ephemeral range, where any
+// outbound connection in that minute (the build's own, Postgres clients) can
+// claim it and leave the server unable to listen. Picking below that range keeps
+// it out of the kernel's hands; the helper servers bind port 0 and keep what
+// they got.
 const isPortAvailable = async (port: number): Promise<boolean> => {
   const probe = net.createServer();
   try {
@@ -86,7 +88,11 @@ async function main(): Promise<void> {
   const aiPort = await listenOnAnyPort(aiServer);
   const storageServer = createSmokeObjectStorage({ log: console.log });
   const storagePort = await listenOnAnyPort(storageServer);
-  const baseURL = `http://127.0.0.1:${port}`;
+  // The browsers reach the app over HTTPS, as in production, through a proxy in
+  // front of the Next.js server (see smoke-https-proxy.ts for why).
+  const serverURL = `http://127.0.0.1:${port}`;
+  const httpsProxy = createSmokeHttpsProxy(new URL(serverURL), createSelfSignedCertificate());
+  const baseURL = `https://127.0.0.1:${await listenOnAnyPort(httpsProxy)}`;
   // The upload path is part of what production does, so the run points it at an
   // in-memory S3 endpoint instead of a bucket: the image still travels through
   // the real client, and nothing leaves this machine or outlives the run.
@@ -143,7 +149,11 @@ async function main(): Promise<void> {
         throw new Error("Next.js exited before the smoke server became ready");
       }
       try {
-        const response = await fetch(`${baseURL}/login`, { signal: AbortSignal.timeout(5_000) });
+        // Straight to the server: /login would redirect to the provider and back
+        // to the HTTPS address, whose certificate this fetch does not trust.
+        const response = await fetch(`${serverURL}/healthz`, {
+          signal: AbortSignal.timeout(5_000),
+        });
         if (response.ok) return;
       } catch {}
       await new Promise((resolve) => setTimeout(resolve, 500));
@@ -212,6 +222,8 @@ async function main(): Promise<void> {
     await closeServer(aiServer);
     await closeServer(storageServer);
     await closeServer(oidcServer);
+    httpsProxy.closeAllConnections();
+    await closeServer(httpsProxy);
     if (created && /^smoke_[a-f0-9]{32}$/.test(databaseName)) {
       const target = await admin.query("SELECT datname FROM pg_database WHERE datname = $1", [
         databaseName,
