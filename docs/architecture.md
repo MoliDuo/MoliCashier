@@ -207,8 +207,9 @@ src/copy/                 全部界面文案，按界面区域分文件
   一定过期（`created_at` 判断，常量在 `src/config/tuning.ts`），之后由提供方重新确认一次。cookie 在登录时设为
   30 天后过期，之后不再刷新，闲置过期只由数据库判断。用 `getCurrentSession`
   读取，用 `requireAuth` 或 `withAuth`（`src/modules/auth/server/session-guards.ts`）把关，吊销就是删除行。
-  `proxy.ts` 不匹配 `/api`：每个 API 路由自己鉴权，并且先鉴权、再读请求体（网页用的路由查会话，`/api/v1` 查
-  bearer 凭证，`/api/auth/` 是公开路径），所以没有会话的大请求在读完之前就被拒绝。
+  应用没有 `proxy.ts`（旧称 middleware）：页面由 `(protected)` 布局查会话，没有会话就跳到登录页；每个 API 路由
+  自己鉴权，并且先鉴权、再读请求体（网页用的路由查会话，`/api/v1` 查 bearer 凭证，`/api/auth/` 是公开路径），
+  所以没有会话的大请求在读完之前就被拒绝。
 - **退出。** 只清应用自己的会话，不退出提供方，也不调用提供方的登出端点。退出后落在
   `/login?notice=signed_out`，这个页面不自动跳转，由用户点"重新登录"；`failed`、`denied`
   这些错误页同样不自动跳转，避免死循环。退出走 `POST /api/auth/logout` 路由，而不是 server action：
@@ -330,9 +331,9 @@ src/copy/                 全部界面文案，按界面区域分文件
 - 行先于对象写入：崩溃后只会留下一行没有对象的记录，它的 id 从未返回给客户端，不会被任何票据引用，
   由每日维护按"没有被引用"清掉。只有被提取尝试引用的文件才算在用。
 - API v1 的内联图片走同一个存储函数；之后提交失败的，丢弃它存下的文件。
-- Next 会缓冲 `proxy.ts` 匹配到的每个请求体，超过 `proxyClientMaxBodySize`（默认 10 MB）的部分被静默丢弃。
-  上传和 API v1 的大请求体都发往 `/api`，而 proxy 不匹配 `/api`（仓库测试保证），所以不设这个值；每个路由
-  自己按上限边读边拒（`readBoundedBody`）。
+- Next 会缓冲 proxy 匹配到的每个请求体，超过 `proxyClientMaxBodySize`（默认 10 MB）的部分被静默丢弃。
+  应用没有 proxy（仓库测试保证 `src/proxy.ts`、`src/middleware.ts` 都不存在），所以不设这个值；上传和 API v1
+  的大请求体直接到达路由，每个路由自己按上限边读边拒（`readBoundedBody`）。
 - 读取一律经过带授权的 `/api/stored-files/{fileId}`，响应头 `Cache-Control: private, no-store`。
   实现在 `src/server/stored-files/`，测试通过 mock `@/lib/storage/s3` 替换对象存储。浏览器从不直接访问
   对象存储，所以对象存储只在容器内部网络里可达。
@@ -408,7 +409,8 @@ UTC 18:00（ECB 已发布当天汇率）运行一次 `runDailyMaintenance`（`sr
   （周 / 月 / 年 / 全部 / 自定义，月份格、年份格、最近几周或两个日期），点一格即生效并收起面板，面板里没有箭头。
 - **提交后的快照。** 拆分和日期整理返回已提交的账单，先取消这张账单在途的读取，再直接写进详情查询，
   连续拆分用这个快照发出下一条命令。后台的列表和统计刷新不能让一次成功的命令一直处于 pending：命令可以只等它自己的详情
-  （`waitFor`），或完全不等刷新（`waitFor: false`）。
+  （`waitFor`），或完全不等刷新（`waitFor: false`）。等详情时，写入确认前就已在途的那次读取可能带回旧值，
+  所以取消它重新读一次，而不是跟着它返回。
 - **选择时列表冻结。** 批量选择期间列表查询暂停（`enabled: false`），后台刷新不会在选中项下面换掉行；
   退出选择后过期的查询自动重新读取，所以批量操作全部成功后直接退出选择，只有失败的项留在选择里。
   账目和明细用同一个 `settleBatchResult` 收尾，部分失败时提示同一句"成功 N 项，失败 M 项"。

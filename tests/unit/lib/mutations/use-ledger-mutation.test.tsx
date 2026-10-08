@@ -85,6 +85,64 @@ describe("useLedgerMutation", () => {
     });
     queryClient.clear();
   });
+  it("does not settle on a detail read that started before the write", async () => {
+    const { queryClient, wrapper } = setup();
+    const key = queryKeys.sourceDocument("document-1");
+    queryClient.setQueryData(queryKeys.ledgerSync(), { version: "1" });
+    let stored = "old";
+    let holdNextRead = false;
+    let releaseStaleRead!: () => void;
+    const staleGate = new Promise<void>((resolve) => {
+      releaseStaleRead = resolve;
+    });
+    const detailFn = vi.fn(async () => {
+      const value = stored;
+      if (holdNextRead) {
+        holdNextRead = false;
+        await staleGate;
+      }
+      return value;
+    });
+    // The version moves, but this stub does not invalidate: only the mutation's own wait
+    // can bring the detail up to date.
+    const sync = vi.fn(async () => ({ version: "2" }));
+    const { result } = renderHook(
+      () => ({
+        sync: useQuery({ queryKey: queryKeys.ledgerSync(), queryFn: sync, staleTime: Infinity }),
+        detail: useQuery({ queryKey: key, queryFn: detailFn }),
+        mutation: useLedgerMutation({
+          waitFor: key,
+          successMessage: null,
+          mutationFn: async () => {
+            stored = "new";
+            return "saved";
+          },
+        }),
+      }),
+      { wrapper }
+    );
+    await waitFor(() => expect(result.current.detail.data).toBe("old"));
+    holdNextRead = true;
+    act(() => {
+      void result.current.detail.refetch();
+    });
+    await waitFor(() => expect(detailFn).toHaveBeenCalledTimes(2));
+
+    let committed!: Promise<string>;
+    act(() => {
+      committed = result.current.mutation.mutateAsync();
+    });
+    // The sync read starts in the same step as the mutation's wait on the detail.
+    await waitFor(() => expect(sync).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      releaseStaleRead();
+      await committed;
+    });
+
+    expect(result.current.detail.data).toBe("new");
+    queryClient.clear();
+  });
+
   it("background refresh does not prolong a committed mutation", async () => {
     const { queryClient, wrapper } = setup();
     let finish!: () => void;

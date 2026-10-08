@@ -1,7 +1,7 @@
 /**
- * The cookie that carries the session token; the proxy only checks it is present. The `__Host-`
- * prefix makes browsers require Secure and Path=/ and refuse a Domain, so it is always set Secure
- * (browsers accept that on http://localhost too).
+ * The cookie that carries the session token; the database row behind the token decides whether
+ * the session holds. The `__Host-` prefix makes browsers require Secure and Path=/ and refuse a
+ * Domain, so it is always set Secure (browsers accept that on http://localhost too).
  */
 export const SESSION_COOKIE_NAME = "__Host-cashier_session";
 

@@ -4,6 +4,7 @@ import type { BenchDocument, ParseExpect } from "../../../../scripts/bench/lib/s
 import { parseTask } from "../../../../scripts/bench/tasks/parse/task";
 import { fakeAiTransport, generateVia } from "../../../helpers/fake-ai";
 import type { GenerateStructured } from "@/lib/ai/structured";
+import type { EvidenceImage } from "@/lib/ai/types";
 import { FIXTURE_CATEGORIES, GOLD_LABELS } from "../../../helpers/bench-dataset";
 
 function document(
@@ -39,7 +40,7 @@ async function evaluate(
   benchDocument: BenchDocument,
   expectation: ParseExpect,
   generate: GenerateStructured,
-  images: { dataUrl: string }[] = []
+  images: EvidenceImage[] = []
 ) {
   const [result] = await runBenchmark({
     task: parseTask,

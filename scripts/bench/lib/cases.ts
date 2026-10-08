@@ -1,5 +1,5 @@
 /** Selecting and loading the cases of one task. */
-import { listAnnotationIds, loadAnnotation, loadDocument, loadImageDataUrls } from "./dataset";
+import { listAnnotationIds, loadAnnotation, loadDocument, loadEvidenceImages } from "./dataset";
 import type { BenchCase } from "./runner";
 import type { BenchTask } from "../tasks/types";
 
@@ -19,7 +19,11 @@ export interface LoadedCases {
   problems: string[];
 }
 
-export function loadCases(dataDir: string, task: BenchTask, selection: CaseSelection): LoadedCases {
+export async function loadCases(
+  dataDir: string,
+  task: BenchTask,
+  selection: CaseSelection
+): Promise<LoadedCases> {
   const cases: BenchCase[] = [];
   const problems: string[] = [];
 
@@ -37,7 +41,7 @@ export function loadCases(dataDir: string, task: BenchTask, selection: CaseSelec
     }
     cases.push({
       document,
-      images: loadImageDataUrls(dataDir, document),
+      images: await loadEvidenceImages(dataDir, document),
       labels: annotation.labels,
       expect: annotation.expect,
     });

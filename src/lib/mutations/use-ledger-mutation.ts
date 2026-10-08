@@ -72,11 +72,16 @@ export function useLedgerMutation<TData = unknown, TVariables = void>(
         await refresh();
         return;
       }
+      // A read of the awaited query already in flight started before the write was confirmed, so
+      // it may answer with the old value; it is dropped and read again rather than joined. A read
+      // the refresh below starts is fresh, so it is joined instead of fetched a second time.
+      const readBeforeWrite =
+        waitFor !== false && queryClient.getQueryState(waitFor)?.fetchStatus === "fetching";
       void refresh();
       if (waitFor !== false) {
         await queryClient.refetchQueries(
           { queryKey: waitFor, exact: true, type: "active" },
-          { cancelRefetch: false }
+          { cancelRefetch: readBeforeWrite }
         );
       }
     },
