@@ -1,6 +1,6 @@
 import { compare } from "@/lib/money/decimal";
 import { roundToCurrency } from "@/lib/money/currency-precision";
-import type { CategoryInfo, ParsedLedgerEntry } from "@/lib/ai/types";
+import type { CategoryInfo, ParsedLedgerEntry } from "./contracts";
 import { getAiOutputCopy } from "@/config/ai-output-locales";
 
 export interface EntryToInsert {
@@ -12,7 +12,7 @@ export interface EntryToInsert {
   itemName: string;
   description: string | null;
   entryDate: string;
-  dateHint?: import("@/lib/ai/date-organization").DateHint;
+  dateHint?: import("@/lib/source-document/suggestions").DateHint;
   alreadyRecorded?: string;
 }
 

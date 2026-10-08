@@ -24,9 +24,10 @@ import {
   ensureTestLedgerBooks,
   todayUtc,
 } from "tests/helpers/schema-setup";
+import { must } from "tests/helpers/must";
 
 async function seedDoc(db: ReturnType<typeof getTestDb>, entryDate?: string) {
-  const [doc] = await db
+  const [docRow] = await db
     .insert(sourceDocuments)
     .values({
       id: randomUUID(),
@@ -34,10 +35,7 @@ async function seedDoc(db: ReturnType<typeof getTestDb>, entryDate?: string) {
       bookId: sql`(SELECT id FROM books ORDER BY sort_order LIMIT 1)`,
     })
     .returning();
-  expect(doc).toBeDefined();
-  if (doc === undefined) {
-    throw new Error("Expected source document insert to return a row");
-  }
+  const doc = must(docRow, "doc");
   await activateTestSourceDocumentProjection(db, doc.id);
   return doc;
 }
@@ -64,7 +62,7 @@ describe("batchUpdateLedgerEntriesAction", () => {
     const ids: string[] = [];
 
     for (let i = 0; i < 2; i++) {
-      const [e] = await db
+      const [eRow] = await db
         .insert(ledgerEntries)
         .values({
           id: randomUUID(),
@@ -74,10 +72,7 @@ describe("batchUpdateLedgerEntriesAction", () => {
           currency: "CNY",
         })
         .returning();
-      expect(e).toBeDefined();
-      if (e === undefined) {
-        throw new Error("Expected ledger entry insert to return a row");
-      }
+      const e = must(eRow, "e");
       ids.push(e.id);
     }
     await activateTestSourceDocumentProjection(db, doc.id);
@@ -146,7 +141,7 @@ describe("batchUpdateLedgerEntriesAction", () => {
     const ids: string[] = [];
 
     for (let i = 0; i < 2; i++) {
-      const [e] = await db
+      const [eRow] = await db
         .insert(ledgerEntries)
         .values({
           id: randomUUID(),
@@ -157,10 +152,7 @@ describe("batchUpdateLedgerEntriesAction", () => {
           categoryId: catId,
         })
         .returning();
-      expect(e).toBeDefined();
-      if (e === undefined) {
-        throw new Error("Expected ledger entry insert to return a row");
-      }
+      const e = must(eRow, "e");
       ids.push(e.id);
     }
     await activateTestSourceDocumentProjection(db, doc.id);

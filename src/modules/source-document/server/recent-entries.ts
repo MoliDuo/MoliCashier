@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { ledgerEntries, sourceDocuments } from "@/persistence";
 import { RECENT_ENTRIES_MAX, RECENT_ENTRIES_WINDOW_DAYS } from "@/config/tuning";
 import type { RecentEntryForParse } from "@/modules/source-document/domain/parse/contracts";
-import type { RecentEntryTarget } from "@/modules/source-document/duplicate-suggestion";
+import type { RecentEntryTarget } from "@/modules/source-document/domain/duplicate-suggestion";
 
 export interface RecentEntriesForParse {
   entries: RecentEntryForParse[];

@@ -1,5 +1,5 @@
 import "server-only";
-import type { LedgerRefreshRequest, LedgerRefreshResult } from "../contract-refresh";
+import type { LedgerRefreshRequest, LedgerRefreshResult } from "../contracts";
 import { summarizeLedgerChanges } from "./ledger-changes";
 
 const MAX_BIGINT_VERSION = BigInt("9223372036854775807");
@@ -24,7 +24,6 @@ export async function getStreamRefresh(
   const base = {
     version: summary.currentVersion.toString(),
     hasTransitionalWork: summary.hasTransitionalWork,
-    invalidations: { categories: false, settings: false, stats: false } as const,
   };
 
   // A version the server never handed out (malformed, or ahead of the ledger) is

@@ -11,6 +11,7 @@ import {
   ensureTestLedgerBooks,
   todayUtc,
 } from "tests/helpers/schema-setup";
+import { must } from "tests/helpers/must";
 
 async function getTargetEntryCategoriesAction() {
   const db = getTestDb();
@@ -51,7 +52,7 @@ describe("listCategoriesWithCount", () => {
       sortOrder: 1,
     });
 
-    const [doc] = await db
+    const [docRow] = await db
       .insert(sourceDocuments)
       .values({
         documentDate: todayUtc(),
@@ -59,10 +60,7 @@ describe("listCategoriesWithCount", () => {
         bookId: sql`(SELECT id FROM books ORDER BY sort_order LIMIT 1)`,
       })
       .returning();
-    expect(doc).toBeDefined();
-    if (doc === undefined) {
-      throw new Error("Expected source document insert to return a row");
-    }
+    const doc = must(docRow, "doc");
 
     await db.insert(ledgerEntries).values([
       {
@@ -84,8 +82,6 @@ describe("listCategoriesWithCount", () => {
     ]);
 
     const result = await getTargetEntryCategoriesAction();
-    const firstCategory = result[0];
-    expect(firstCategory).toBeDefined();
-    expect(firstCategory?.entryCount).toBe(2);
+    expect(result[0]).toMatchObject({ id: catId, entryCount: 2 });
   });
 });

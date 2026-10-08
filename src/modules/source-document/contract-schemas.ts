@@ -16,9 +16,9 @@ import {
   API_V1_MAX_DECODED_BATCH_BYTES,
   API_V1_MAX_DECODED_IMAGE_BYTES,
   API_V1_MAX_IMAGES,
+  decodeBase64Image,
   type PreparedInlineImage,
 } from "@/modules/source-document/api-v1-policy";
-import { decodeBase64Image } from "@/modules/source-document/base64-image";
 import {
   categoryFilterSchema,
   optionalCurrencyCodeSchema,

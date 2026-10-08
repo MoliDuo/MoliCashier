@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { getTestDb } from "tests/setup";
 import { createTestLedger, createTestRecord, testBookId } from "tests/helpers/schema-setup";
 import { listTargetSourceDocuments } from "@/modules/source-document/server/reads/list";
-import { encodeSourceDocumentPageCursor } from "@/modules/source-document/stream-cursor";
+import { encodeSourceDocumentPageCursor } from "@/modules/source-document/domain/stream-cursor";
 
 async function createDocumentAt(bookId: string, title: string, createdAt: string) {
   const db = getTestDb();

@@ -11,6 +11,13 @@ import { getTestDb } from "tests/setup";
 
 afterEach(() => setAiTransportForTests(null));
 
+/** The JSON inside the user message's <ledger_data> fence. */
+function ledgerData(content: unknown) {
+  const match = /<ledger_data>\n([\s\S]*)\n<\/ledger_data>$/.exec(String(content));
+  if (match?.[1] === undefined) throw new Error("message has no <ledger_data> fence");
+  return JSON.parse(match[1]);
+}
+
 async function createFixture(correctionCount: number) {
   const db = getTestDb();
   await createTestLedger(db);
@@ -89,7 +96,7 @@ describe("preference learning", () => {
 
     await runPreferenceLearning({ now: NOW });
 
-    const message = JSON.parse(String(transport.complete.mock.calls[0]![0].messages[0]!.content));
+    const message = ledgerData(transport.complete.mock.calls[0]![0].messages[0]!.content);
     expect(message.current_preferences).toBe("- 老规则");
     expect(message.owner_instructions).toBe("星巴克算餐饮");
     expect((await ledgerRow())?.aiLearnedPreferences).toBe("- 老规则\n- 新规则");
@@ -116,7 +123,7 @@ describe("preference learning", () => {
 
     await runPreferenceLearning({ now: new Date(NOW.getTime() + 60_000) });
 
-    const message = JSON.parse(String(transport.complete.mock.calls[0]![0].messages[0]!.content));
+    const message = ledgerData(transport.complete.mock.calls[0]![0].messages[0]!.content);
     expect(message.new_corrections).toHaveLength(3);
     expect(message.earlier_corrections).toHaveLength(3);
     expect(message.earlier_corrections[0].owner_value).toBe("交通");
@@ -181,7 +188,7 @@ describe("preference learning", () => {
       await db.query.sourceDocuments.findFirst({
         where: eq(sourceDocuments.id, record.sourceDocumentId),
       })
-    ).toBeDefined();
+    ).toMatchObject({ id: record.sourceDocumentId });
   });
 
   it("lets the owner edit the learned text and the switch like any setting", async () => {

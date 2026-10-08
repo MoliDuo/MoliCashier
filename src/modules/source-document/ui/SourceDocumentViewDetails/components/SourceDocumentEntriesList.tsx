@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import type { EntryCategoryDto, LedgerEntryEmbeddedViewDto } from "@/modules/ledger/contracts";
-import type { EntryEditData } from "@/modules/source-document/types";
+import type { EntryEditData } from "@/modules/source-document/detail-types";
 import { SelectableEditableEntryCard } from "./SelectableEditableEntryCard";
 import { commonCopy } from "@/copy/common";
 import { sourceDocumentDetailCopy } from "@/copy/source-document";

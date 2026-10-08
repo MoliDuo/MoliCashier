@@ -11,6 +11,7 @@ import {
   todayUtc,
 } from "tests/helpers/schema-setup";
 import { insertExchangeRates } from "tests/helpers/exchange-rates";
+import { must } from "tests/helpers/must";
 
 async function seedEntry(
   db: ReturnType<typeof getTestDb>,
@@ -21,7 +22,7 @@ async function seedEntry(
     entryDate?: string;
   }
 ) {
-  const [doc] = await db
+  const [docRow] = await db
     .insert(sourceDocuments)
     .values({
       id: randomUUID(),
@@ -29,10 +30,7 @@ async function seedEntry(
       bookId: sql`(SELECT id FROM books ORDER BY sort_order LIMIT 1)`,
     })
     .returning();
-  expect(doc).toBeDefined();
-  if (doc === undefined) {
-    throw new Error("Expected source document insert to return a row");
-  }
+  const doc = must(docRow, "doc");
 
   await db.insert(ledgerEntries).values({
     id: randomUUID(),
@@ -75,12 +73,8 @@ describe("calculateLedgerStats", () => {
     const cny = result.totals.find((t) => t.currency === "CNY");
     const usd = result.totals.find((t) => t.currency === "USD");
 
-    expect(cny).toBeDefined();
-    expect(cny!.total).toBe("150");
-    expect(cny!.count).toBe(2);
-    expect(usd).toBeDefined();
-    expect(usd!.total).toBe("20");
-    expect(usd!.count).toBe(1);
+    expect(cny).toMatchObject({ total: "150", count: 2 });
+    expect(usd).toMatchObject({ total: "20", count: 1 });
   });
 
   it("uses the persisted main currency for entries", async () => {
@@ -137,15 +131,11 @@ describe("calculateLedgerStats", () => {
 
     const result = await calculateLedgerStats({});
     expect(result.trend).toHaveLength(3);
-    const firstTrend = result.trend[0];
-    const secondTrend = result.trend[1];
-    const thirdTrend = result.trend[2];
-    expect(firstTrend).toBeDefined();
-    expect(secondTrend).toBeDefined();
-    expect(thirdTrend).toBeDefined();
-    expect(firstTrend?.date).toBe("2024-01-01");
-    expect(secondTrend?.date).toBe("2024-01-02");
-    expect(thirdTrend?.date).toBe("2024-01-03");
+    expect(result.trend.map((point) => point.date)).toEqual([
+      "2024-01-01",
+      "2024-01-02",
+      "2024-01-03",
+    ]);
   });
 
   it("filters by startDate using the source document accounting date", async () => {
@@ -201,9 +191,7 @@ describe("calculateLedgerStats", () => {
       currency: "USD",
     });
     expect(result.totals).toHaveLength(1);
-    const firstTotal = result.totals[0];
-    expect(firstTotal).toBeDefined();
-    expect(firstTotal?.currency).toBe("USD");
+    expect(result.totals[0]).toMatchObject({ currency: "USD", total: "50", count: 1 });
   });
 
   it("filters by minAmount using convertedAmount", async () => {
@@ -342,17 +330,14 @@ describe("calculateLedgerStats", () => {
       const db = getTestDb();
       await insertExchangeRates("2024-01-01", { CNY: 7.8, MYR: 5, USD: 1.08 });
 
-      const [sourceDoc] = await db
+      const [sourceDocRow] = await db
         .insert(sourceDocuments)
         .values({
           documentDate: "2024-01-01",
           bookId: sql`(SELECT id FROM books ORDER BY sort_order LIMIT 1)`,
         })
         .returning();
-      expect(sourceDoc).toBeDefined();
-      if (sourceDoc == null) {
-        throw new Error("Expected source document to be created");
-      }
+      const sourceDoc = must(sourceDocRow, "sourceDoc");
 
       await db.insert(ledgerEntries).values({
         sourceDocumentId: sourceDoc.id,

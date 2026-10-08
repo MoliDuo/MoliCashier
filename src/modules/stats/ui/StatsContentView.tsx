@@ -5,7 +5,7 @@ import { BarChart3, Grid3X3, TrendingUp } from "lucide-react";
 import { textRoleClassName } from "@/components/typography";
 import { Button } from "@/components/ui/button";
 import type { DateRangeType } from "@/lib/date-utils";
-import { openLedgerEntrySourceDocument } from "@/lib/navigation/ledger-detail-navigation";
+import { openLedgerEntrySourceDocument } from "@/modules/ledger/navigation/ledger-detail-navigation";
 import type { ForecastDto } from "@/modules/forecast/contracts";
 import type { EnhancedStatsDto } from "@/modules/stats/contracts";
 import { deriveStatsInsights, type StatsInsights } from "@/modules/stats/lib/derived-insights";

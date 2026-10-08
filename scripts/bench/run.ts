@@ -90,7 +90,7 @@ async function main(): Promise<void> {
 
   const dataDir = resolveDataDir();
   const task = await loadTask(options.task);
-  const { cases, problems } = loadCases(dataDir, task, {
+  const { cases, problems } = await loadCases(dataDir, task, {
     status: options.status,
     ...(options.rule == null ? {} : { rule: options.rule }),
     ...(options.id == null ? {} : { idContains: options.id }),

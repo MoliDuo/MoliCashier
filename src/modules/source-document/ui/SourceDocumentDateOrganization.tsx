@@ -7,7 +7,7 @@ import { textRoleClassName } from "@/components/typography";
 import { DateFilter } from "@/components/ui/date-filter";
 import { formatDateTimeForApi } from "@/lib/date-utils";
 import type { LedgerEntryEmbeddedViewDto } from "@/modules/ledger/contracts";
-import type { DateOrganizationSuggestion } from "@/lib/ai/date-organization";
+import type { DateOrganizationSuggestion } from "@/lib/source-document/suggestions";
 import type { ApplyDateOrganizationInput } from "../contracts";
 import { EditableLedgerEntryItem } from "./EditableLedgerEntryItem";
 import { buildSourceDocumentDetailViewModel } from "./source-document-detail-view-model";

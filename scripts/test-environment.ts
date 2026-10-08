@@ -24,6 +24,18 @@ export const TEST_STARTUP_ENV = Object.freeze({
 
 type Overrides = Partial<NodeJS.ProcessEnv>;
 
+/**
+ * Tests run at UTC (an empty `TZ`) whatever the machine's zone, unless
+ * `CASHIER_TEST_TZ` names another one. `npm run test:unit:sg` sets it to run the
+ * unit suite again at Asia/Singapore, where code that only works at UTC fails.
+ * The variable, not `TZ`, carries the choice, so the workers' own setup keeps it.
+ */
+export const TEST_TIME_ZONE_VARIABLE = "CASHIER_TEST_TZ";
+
+function testTimeZone(environment: Overrides): string {
+  return environment[TEST_TIME_ZONE_VARIABLE] ?? "";
+}
+
 export function createTestEnvironment(
   baseEnvironment: Overrides = process.env,
   overrides: Overrides = {}
@@ -31,6 +43,7 @@ export function createTestEnvironment(
   return {
     ...baseEnvironment,
     ...TEST_STARTUP_ENV,
+    TZ: testTimeZone(baseEnvironment),
     NODE_ENV: "test" as const,
     ...overrides,
   };
@@ -40,6 +53,11 @@ export function installTestEnvironment(
   environment: Overrides = process.env,
   overrides: Overrides = {}
 ): Overrides {
-  Object.assign(environment, TEST_STARTUP_ENV, { NODE_ENV: "test" }, overrides);
+  Object.assign(
+    environment,
+    TEST_STARTUP_ENV,
+    { TZ: testTimeZone(environment), NODE_ENV: "test" },
+    overrides
+  );
   return environment;
 }

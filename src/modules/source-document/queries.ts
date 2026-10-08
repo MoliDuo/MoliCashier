@@ -2,13 +2,14 @@ import { postLedgerQuery, type LedgerQueryOptions } from "@/lib/queries/post-led
 import type { PeriodQuery } from "@/modules/ledger/domain/period";
 import type {
   GetStreamTotalInput,
+  LedgerRefreshRequest,
+  LedgerRefreshResult,
   ListStreamPageInput,
   SourceDocumentDetailDto,
   SourceDocumentInputDto,
   StreamPage,
   StreamTotalDto,
 } from "./contracts";
-import type { LedgerRefreshRequest, LedgerRefreshResult } from "./contract-refresh";
 
 /** Browser reads of source documents, served by `/api/ledger-queries`. */
 export const fetchSourceDocumentDetail = (id: string, options?: LedgerQueryOptions) =>

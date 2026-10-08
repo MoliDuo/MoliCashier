@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { currentBookOption, selectBook, selectBookByName } from "./book-switch";
 import { bookAction, bookMenu, bookRow } from "./book-rows";
 import { ledgerNavigation, openTab } from "./navigation";
+import { pageErrors } from "./page-errors";
 import { seedRecord } from "./seed-record";
 import { signIn } from "./sign-in";
 
@@ -90,8 +91,7 @@ async function newDevice(page: Page) {
 test("books production creates, renames and reorders a book, and keeps it across a reload", async ({
   page,
 }, testInfo) => {
-  const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(error.message));
+  const errors = pageErrors(page);
   const suffix = testInfo.project.name;
   const firstName = `Alpha ${suffix}`;
   const secondName = `Beta ${suffix}`;
@@ -145,8 +145,7 @@ test("books production creates, renames and reorders a book, and keeps it across
 test("books production scopes the stream, the details and the stats to one book", async ({
   page,
 }, testInfo) => {
-  const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(error.message));
+  const errors = pageErrors(page);
   const suffix = testInfo.project.name;
   const bookA = `Gamma ${suffix}`;
   const bookB = `Delta ${suffix}`;
@@ -208,8 +207,7 @@ test("books production scopes the stream, the details and the stats to one book"
 });
 
 test("books production moves a record from one book to another", async ({ page }, testInfo) => {
-  const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(error.message));
+  const errors = pageErrors(page);
   const suffix = testInfo.project.name;
   const bookA = `Epsilon ${suffix}`;
   const bookB = `Zeta ${suffix}`;
@@ -259,8 +257,7 @@ test("books production moves a record from one book to another", async ({ page }
 });
 
 test("books production starts a record in the viewed book", async ({ page }, testInfo) => {
-  const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(error.message));
+  const errors = pageErrors(page);
   const suffix = testInfo.project.name;
   const bookA = `Eta ${suffix}`;
   const bookB = `Theta ${suffix}`;
@@ -309,8 +306,7 @@ test("books production starts a record in the viewed book", async ({ page }, tes
 });
 
 test("books production keeps the viewed book per browser, not per account", async ({ page }) => {
-  const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(error.message));
+  const errors = pageErrors(page);
 
   await login(page);
   await expect(currentBookOption(page)).toHaveText("总账");
@@ -335,8 +331,7 @@ test("books production keeps the viewed book per browser, not per account", asyn
 test("books production sees a book archived by another browser when 设置 opens", async ({
   page,
 }, testInfo) => {
-  const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(error.message));
+  const errors = pageErrors(page);
   const bookName = `Iota ${testInfo.project.name}`;
 
   await login(page);
@@ -363,8 +358,7 @@ test("books production sees a book archived by another browser when 设置 opens
 test("books production picks up another browser's change when 设置 comes back into view", async ({
   page,
 }, testInfo) => {
-  const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(error.message));
+  const errors = pageErrors(page);
   const bookName = `Kappa ${testInfo.project.name}`;
 
   await login(page);
@@ -392,8 +386,7 @@ test("books production picks up another browser's change when 设置 comes back 
 test("books production falls back to 总账 when the viewed book is archived", async ({
   page,
 }, testInfo) => {
-  const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(error.message));
+  const errors = pageErrors(page);
   const bookName = `Lambda ${testInfo.project.name}`;
 
   await login(page);
@@ -418,8 +411,7 @@ test("books production falls back to 总账 when the viewed book is archived", a
 test("books production files an API upload into the book its key is bound to", async ({
   page,
 }, testInfo) => {
-  const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(error.message));
+  const errors = pageErrors(page);
   const suffix = testInfo.project.name;
   const bookName = `Mu ${suffix}`;
   const credentialName = `Uploader ${suffix}`;
@@ -442,7 +434,7 @@ test("books production files an API upload into the book its key is bound to", a
     /sk_live_[0-9a-f]{64}/
   );
   const token = tokenMatch?.[0];
-  expect(token).toBeTruthy();
+  expect(token).toMatch(/^sk_live_[0-9a-f]{64}$/);
   await tokenDialog.getByRole("button", { name: "我已保存", exact: true }).click();
   await expect(
     page.getByRole("combobox", { name: `修改「${credentialName}」的分账`, exact: true })
@@ -456,7 +448,7 @@ test("books production files an API upload into the book its key is bound to", a
   expect(created.status()).toBe(201);
   const createdBody = (await created.json()) as { sourceDocumentId?: string };
   const sourceDocumentId = createdBody.sourceDocumentId;
-  expect(sourceDocumentId).toBeTruthy();
+  expect(sourceDocumentId).toMatch(/^[0-9a-f-]{36}$/);
 
   // The stub provider answers in seconds; polling the status is the observable
   // state, so nothing here waits on a fixed clock.

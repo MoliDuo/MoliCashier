@@ -4,7 +4,7 @@ import { useState } from "react";
 import { CopyCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { textRoleClassName } from "@/components/typography";
-import { openLedgerDetail } from "@/lib/navigation/ledger-detail-navigation";
+import { openLedgerDetail } from "@/modules/ledger/navigation/ledger-detail-navigation";
 import { formatCurrencyAmount } from "@/lib/format/currency";
 import { DISPLAY_LOCALE } from "@/lib/constants";
 import type { DuplicateSuggestionDto } from "../contracts";

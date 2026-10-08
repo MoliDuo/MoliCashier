@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import type { PostgresTransaction } from "@/lib/db/transaction-locks";
 import { aiCorrections, entryCategories, ledgerEntries, ledgers } from "@/persistence";
 import {
@@ -132,7 +132,8 @@ async function writeCorrections(
       .values({ sourceDocumentId, subjectId: change.subjectId, field: change.field, ...values })
       .onConflictDoUpdate({
         target: [aiCorrections.subjectId, aiCorrections.field],
-        set: values,
+        // The entry may have moved to another record since the stored correction was written.
+        set: { sourceDocumentId, ...values },
       });
   }
 }
@@ -145,4 +146,28 @@ export async function forgetTitleCorrectionInTransaction(
   await tx
     .delete(aiCorrections)
     .where(and(eq(aiCorrections.subjectId, sourceDocumentId), eq(aiCorrections.field, "title")));
+}
+
+/**
+ * Entries that moved off a record (a split, a date organization) take their
+ * corrections with them, so deleting the record they left does not delete what
+ * was learned from them. Call it after the entries' own UPDATE, in the same
+ * transaction. A title correction stays: it is about the record itself.
+ */
+export async function repointEntryCorrectionsInTransaction(
+  tx: PostgresTransaction,
+  fromDocumentId: string
+): Promise<void> {
+  await tx
+    .update(aiCorrections)
+    .set({ sourceDocumentId: sql`${ledgerEntries.sourceDocumentId}` })
+    .from(ledgerEntries)
+    .where(
+      and(
+        eq(aiCorrections.sourceDocumentId, fromDocumentId),
+        ne(aiCorrections.field, "title"),
+        eq(ledgerEntries.id, aiCorrections.subjectId),
+        ne(ledgerEntries.sourceDocumentId, fromDocumentId)
+      )
+    );
 }

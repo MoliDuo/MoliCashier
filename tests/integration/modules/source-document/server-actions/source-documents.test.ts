@@ -97,8 +97,7 @@ describe("SourceDocument Actions", () => {
       where: eq(ledgerEntries.sourceDocumentId, result.sourceDocumentId),
     });
 
-    expect(savedEntry).toBeDefined();
-    expect(savedEntry?.itemName).toBe("苹果");
+    expect(savedEntry).toMatchObject({ itemName: "苹果" });
     // Ensure notes are saved in description
     expect(savedEntry?.description).toContain("2kg");
     expect(savedEntry?.description).toContain("10元");
@@ -106,7 +105,7 @@ describe("SourceDocument Actions", () => {
 
   it("should process text message and create ledger entry", async () => {
     const result = await createDocument({ text: "午餐花了25.5元" });
-    expect(result.sourceDocumentId).toBeDefined();
+    expect(result.sourceDocumentId).toMatch(/^[0-9a-f-]{36}$/);
     expect(result).toMatchObject({ version: 1, status: "processing" });
 
     // Process
@@ -139,8 +138,7 @@ describe("SourceDocument Actions", () => {
     expect(savedEntries).toHaveLength(1);
     const savedEntry = firstItem(savedEntries, "Expected one categorized ledger entry");
     expect(savedEntry.categoryId).toBe(testCategoryId);
-    expect(savedEntry.category).toBeDefined();
-    expect(savedEntry.category?.name).toBe("餐饮");
+    expect(savedEntry.category).toMatchObject({ id: testCategoryId, name: "餐饮" });
   });
 
   it("should save input message with AI response", async () => {
@@ -151,7 +149,7 @@ describe("SourceDocument Actions", () => {
       where: eq(sourceDocuments.id, result.sourceDocumentId!),
     });
 
-    expect(savedDoc).toBeDefined();
+    expect(savedDoc).toMatchObject({ id: result.sourceDocumentId });
     expect(savedDoc).not.toHaveProperty("text");
     expect(savedDoc).not.toHaveProperty("imageUrls");
     expect(savedDoc?.inputText).toBe("午餐25元");

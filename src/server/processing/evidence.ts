@@ -3,12 +3,9 @@ import { AppError, ValidationError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { logIdentifier } from "@/lib/security/log-identifier";
 import type { EvidenceImage } from "@/lib/ai/types";
+import { toEvidenceImage } from "@/lib/ai/evidence-images";
 import { prepareStoredImageForAI } from "@/lib/storage/image-processing";
 import { readAuthorizedFile } from "@/server/stored-files/reads";
-
-function dataUrl(contentType: string, bytes: Buffer): string {
-  return `data:${contentType};base64,${bytes.toString("base64")}`;
-}
 
 async function loadStoredFileForAI(
   storedFileId: string,
@@ -17,17 +14,9 @@ async function loadStoredFileForAI(
   try {
     const read = await readAuthorizedFile(storedFileId, signal == null ? {} : { signal });
     if (read == null) throw new ValidationError("Stored image is not available for this attempt");
-    const prepared = await prepareStoredImageForAI(
-      Buffer.from(read.body),
-      read.file.metadata.contentType
+    return toEvidenceImage(
+      await prepareStoredImageForAI(Buffer.from(read.body), read.file.metadata.contentType)
     );
-    if (prepared.parts.length === 1) {
-      return { dataUrl: dataUrl(prepared.contentType, prepared.parts[0]!) };
-    }
-    return {
-      parts: prepared.parts.map((part) => dataUrl(prepared.contentType, part)),
-      overlapPx: prepared.overlapPx,
-    };
   } catch (error) {
     logger.error(
       { error, storedFileSubject: logIdentifier("stored-file", storedFileId) },

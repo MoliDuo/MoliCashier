@@ -1,6 +1,9 @@
 import type { ProcessingLeaseContract } from "@/server/processing/types";
-import type { DateHint, DateOrganizationSuggestion } from "@/lib/ai/date-organization";
-import type { DuplicateSuggestion } from "@/lib/ai/duplicate-suggestion";
+import type {
+  DateHint,
+  DateOrganizationSuggestion,
+  DuplicateSuggestion,
+} from "@/lib/source-document/suggestions";
 
 export interface LedgerProjectionEntryContract {
   id?: string;

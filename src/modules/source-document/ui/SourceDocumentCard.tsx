@@ -4,7 +4,7 @@ import type {
   SourceDocumentListItemDto,
 } from "@/modules/source-document/contracts";
 import { memo, useCallback, useId, useMemo, useState } from "react";
-import { type SourceDocumentProcessingStatus } from "@/modules/source-document/contracts";
+import type { SourceDocumentProcessingStatus } from "@/modules/source-document/types";
 import type { SupportedSourceDocumentAction } from "@/modules/source-document/lifecycle";
 import { EntryCardShell, type EntryCardTone } from "@/components/entry-card-shell";
 import { SelectableCardSurface } from "@/components/selectable-card-surface";

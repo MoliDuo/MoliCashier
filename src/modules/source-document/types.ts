@@ -1,13 +1,15 @@
-export {
-  SOURCE_DOCUMENT_PROCESSING_STATUSES,
-  canonicalizeSourceDocumentProcessingStatuses,
-  type SourceDocumentProcessingStatus,
-} from "@/lib/source-document-values";
+export const SOURCE_DOCUMENT_PROCESSING_STATUSES = [
+  "processing",
+  "completed",
+  "failed",
+  "cancelled",
+] as const;
 
-export interface EntryEditData {
-  itemName: string;
-  amount: string;
-  currency: string;
-  categoryId: string | null;
-  description: string | null;
+export type SourceDocumentProcessingStatus = (typeof SOURCE_DOCUMENT_PROCESSING_STATUSES)[number];
+
+export function canonicalizeSourceDocumentProcessingStatuses(
+  statuses: readonly SourceDocumentProcessingStatus[] | undefined
+): SourceDocumentProcessingStatus[] | undefined {
+  if (statuses == null || statuses.length === 0) return undefined;
+  return [...new Set(statuses)].sort();
 }

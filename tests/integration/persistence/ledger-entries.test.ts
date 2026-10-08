@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { getTestDb } from "tests/setup";
 import { entryCategories as categories, ledgerEntries, sourceDocuments } from "@/persistence";
 import { createTestLedger, createTestSourceDocument } from "tests/helpers/schema-setup";
+import { must } from "tests/helpers/must";
 
 /**
  * FK Constraint Tests for LedgerEntries
@@ -41,7 +42,7 @@ describe("LedgerEntries FK Constraints", () => {
     const db = getTestDb();
     await createTestLedger(db);
 
-    const [category] = await db
+    const [categoryRow] = await db
       .insert(categories)
       .values({
         name: "餐饮",
@@ -51,12 +52,9 @@ describe("LedgerEntries FK Constraints", () => {
 
     const sourceDocId = await createTestSourceDocument(db);
 
-    expect(category).toBeDefined();
-    if (category == null) {
-      throw new Error("Expected category to be created");
-    }
+    const category = must(categoryRow, "category");
 
-    const [tx] = await db
+    const [txRow] = await db
       .insert(ledgerEntries)
       .values({
         sourceDocumentId: sourceDocId,
@@ -66,10 +64,7 @@ describe("LedgerEntries FK Constraints", () => {
         itemName: "午餐",
       })
       .returning();
-    expect(tx).toBeDefined();
-    if (tx == null) {
-      throw new Error("Expected ledger entry");
-    }
+    const tx = must(txRow, "tx");
 
     await db.delete(categories).where(eq(categories.id, category.id));
 
@@ -77,7 +72,6 @@ describe("LedgerEntries FK Constraints", () => {
       where: eq(ledgerEntries.id, tx.id),
     });
 
-    expect(found).toBeDefined();
-    expect(found?.categoryId).toBeNull();
+    expect(found).toMatchObject({ id: tx.id, categoryId: null });
   });
 });

@@ -123,7 +123,7 @@ describe("API v1 source-documents route", () => {
     const created = await db.query.sourceDocuments.findFirst({
       where: eq(sourceDocuments.id, data.sourceDocumentId),
     });
-    expect(created).toBeDefined();
+    expect(created).toMatchObject({ id: data.sourceDocumentId });
   });
 
   it("dates a document from the server clock when the credential sends no date", async () => {

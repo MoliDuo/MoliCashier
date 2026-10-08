@@ -18,6 +18,7 @@ import {
   batchUpdateLedgerEntries,
   deleteLedgerEntry,
 } from "@/modules/source-document/server/entry-commands";
+import { must } from "tests/helpers/must";
 
 type TestDatabase = ReturnType<typeof getTestDb>;
 
@@ -246,9 +247,8 @@ describe("projection write shape", () => {
       ["Three", "updated"],
     ]);
     for (const row of activeRows) {
-      const original = originalById.get(row.id);
-      expect(original, `expected original row for ${row.id}`).toBeDefined();
-      expect(row.createdAt.getTime()).toBe(original!.createdAt.getTime());
+      const original = must(originalById.get(row.id), `original row for ${row.id}`);
+      expect(row.createdAt.getTime()).toBe(original.createdAt.getTime());
     }
 
     // The change-log trigger aggregates by transaction: exactly one version

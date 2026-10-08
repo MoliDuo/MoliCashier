@@ -9,7 +9,7 @@ import { omitUndefinedProperties } from "@/lib/validation";
 import { createAndQueueSourceDocument } from "../server/create-and-queue";
 import { resolveRecordBook } from "../server/resolve-record-book";
 import { withSourceDocumentLedgerAccess } from "./access";
-import { sourceDocumentFingerprint } from "@/modules/source-document/source-document-fingerprint";
+import { sourceDocumentFingerprint } from "@/modules/source-document/server/source-document-fingerprint";
 
 /**
  * Create a new source document and trigger processing.

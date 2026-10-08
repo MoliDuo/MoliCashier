@@ -6,9 +6,9 @@ import {
   ledgerTabFromPathname,
   ledgerTabHref,
   type LedgerTab,
-} from "@/lib/ledger-tabs";
-import { readLedgerDetailParam } from "@/lib/navigation/ledger-detail-navigation";
-import { readNewRecordParam } from "@/lib/navigation/ledger-new-record-navigation";
+} from "@/modules/workspace/ledger-tabs";
+import { readLedgerDetailParam } from "@/modules/ledger/navigation/ledger-detail-navigation";
+import { readNewRecordParam } from "@/modules/ledger/navigation/ledger-new-record-navigation";
 import { isOverlayHistoryEntry } from "@/lib/navigation/overlay-history";
 import { useWorkspaceStore } from "../store";
 import { readPeriodParams, writePeriodParams } from "../period-url-params";

@@ -15,9 +15,10 @@ import {
   ensureTestLedgerBooks,
   todayUtc,
 } from "tests/helpers/schema-setup";
+import { must } from "tests/helpers/must";
 
 async function seedDoc(db: ReturnType<typeof getTestDb>, entryDate?: string) {
-  const [doc] = await db
+  const [docRow] = await db
     .insert(sourceDocuments)
     .values({
       id: randomUUID(),
@@ -25,10 +26,7 @@ async function seedDoc(db: ReturnType<typeof getTestDb>, entryDate?: string) {
       bookId: sql`(SELECT id FROM books ORDER BY sort_order LIMIT 1)`,
     })
     .returning();
-  expect(doc).toBeDefined();
-  if (doc === undefined) {
-    throw new Error("Expected source document insert to return a row");
-  }
+  const doc = must(docRow, "doc");
   await activateTestSourceDocumentProjection(db, doc.id);
   return doc;
 }
@@ -67,7 +65,13 @@ describe("listLedgerEntries", () => {
 
     const result = await listTargetLedgerEntries({ limit: 3 });
     expect(result.items).toHaveLength(3);
-    expect(result.nextCursor).toBeDefined();
+    const cursor = must(result.nextCursor, "next cursor");
+
+    const rest = await listTargetLedgerEntries({ limit: 3, cursor });
+    expect(rest.items).toHaveLength(2);
+    expect(rest.nextCursor).toBeNull();
+    const firstPageIds = new Set(result.items.map((item) => item.id));
+    expect(rest.items.some((item) => firstPageIds.has(item.id))).toBe(false);
   });
 
   it("paginates same-day same-timestamp documents without duplicates or gaps", async () => {
@@ -154,14 +158,11 @@ describe("listLedgerEntries", () => {
     ]);
 
     const firstPage = await listTargetLedgerEntries({ limit: 2 });
-    expect(firstPage.nextCursor).toBeDefined();
-    if (firstPage.nextCursor == null) {
-      throw new Error("Expected a next cursor on the first page");
-    }
+    const cursor = must(firstPage.nextCursor, "next cursor on the first page");
 
     await expect(
       listTargetLedgerEntries({
-        cursor: firstPage.nextCursor,
+        cursor,
         categoryId: randomUUID(),
       })
     ).rejects.toThrow("Ledger entry cursor does not match the query");
@@ -197,9 +198,7 @@ describe("listLedgerEntries", () => {
 
     const result = await listTargetLedgerEntries({ categoryId: catId });
     expect(result.items).toHaveLength(1);
-    const categorizedEntry = result.items[0];
-    expect(categorizedEntry).toBeDefined();
-    expect(categorizedEntry?.itemName).toBe("Categorized");
+    expect(result.items[0]).toMatchObject({ itemName: "Categorized" });
   });
 
   it("filters uncategorized entries when using the __uncategorized__ sentinel", async () => {
@@ -213,23 +212,16 @@ describe("listLedgerEntries", () => {
 
     const doc = await seedDoc(db);
 
-    const [categorizedEntry] = await db
-      .insert(ledgerEntries)
-      .values({
-        id: randomUUID(),
-        sourceDocumentId: doc.id,
-        itemName: "Categorized",
-        amount: "10.00",
-        currency: "CNY",
-        categoryId: catId,
-      })
-      .returning();
-    expect(categorizedEntry).toBeDefined();
-    if (categorizedEntry === undefined) {
-      throw new Error("Expected ledger entry insert to return a row");
-    }
+    await db.insert(ledgerEntries).values({
+      id: randomUUID(),
+      sourceDocumentId: doc.id,
+      itemName: "Categorized",
+      amount: "10.00",
+      currency: "CNY",
+      categoryId: catId,
+    });
 
-    const [uncategorizedEntry] = await db
+    const [uncategorizedEntryRow] = await db
       .insert(ledgerEntries)
       .values({
         id: randomUUID(),
@@ -239,10 +231,7 @@ describe("listLedgerEntries", () => {
         currency: "CNY",
       })
       .returning();
-    expect(uncategorizedEntry).toBeDefined();
-    if (uncategorizedEntry === undefined) {
-      throw new Error("Expected ledger entry insert to return a row");
-    }
+    const uncategorizedEntry = must(uncategorizedEntryRow, "uncategorizedEntry");
 
     const result = await listTargetLedgerEntries({
       categoryId: UNCATEGORIZED_SENTINEL,
@@ -274,9 +263,7 @@ describe("listLedgerEntries", () => {
 
     const result = await listTargetLedgerEntries({ currency: "USD" });
     expect(result.items).toHaveLength(1);
-    const usdEntry = result.items[0];
-    expect(usdEntry).toBeDefined();
-    expect(usdEntry?.itemName).toBe("USD item");
+    expect(result.items[0]).toMatchObject({ itemName: "USD item" });
   });
 
   it("filters by date range via sourceDocument.entryDate", async () => {
@@ -304,16 +291,14 @@ describe("listLedgerEntries", () => {
       endDate: "2024-11-01",
     });
     expect(result.items).toHaveLength(1);
-    const juneEntry = result.items[0];
-    expect(juneEntry).toBeDefined();
-    expect(juneEntry?.itemName).toBe("Jun");
+    expect(result.items[0]).toMatchObject({ itemName: "Jun" });
   });
 
   it("filters by entryDate not createdAt", async () => {
     const db = getTestDb();
 
     // Create doc with entryDate in Jan but created in March
-    const [docA] = await db
+    const [docARow] = await db
       .insert(sourceDocuments)
       .values({
         id: randomUUID(),
@@ -322,13 +307,10 @@ describe("listLedgerEntries", () => {
         bookId: sql`(SELECT id FROM books ORDER BY sort_order LIMIT 1)`,
       })
       .returning();
-    expect(docA).toBeDefined();
-    if (docA === undefined) {
-      throw new Error("Expected source document insert to return a row");
-    }
+    const docA = must(docARow, "docA");
 
     // Create doc with entryDate in March but created in January
-    const [docB] = await db
+    const [docBRow] = await db
       .insert(sourceDocuments)
       .values({
         id: randomUUID(),
@@ -337,10 +319,7 @@ describe("listLedgerEntries", () => {
         bookId: sql`(SELECT id FROM books ORDER BY sort_order LIMIT 1)`,
       })
       .returning();
-    expect(docB).toBeDefined();
-    if (docB === undefined) {
-      throw new Error("Expected source document insert to return a row");
-    }
+    const docB = must(docBRow, "docB");
 
     await db.insert(ledgerEntries).values({
       id: randomUUID(),
@@ -366,9 +345,7 @@ describe("listLedgerEntries", () => {
 
     // Should only return entry from docA (entryDate in January)
     expect(result.items).toHaveLength(1);
-    const januaryEntry = result.items[0];
-    expect(januaryEntry).toBeDefined();
-    expect(januaryEntry?.itemName).toBe("Jan Item");
+    expect(result.items[0]).toMatchObject({ itemName: "Jan Item" });
   });
 
   it("filters by minAmount and maxAmount", async () => {
@@ -403,9 +380,7 @@ describe("listLedgerEntries", () => {
       maxAmount: "100",
     });
     expect(result.items).toHaveLength(1);
-    const midEntry = result.items[0];
-    expect(midEntry).toBeDefined();
-    expect(midEntry?.itemName).toBe("Mid");
+    expect(result.items[0]).toMatchObject({ itemName: "Mid" });
   });
 
   it("bounds foreign entries by their amount at the document day's rate", async () => {

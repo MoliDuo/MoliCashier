@@ -170,7 +170,7 @@ describe("saveEntryCategoriesAction", () => {
     ).resolves.toEqual({ ok: false, code: "conflict" });
     expect(
       await db.query.entryCategories.findFirst({ where: eq(entryCategories.id, categoryId) })
-    ).toBeDefined();
+    ).toMatchObject({ id: categoryId });
     const entries = await db.query.ledgerEntries.findMany();
     expect(entries).toHaveLength(2);
     expect(entries.every((entry) => entry.categoryId === categoryId)).toBe(true);

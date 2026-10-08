@@ -7,9 +7,8 @@ import { useLedgerMutation } from "@/lib/mutations/use-ledger-mutation";
 import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import { batchUpdateLedgerEntriesAction } from "@/modules/ledger/server-actions/entries";
 import type { SourceDocumentDetailDto } from "@/modules/source-document/contracts";
-import type { DocumentPatch } from "@/modules/source-document/detail-types";
+import type { DocumentPatch, EntryEditData } from "@/modules/source-document/detail-types";
 import { batchUpdateSourceDocumentsAction } from "@/modules/source-document/server-actions/update";
-import type { EntryEditData } from "@/modules/source-document/types";
 import { commonCopy } from "@/copy/common";
 import { sourceDocumentDetailCopy } from "@/copy/source-document";
 

@@ -334,17 +334,10 @@ describe("queryEnhancedStats", () => {
 
     const primaryCategory = result.categories.find((c) => c.id === categoryId);
     const secondaryCategory = result.categories.find((c) => c.id === secondCategoryId);
-    expect(primaryCategory).toBeDefined();
-    expect(secondaryCategory).toBeDefined();
 
-    // Strict numeric type assertions on category counts
-    expect(typeof primaryCategory!.count).toBe("number");
-    expect(primaryCategory!.count).toBe(3);
-    expect(primaryCategory!.totalConverted).toBe("600");
-
-    expect(typeof secondaryCategory!.count).toBe("number");
-    expect(secondaryCategory!.count).toBe(2);
-    expect(secondaryCategory!.totalConverted).toBe("200");
+    // Counts are numbers, not numeric strings: toMatchObject compares them strictly.
+    expect(primaryCategory).toMatchObject({ count: 3, totalConverted: "600" });
+    expect(secondaryCategory).toMatchObject({ count: 2, totalConverted: "200" });
 
     expect(result.chart).toHaveLength(1);
     expect(result.chart[0]?.date).toBe("2024-07-01");

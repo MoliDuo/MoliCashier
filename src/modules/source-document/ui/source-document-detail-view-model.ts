@@ -1,7 +1,7 @@
 import Decimal from "decimal.js";
 import { roundToCurrency } from "@/lib/money/currency-precision";
 import type { LedgerEntryDto } from "@/modules/ledger/contracts";
-import type { EntryEditData } from "@/modules/source-document/types";
+import type { EntryEditData } from "@/modules/source-document/detail-types";
 
 interface SourceDocumentDetailDisplayEntry extends Omit<
   LedgerEntryDto,

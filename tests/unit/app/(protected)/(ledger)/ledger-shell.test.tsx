@@ -57,7 +57,7 @@ vi.mock("@/modules/workspace/prefetch-ledger-tabs", () => ({
 import { LedgerShell } from "@/app/(protected)/(ledger)/_shell";
 import { EntriesToolbarShell } from "@/modules/workspace/ui/EntriesToolbarShell";
 import { ledgerPageCopy } from "@/copy/app";
-import type { LedgerTab } from "@/lib/ledger-tabs";
+import type { LedgerTab } from "@/modules/workspace/ledger-tabs";
 import type { Period } from "@/modules/ledger/domain/period";
 import {
   WorkspaceStoreProvider,

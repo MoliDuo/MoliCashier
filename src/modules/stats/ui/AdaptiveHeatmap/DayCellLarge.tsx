@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { getHeatmapColor, formatCellAmount } from "../../lib/heatmap-colors";
 import { formatCompactAmount } from "@/lib/format/currency";
 import { formatRelativeDateLabel } from "@/lib/date-utils";
-import { useLedgerTimeZone } from "@/lib/ledger-time-zone";
+import { useLedgerTimeZone } from "@/components/providers/ledger-time-zone";
 import type { HeatmapLevel } from "../../types";
 import { compare } from "@/lib/money/decimal";
 import { calendarCopy } from "@/copy/controls";

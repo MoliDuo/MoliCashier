@@ -36,6 +36,7 @@ const coverageConfig = {
   exclude: [
     "node_modules",
     ".next",
+    ".next-smoke",
     "tests",
     "src/**/*.test.ts",
     "src/**/*.test.tsx",
@@ -48,17 +49,16 @@ const coverageConfig = {
   ],
 };
 
-const defaultProjectExcludes = ["node_modules", ".next"];
+const defaultProjectExcludes = ["node_modules", ".next", ".next-smoke"];
 const unitDomTypeScriptTests = [
   "tests/unit/lib/ai/client.test.ts",
   "tests/unit/lib/drafts.test.ts",
   "tests/unit/lib/image-utils.test.ts",
-  "tests/unit/lib/navigation/ledger-detail-navigation.test.ts",
-  "tests/unit/lib/navigation/ledger-new-record-navigation.test.ts",
   "tests/unit/lib/sign-out-cleanup.test.ts",
-  "tests/unit/lib/store/modal-stack.test.ts",
   "tests/unit/lib/utils.test.ts",
   "tests/unit/modules/currency/hooks/useConvertedAmount.test.ts",
+  "tests/unit/modules/ledger/navigation/ledger-detail-navigation.test.ts",
+  "tests/unit/modules/ledger/navigation/ledger-new-record-navigation.test.ts",
   "tests/unit/modules/source-document/hooks/source-document-input-images.test.ts",
   "tests/unit/modules/source-document/hooks/source-document-submission-upload.test.ts",
   "tests/unit/modules/workspace/ledger-url-navigation.test.ts",
@@ -129,30 +129,11 @@ export default defineConfig({
           name: "integration-node",
           ...parallelProjects,
           include: ["tests/integration/**/*.test.ts", "tests/integration/**/*.test.tsx"],
-          exclude: [
-            ...defaultProjectExcludes,
-            "tests/integration/modules/source-document/ui/source-document-dialog-flows.test.tsx",
-          ],
+          exclude: defaultProjectExcludes,
           environment: "node",
           globalSetup: ["./tests/setup.postgres-global.ts"],
           setupFiles: ["./tests/setup.ts"],
           pool: "forks",
-          testTimeout: 30000,
-        },
-      }),
-      defineProject({
-        resolve: { alias: resolveAliases },
-        test: {
-          ...sharedProjectTestConfig,
-          name: "integration-dom",
-          sequence: { groupOrder: 1 },
-          include: [
-            "tests/integration/modules/source-document/ui/source-document-dialog-flows.test.tsx",
-          ],
-          exclude: defaultProjectExcludes,
-          environment: "happy-dom",
-          setupFiles: ["./tests/setup.dom.ts"],
-          maxWorkers: 1,
           testTimeout: 30000,
         },
       }),

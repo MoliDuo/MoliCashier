@@ -130,8 +130,10 @@ async function deleteExpiredRecords(now: Date): Promise<void> {
 
 /**
  * Deletes files that no document has used for a week, with their
- * objects. Rows go first: a submission attaching one of them meanwhile makes
- * the delete fail on the file link's foreign key rather than lose the file.
+ * objects. The week runs from when a document last took or let go of the
+ * file, or from the upload for a file no document has touched. Rows go
+ * first: a submission attaching one of them meanwhile makes the delete fail
+ * on the file link's foreign key rather than lose the file.
  */
 async function deleteUnusedFiles(now: Date): Promise<void> {
   const weekAgo = new Date(now.getTime() - UNUSED_FILE_GRACE_DAYS * DAY_MS);
@@ -140,7 +142,7 @@ async function deleteUnusedFiles(now: Date): Promise<void> {
     const deleted = await db.execute<{ storageKey: string }>(sql`
       DELETE FROM ${storedFiles} WHERE id IN (
         SELECT file.id FROM ${storedFiles} AS file
-        WHERE file.created_at < ${weekAgo}
+        WHERE COALESCE(file.last_used_at, file.created_at) < ${weekAgo}
           AND NOT EXISTS (
             SELECT 1 FROM ${sourceDocumentFiles} AS link
             WHERE link.stored_file_id = file.id

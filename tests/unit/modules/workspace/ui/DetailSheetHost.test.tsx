@@ -46,7 +46,7 @@ vi.mock("@/modules/source-document/ui/SourceDocumentDetailModal", () => ({
     </div>
   ),
 }));
-vi.mock("@/lib/navigation/ledger-detail-navigation", () => ({
+vi.mock("@/modules/ledger/navigation/ledger-detail-navigation", () => ({
   closeLedgerDetail: vi.fn(),
   restoreDetailReturnFocus: restoreFocus,
 }));

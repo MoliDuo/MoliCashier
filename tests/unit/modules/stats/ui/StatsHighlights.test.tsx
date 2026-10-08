@@ -69,6 +69,20 @@ describe("StatsHighlights", () => {
     expect(screen.getByText("Education 比上月少花了 ¥2,072")).toBeVisible();
   });
 
+  it("names the entries without a category when they changed the most", () => {
+    render(
+      <StatsHighlights
+        insights={insights({
+          topMover: { id: null, name: null, amountDelta: "300", direction: "up" },
+        })}
+        currencySymbol="CNY"
+        periodLabel="上月"
+      />
+    );
+
+    expect(screen.getByText("未分类 比上月多花了 ¥300")).toBeVisible();
+  });
+
   it("names the days that cost a category far more than usual", () => {
     render(
       <StatsHighlights

@@ -1,7 +1,7 @@
 "use client";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { closeLedgerDetail } from "@/lib/navigation/ledger-detail-navigation";
+import { closeLedgerDetail } from "@/modules/ledger/navigation/ledger-detail-navigation";
 import { commonCopy } from "@/copy/common";
 
 function Skeleton({ className }: { className?: string }) {

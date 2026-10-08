@@ -1,13 +1,16 @@
 "use client";
-import { writeLedgerHistory, type LedgerNavigationKind } from "@/lib/navigation/ledger-history";
+import {
+  writeLedgerHistory,
+  type LedgerNavigationKind,
+} from "@/modules/ledger/navigation/ledger-history";
 import {
   LEDGER_DETAIL_PARAM,
   readLedgerDetailParam,
-} from "@/lib/navigation/ledger-detail-navigation";
+} from "@/modules/ledger/navigation/ledger-detail-navigation";
 import {
   LEDGER_NEW_RECORD_PARAM,
   readNewRecordParam,
-} from "@/lib/navigation/ledger-new-record-navigation";
+} from "@/modules/ledger/navigation/ledger-new-record-navigation";
 import { buildLedgerUrl } from "./ledger-url-params";
 
 type SearchParamsLike = Pick<URLSearchParams, "toString">;

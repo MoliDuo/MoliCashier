@@ -52,6 +52,7 @@ import { RoutePrefetch } from "@/app/(protected)/(ledger)/_route-prefetch";
 import { WorkspaceStoreProvider } from "@/modules/workspace/store";
 import { LedgerWorkspace } from "@/modules/workspace/ui/LedgerWorkspace";
 import { UnauthorizedError } from "@/lib/errors";
+import { must } from "tests/helpers/must";
 
 const BOOK_B = "20000000-0000-4000-8000-00000000000b";
 
@@ -109,11 +110,13 @@ describe("ledger layout", () => {
     const tree = await LedgerLayout({ children: null });
 
     expect(getLedgerBooksBootstrapMock).toHaveBeenCalledWith(view.books);
-    const boundary = elements(tree).find(
-      (element) => element.type === HydrationBoundary && element.props.state === booksState
+    const boundary = must(
+      elements(tree).find(
+        (element) => element.type === HydrationBoundary && element.props.state === booksState
+      ),
+      "books hydration boundary"
     );
-    expect(boundary).toBeDefined();
-    expect(find(boundary!.props.children, LedgerShell)).toBeDefined();
+    expect(find(boundary.props.children, LedgerShell).type).toBe(LedgerShell);
   });
 
   it("hands the workspace today in the ledger's zone", async () => {
@@ -127,7 +130,7 @@ describe("ledger layout", () => {
 
     const data = await renderShellData(await LedgerLayout({ children: null }));
 
-    expect(find(data, LedgerWorkspace)).toBeDefined();
+    expect(find(data, LedgerWorkspace).props).toMatchObject({ ledgerToday: "2026-09-26" });
   });
 
   it("sends a request without a session straight to the sign-in route", async () => {

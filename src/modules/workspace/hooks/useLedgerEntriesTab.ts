@@ -23,7 +23,7 @@ import { useLedgerMutation } from "@/lib/mutations/use-ledger-mutation";
 import {
   openLedgerDetail,
   openLedgerEntrySourceDocument,
-} from "@/lib/navigation/ledger-detail-navigation";
+} from "@/modules/ledger/navigation/ledger-detail-navigation";
 import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import type {
   BatchUpdateSourceDocumentsResultDto,
@@ -50,7 +50,7 @@ import { settleBatchResult } from "./settle-batch-result";
 import { commonCopy } from "@/copy/common";
 import { sourceDocumentActionCopy } from "@/copy/source-document";
 import { batchActionsCopy } from "@/copy/workspace";
-import type { SourceDocumentProcessingStatus } from "@/lib/source-document-values";
+import type { SourceDocumentProcessingStatus } from "@/modules/source-document/types";
 
 type StreamPage = Awaited<ReturnType<typeof fetchStreamPage>>;
 

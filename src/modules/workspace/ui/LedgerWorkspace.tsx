@@ -2,10 +2,13 @@
 import { useMemo, type ReactNode } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { AppError } from "@/lib/errors";
-import { LedgerTimeZoneProvider } from "@/lib/ledger-time-zone";
-import { ledgerTabFromPathname } from "@/lib/ledger-tabs";
-import { readLedgerDetailParam } from "@/lib/navigation/ledger-detail-navigation";
-import { closeNewRecord, readNewRecordParam } from "@/lib/navigation/ledger-new-record-navigation";
+import { LedgerTimeZoneProvider } from "@/components/providers/ledger-time-zone";
+import { ledgerTabFromPathname } from "@/modules/workspace/ledger-tabs";
+import { readLedgerDetailParam } from "@/modules/ledger/navigation/ledger-detail-navigation";
+import {
+  closeNewRecord,
+  readNewRecordParam,
+} from "@/modules/ledger/navigation/ledger-new-record-navigation";
 import { textRoleClassName } from "@/components/typography";
 import { useBooks } from "@/modules/ledger/hooks/useBooks";
 import { CategoryAssignmentProvider } from "@/modules/ledger/ui/CategoryAssignmentProvider";

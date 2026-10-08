@@ -10,7 +10,7 @@ import {
   toStableFailureCode,
   type ProcessingFailureCode,
 } from "@/modules/source-document/lifecycle";
-import { accountingTotal } from "@/lib/money/accounting-total";
+import { accountingTotal } from "@/modules/source-document/domain/accounting-total";
 import { deriveSourceDocumentCapabilities } from "@/modules/source-document/domain/source-document-state";
 import { compare as decimalCompare } from "@/lib/money/decimal";
 import type { SourceDocumentProcessingStatus } from "@/modules/source-document/types";
@@ -28,9 +28,9 @@ export interface SourceDocumentListRow {
 }
 
 export interface SourceDocumentRow extends SourceDocumentListRow {
-  duplicateSuggestion: import("@/lib/ai/duplicate-suggestion").DuplicateSuggestion | null;
+  duplicateSuggestion: import("@/lib/source-document/suggestions").DuplicateSuggestion | null;
   dateOrganizationSuggestion:
-    import("@/lib/ai/date-organization").DateOrganizationSuggestion | null;
+    import("@/lib/source-document/suggestions").DateOrganizationSuggestion | null;
 }
 
 export interface SourceDocumentListHydrationRow {

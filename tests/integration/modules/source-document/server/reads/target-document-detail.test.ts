@@ -14,6 +14,7 @@ import {
   activateTestSourceDocumentProjection,
   ensureTestLedgerBooks,
 } from "tests/helpers/schema-setup";
+import { must } from "tests/helpers/must";
 
 describe("getTargetSourceDocument", () => {
   it("should return source document with basic data", async () => {
@@ -99,11 +100,7 @@ describe("getTargetSourceDocument", () => {
       throw new Error("Expected source document light result");
     }
     expect(result.ledgerEntries).toHaveLength(1);
-    const firstEntry = result.ledgerEntries[0];
-    expect(firstEntry).toBeDefined();
-    if (firstEntry == null) {
-      throw new Error("Expected source document ledger entry");
-    }
+    const firstEntry = must(result.ledgerEntries[0], "first ledger entry");
     expect(firstEntry.itemName).toBe("Test Entry");
     expect(firstEntry.category?.name).toBe(categoryData.name);
   });

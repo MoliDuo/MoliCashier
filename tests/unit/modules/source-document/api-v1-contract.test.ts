@@ -12,7 +12,8 @@ import {
 
 const decodeBase64ImageMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@/modules/source-document/base64-image", () => ({
+vi.mock("@/modules/source-document/api-v1-policy", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/modules/source-document/api-v1-policy")>()),
   decodeBase64Image: decodeBase64ImageMock,
 }));
 

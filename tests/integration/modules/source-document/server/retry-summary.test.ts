@@ -241,9 +241,9 @@ describe("retry active result summary", () => {
     });
 
     const detail = await getTargetSourceDocument(created.sourceDocumentId);
-    expect(detail?.processingStatus).toBe("failed");
-    expect(detail?.activeResultSummary).toBeDefined();
-    expect(detail?.activeResultSummary?.entryCount).toBe(3);
-    expect(detail?.activeResultSummary?.total).toBe("9007199254740992.03");
+    expect(detail).toMatchObject({
+      processingStatus: "failed",
+      activeResultSummary: { entryCount: 3, total: "9007199254740992.03" },
+    });
   });
 });

@@ -1,6 +1,6 @@
 import { claimAttemptForTest } from "tests/helpers/processing-attempt";
 import { sql } from "drizzle-orm";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { updateLedgerSettings } from "@/modules/ledger/server/settings";
 import { ledgerEntries, ledgers, sourceDocuments } from "@/persistence";
@@ -173,9 +173,9 @@ describe("target Settings currency workflow", () => {
       );
       expect(
         await db.query.exchangeRates.findFirst({
-          where: eq(exchangeRates.rateDate, "2026-07-14"),
+          where: and(eq(exchangeRates.rateDate, "2026-07-14"), eq(exchangeRates.currency, "CNY")),
         })
-      ).toBeDefined();
+      ).toMatchObject({ rateDate: "2026-07-14", currency: "CNY", perEur: "8" });
       expect((await calculateLedgerStats({})).convertedTotal).toEqual({
         total: "15",
         currency: "USD",

@@ -110,13 +110,13 @@ describe("SourceDocumentInputView upload cancellation", () => {
     );
 
     expect(screen.queryByRole("button", { name: sourceDocumentInputCopy.cancelUpload })).toBeNull();
-    expect(screen.getByText(sourceDocumentInputCopy.submitting)).toBeTruthy();
+    expect(screen.getByText(sourceDocumentInputCopy.submitting)).toBeInTheDocument();
   });
 
   it("announces the cancelling phase without exposing another cancel action", () => {
     renderView({ phase: "cancelling", percent: 70 }, false);
 
-    expect(screen.getByText(sourceDocumentInputCopy.cancelling)).toBeTruthy();
+    expect(screen.getByText(sourceDocumentInputCopy.cancelling)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: sourceDocumentInputCopy.cancelUpload })).toBeNull();
   });
 });

@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { QueryKey } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useLedgerMutation } from "@/lib/mutations/use-ledger-mutation";
-import { openLedgerDetail } from "@/lib/navigation/ledger-detail-navigation";
+import { openLedgerDetail } from "@/modules/ledger/navigation/ledger-detail-navigation";
 import type { useSelection } from "@/hooks/use-selection";
 import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import {

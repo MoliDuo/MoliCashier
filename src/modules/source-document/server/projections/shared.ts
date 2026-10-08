@@ -4,7 +4,7 @@ import { NotFoundError, ValidationError } from "@/lib/errors";
 import { isValidDecimal } from "@/lib/money/decimal";
 import { entryCategories, ledgerEntries, sourceDocuments } from "@/persistence";
 import type { PostgresTransaction } from "@/lib/db/transaction-locks";
-import type { DuplicateSuggestion } from "@/lib/ai/duplicate-suggestion";
+import type { DuplicateSuggestion } from "@/lib/source-document/suggestions";
 
 export function activeDocumentWhere(sourceDocumentId: string) {
   return eq(sourceDocuments.id, sourceDocumentId);

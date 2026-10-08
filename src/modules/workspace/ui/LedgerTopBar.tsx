@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, SquareCheckBig, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { textRoleClassName } from "@/components/typography";
-import type { LedgerTab } from "@/lib/ledger-tabs";
+import type { LedgerTab } from "@/modules/workspace/ledger-tabs";
 import { cn } from "@/lib/utils";
 import { AmountText } from "@/modules/currency/ui/amount-text";
 import { SelectAllToggle, selectionCountText } from "@/modules/ledger/ui/batch-action-toolbar";

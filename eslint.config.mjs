@@ -89,6 +89,7 @@ export default defineConfig([
   globalIgnores([
     ".next/**",
     ".next-cashier-*/**",
+    ".next-smoke/**",
     ".worktrees/**",
     ".claude/**",
     ".tmp/**",

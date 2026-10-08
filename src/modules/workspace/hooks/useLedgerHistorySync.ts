@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
-import type { LedgerTab } from "@/lib/ledger-tabs";
-import { LEDGER_DETAIL_PARAM } from "@/lib/navigation/ledger-detail-navigation";
-import { LEDGER_NEW_RECORD_PARAM } from "@/lib/navigation/ledger-new-record-navigation";
+import type { LedgerTab } from "@/modules/workspace/ledger-tabs";
+import { LEDGER_DETAIL_PARAM } from "@/modules/ledger/navigation/ledger-detail-navigation";
+import { LEDGER_NEW_RECORD_PARAM } from "@/modules/ledger/navigation/ledger-new-record-navigation";
 import { normalizePeriodSearchParams } from "../period-url-params";
 import { normalizeStatsSearchParams } from "../stats-url-params";
 import { replaceLedgerUrl } from "../ledger-url-navigation";

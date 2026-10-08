@@ -13,8 +13,8 @@ const persistence = moduleAt("src/persistence");
 const libDb = moduleAt("src/lib/db");
 const s3 = moduleAt("src/lib/storage/s3");
 const aiRuntime = moduleAt("src/lib/ai/(?:client|structured)");
-/** src/lib/ai except the plain data shapes that persistence and domain code share with it. */
-const aiCode = "^src/lib/ai/(?!(?:types|date-organization|duplicate-suggestion)\\.[^/.]+$)";
+/** src/lib/ai except the plain data shapes that domain code shares with it. */
+const aiCode = "^src/lib/ai/(?!types\\.[^/.]+$)";
 const logger = moduleAt("src/lib/logger");
 const serverFlows = moduleAt("src/server");
 const moduleServer = moduleAt("src/modules/[^/]+/server");

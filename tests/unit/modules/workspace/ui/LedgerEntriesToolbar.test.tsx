@@ -107,7 +107,7 @@ describe("LedgerEntriesToolbar", () => {
     render(<LedgerEntriesToolbar {...defaultProps} filters={{ statuses: ["completed"] }} />);
 
     expect(screen.queryByText(/状态：/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "已启用 1 个筛选" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "已启用 1 个筛选" })).toBeInTheDocument();
   });
 
   it("renders the amount without a redundant label when the prefix is gone", () => {

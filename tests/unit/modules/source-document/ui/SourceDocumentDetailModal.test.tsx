@@ -7,7 +7,7 @@ import { sourceDocumentActionCopy, sourceDocumentDetailCopy } from "@/copy/sourc
 import { queryKeys } from "@/lib/query-keys";
 import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import type { SourceDocumentDetailDto } from "@/modules/source-document/contracts";
-import type { EntryEditData } from "@/modules/source-document/types";
+import type { EntryEditData } from "@/modules/source-document/detail-types";
 import { SourceDocumentDetailModal } from "@/modules/source-document/ui/SourceDocumentDetailModal";
 
 const {
@@ -237,7 +237,7 @@ vi.mock("@/modules/source-document/ui/SourceDocumentSplitDialog", () => ({
     onSubmit: (documentDate: string) => Promise<void>;
   }) => (open ? <button onClick={() => void onSubmit("2026-09-03")}>submit-split</button> : null),
 }));
-vi.mock("@/lib/navigation/ledger-detail-navigation", () => ({
+vi.mock("@/modules/ledger/navigation/ledger-detail-navigation", () => ({
   openLedgerDetail: vi.fn(),
 }));
 

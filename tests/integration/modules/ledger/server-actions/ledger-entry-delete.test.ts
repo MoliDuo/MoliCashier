@@ -8,6 +8,7 @@ import {
   createTestSourceDocument,
   activateTestSourceDocumentProjection,
 } from "tests/helpers/schema-setup";
+import { must } from "tests/helpers/must";
 
 describe("Ledger Entry Delete Action", () => {
   let testEntryId: string;
@@ -22,7 +23,7 @@ describe("Ledger Entry Delete Action", () => {
     // Create a test source document for entries
     testSourceDocId = await createTestSourceDocument(db);
 
-    const [entry] = await db
+    const [entryRow] = await db
       .insert(ledgerEntries)
       .values({
         sourceDocumentId: testSourceDocId,
@@ -31,10 +32,7 @@ describe("Ledger Entry Delete Action", () => {
         itemName: "Delete Me",
       })
       .returning();
-    expect(entry).toBeDefined();
-    if (entry == null) {
-      throw new Error("Expected ledger entry to be created");
-    }
+    const entry = must(entryRow, "entry");
     testEntryId = entry.id;
     await activateTestSourceDocumentProjection(db, testSourceDocId);
   });

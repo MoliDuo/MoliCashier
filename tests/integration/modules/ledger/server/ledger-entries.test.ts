@@ -7,6 +7,7 @@ import {
   createTestLedger,
   createTestSourceDocument,
 } from "tests/helpers/schema-setup";
+import { must } from "tests/helpers/must";
 
 describe("listLedgerEntries", () => {
   let testCategoryId: string;
@@ -19,17 +20,14 @@ describe("listLedgerEntries", () => {
     await db.delete(ledgers);
     await createTestLedger(db);
 
-    const [category] = await db
+    const [categoryRow] = await db
       .insert(entryCategories)
       .values({
         name: "餐饮",
         sortOrder: 1,
       })
       .returning();
-    expect(category).toBeDefined();
-    if (category === undefined) {
-      throw new Error("Expected category insert to return a row");
-    }
+    const category = must(categoryRow, "category");
     testCategoryId = category.id;
 
     // Create a test source document for entries
@@ -57,23 +55,16 @@ describe("listLedgerEntries", () => {
     const data = await listLedgerEntries({});
 
     expect(data.items).toHaveLength(1);
-    const firstItem = data.items[0];
-    expect(firstItem).toBeDefined();
-    expect(firstItem?.itemName).toBe("午餐");
-    expect(firstItem?.category).toBeDefined();
-    expect(firstItem?.category?.name).toBe("餐饮");
+    expect(data.items[0]).toMatchObject({ itemName: "午餐", category: { name: "餐饮" } });
   });
 
   it("should filter by categoryId", async () => {
     const db = getTestDb();
-    const [otherCategory] = await db
+    const [otherCategoryRow] = await db
       .insert(entryCategories)
       .values({ name: "交通", sortOrder: 2 })
       .returning();
-    expect(otherCategory).toBeDefined();
-    if (otherCategory === undefined) {
-      throw new Error("Expected category insert to return a row");
-    }
+    const otherCategory = must(otherCategoryRow, "otherCategory");
 
     await db.insert(ledgerEntries).values([
       {
@@ -96,8 +87,6 @@ describe("listLedgerEntries", () => {
     const data = await listLedgerEntries({ categoryId: testCategoryId });
 
     expect(data.items).toHaveLength(1);
-    const firstItem = data.items[0];
-    expect(firstItem).toBeDefined();
-    expect(firstItem?.itemName).toBe("餐饮交易");
+    expect(data.items[0]).toMatchObject({ itemName: "餐饮交易" });
   });
 });

@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll } from "vitest";
 import { http, HttpResponse } from "msw";
+import { HttpNetworkFrame } from "msw/experimental";
 import { setupServer } from "msw/node";
 
 /** Units of each currency one euro buys on every day the mocked provider answers. */
@@ -73,8 +74,11 @@ export function takeUnexpectedHttpErrors(): Error[] {
 
 beforeAll(() => {
   server.listen({
-    onUnhandledRequest(request) {
-      const error = createUnexpectedHttpError(request);
+    onUnhandledFrame({ frame }) {
+      const error =
+        frame instanceof HttpNetworkFrame
+          ? createUnexpectedHttpError(frame.data.request)
+          : new Error(`TEST_UNEXPECTED_NETWORK ${frame.protocol}`);
       unexpectedRequests.push(error);
       throw error;
     },

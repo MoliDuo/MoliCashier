@@ -2,8 +2,8 @@ import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import type {
   SourceDocumentDetailDto,
   SourceDocumentListItemDto,
-  SourceDocumentProcessingStatus,
 } from "@/modules/source-document/contracts";
+import type { SourceDocumentProcessingStatus } from "@/modules/source-document/types";
 import type { SupportedSourceDocumentAction } from "@/modules/source-document/lifecycle";
 import { memo, useRef } from "react";
 import { ChevronDown, CircleStop, FilePen, MoreVertical, RefreshCw, Trash2 } from "lucide-react";

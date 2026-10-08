@@ -239,6 +239,20 @@
       "when": 1791462744788,
       "tag": "0033_source_documents_created_index",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1791479634172,
+      "tag": "0034_drop_ledger_sync_watermarks",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1791479668210,
+      "tag": "0035_stored_file_last_use",
+      "breakpoints": true
     }
   ]
 }

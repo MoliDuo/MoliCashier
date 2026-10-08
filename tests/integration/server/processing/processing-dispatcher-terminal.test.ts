@@ -50,7 +50,11 @@ describe("executeProcessingJob — standalone function with real adapter/process
     ["returns null", "null"],
     ["throws", "throw"],
   ] as const)("aborts the worker when lease renewal %s", async (_label, mode) => {
-    vi.useFakeTimers();
+    // setImmediate stays real: the test network hands each new database socket back to the
+    // real connection on the next setImmediate, so a faked one would hold the query forever.
+    vi.useFakeTimers({
+      toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"],
+    });
     const db = getTestDb();
     const { job } = await pendingIntent("2026-07-15T00:00:00.000Z");
 

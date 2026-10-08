@@ -13,6 +13,7 @@ import {
   getEntryFallbackDate,
   validateEntries,
 } from "@/modules/source-document/domain/parse/entry-builder";
+import { must } from "tests/helpers/must";
 
 describe("entry-builder", () => {
   beforeEach(() => {
@@ -91,11 +92,7 @@ describe("entry-builder", () => {
       fallbackDate: "2026-03-20",
     });
 
-    const firstEntry = result[0];
-    expect(firstEntry).toBeDefined();
-    if (firstEntry == null) {
-      throw new Error("Expected first built entry");
-    }
+    const firstEntry = must(result[0], "first built entry");
 
     expect(firstEntry.categoryId).toBeNull();
   });
@@ -128,13 +125,8 @@ describe("entry-builder", () => {
       fallbackDate: "2026-03-20",
     });
 
-    const firstEntry = result[0];
-    const secondEntry = result[1];
-    expect(firstEntry).toBeDefined();
-    expect(secondEntry).toBeDefined();
-    if (firstEntry == null || secondEntry == null) {
-      throw new Error("Expected two built entries");
-    }
+    const firstEntry = must(result[0], "first built entry");
+    const secondEntry = must(result[1], "second built entry");
 
     expect(firstEntry.categoryId).toBe("cat-0");
     expect(secondEntry.categoryId).toBe("cat-1");

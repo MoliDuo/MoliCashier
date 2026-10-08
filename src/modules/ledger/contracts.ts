@@ -231,7 +231,8 @@ export interface LedgerSummaryDto {
   }[];
   byCategory: {
     categoryId: string | null;
-    categoryName: string;
+    /** Null for the entries without a category; the page names them. */
+    categoryName: string | null;
     categoryIcon: string | null;
     currency: string | null;
     total: string;

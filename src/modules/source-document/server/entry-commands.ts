@@ -1,4 +1,4 @@
-import { assertExpenseAmountDirection } from "@/lib/money/expense-amount";
+import { assertExpenseAmountDirection } from "@/modules/source-document/domain/expense-amount";
 import { and, eq, getTableColumns, inArray } from "drizzle-orm";
 import type { LedgerProjectionEntryContract } from "@/modules/source-document/server/projections/types";
 import type { PartialBatchCommandResult } from "@/modules/source-document/contracts";

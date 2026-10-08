@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { expectTextRole } from "tests/helpers/class-tables";
 import { DateFilter } from "@/components/ui/date-filter";
-import { LedgerTimeZoneProvider } from "@/lib/ledger-time-zone";
+import { LedgerTimeZoneProvider } from "@/components/providers/ledger-time-zone";
 import { commonCopy } from "@/copy/common";
 import { calendarCopy, dateFilterCopy } from "@/copy/controls";
 

@@ -127,7 +127,7 @@ function moverValues(
   locale: string
 ) {
   return {
-    category: mover.name,
+    category: mover.name ?? statsTabCopy.uncategorized,
     period: periodLabel,
     // Whole units: the sentence is about the size of the change, not its cents.
     amount: formatCurrencyAmount(mover.amountDelta, currencySymbol, locale, {

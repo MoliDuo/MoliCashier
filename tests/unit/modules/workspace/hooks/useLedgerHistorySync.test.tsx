@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useLedgerHistorySync } from "@/modules/workspace/hooks/useLedgerHistorySync";
 import { WorkspaceStoreProvider, useWorkspaceStore } from "@/modules/workspace/store";
-import type { LedgerTab } from "@/lib/ledger-tabs";
+import type { LedgerTab } from "@/modules/workspace/ledger-tabs";
 
 const detailId = "document-1";
 const detailSearch = `detail=${detailId}`;

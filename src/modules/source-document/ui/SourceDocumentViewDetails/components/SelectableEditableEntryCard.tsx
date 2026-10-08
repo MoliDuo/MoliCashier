@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { SelectableCardSurface } from "@/components/selectable-card-surface";
 import { cn } from "@/lib/utils";
 import { EditableLedgerEntryItem } from "../../EditableLedgerEntryItem";
-import type { EntryEditData } from "@/modules/source-document/types";
+import type { EntryEditData } from "@/modules/source-document/detail-types";
 
 interface SelectableEditableEntryCardProps {
   entry: LedgerEntryDto;

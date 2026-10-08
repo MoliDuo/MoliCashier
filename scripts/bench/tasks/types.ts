@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type { GenerateStructured } from "@/lib/ai/structured";
+import type { EvidenceImage } from "@/lib/ai/types";
 import type { BenchDocument } from "../lib/schema";
 
 /** How one run of a task fared against its annotation. */
@@ -13,7 +14,7 @@ export interface Score {
 
 export interface TaskRunContext {
   document: BenchDocument;
-  images: readonly { dataUrl: string }[];
+  images: readonly EvidenceImage[];
   generate: GenerateStructured;
   signal: AbortSignal;
 }

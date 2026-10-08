@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { LedgerTab } from "@/lib/ledger-tabs";
+import type { LedgerTab } from "@/modules/workspace/ledger-tabs";
 import {
   WorkspaceStoreProvider,
   useWorkspaceStore,

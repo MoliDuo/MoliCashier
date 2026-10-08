@@ -34,4 +34,17 @@ describe("test environment", () => {
     expect(environment.OPENAI_API_KEY).toBe("test-openai-key");
     expect(environment.NODE_ENV).toBe("production");
   });
+
+  it("runs at UTC whatever the machine's zone unless CASHIER_TEST_TZ names one", () => {
+    expect(createTestEnvironment({ TZ: "America/New_York" }).TZ).toBe("");
+
+    const singapore = createTestEnvironment({
+      TZ: "America/New_York",
+      CASHIER_TEST_TZ: "Asia/Singapore",
+    });
+    expect(singapore.TZ).toBe("Asia/Singapore");
+    // A worker's setup installs the environment again; the zone survives it.
+    expect(installTestEnvironment({ ...singapore }).TZ).toBe("Asia/Singapore");
+    expect(installTestEnvironment({ TZ: "America/New_York" }).TZ).toBe("");
+  });
 });

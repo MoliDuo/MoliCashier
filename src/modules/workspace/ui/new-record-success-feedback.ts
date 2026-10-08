@@ -4,8 +4,8 @@ import { toast } from "sonner";
 import type { EntryFilters } from "@/modules/ledger/filters";
 import type { CivilRange } from "@/modules/ledger/domain/period";
 import type { CreatedRecordResult } from "@/modules/source-document/contracts";
-import { openLedgerDetail } from "@/lib/navigation/ledger-detail-navigation";
-import type { LedgerTab } from "@/lib/ledger-tabs";
+import { openLedgerDetail } from "@/modules/ledger/navigation/ledger-detail-navigation";
+import type { LedgerTab } from "@/modules/workspace/ledger-tabs";
 import { sourceDocumentInputCopy } from "@/copy/source-document";
 
 /** What 流水 is showing: its filters, and the days its period covers (null for all). */

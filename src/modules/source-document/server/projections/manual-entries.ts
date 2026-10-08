@@ -2,8 +2,10 @@ import { inArray, sql } from "drizzle-orm";
 import type { LedgerProjectionEntryContract } from "@/modules/source-document/server/projections/types";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { compare } from "@/lib/money/decimal";
-import type { DateOrganizationSuggestion } from "@/lib/ai/date-organization";
-import type { DuplicateSuggestion } from "@/lib/ai/duplicate-suggestion";
+import type {
+  DateOrganizationSuggestion,
+  DuplicateSuggestion,
+} from "@/lib/source-document/suggestions";
 import { ledgerEntries, sourceDocuments } from "@/persistence";
 import { recordAiCorrectionsInTransaction } from "@/modules/ledger/server/ai-corrections";
 import type { LockedSourceDocument, PostgresTransaction } from "@/lib/db/transaction-locks";

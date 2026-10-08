@@ -3,7 +3,7 @@ import { useCallback, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { cn } from "@/lib/utils";
 import { safePrefetch } from "@/lib/safe-prefetch";
-import type { LedgerTab } from "@/lib/ledger-tabs";
+import type { LedgerTab } from "@/modules/workspace/ledger-tabs";
 import type { CreatedRecordResult } from "@/modules/source-document/contracts";
 import { writeLastNewRecordBookId } from "../new-record-book-memory";
 import { showNewRecordSuccessFeedback, type CommittedView } from "./new-record-success-feedback";

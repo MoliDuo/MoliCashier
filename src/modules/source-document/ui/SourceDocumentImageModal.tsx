@@ -6,7 +6,7 @@ import { textRoleClassName } from "@/components/typography";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { storedFileReadUrl } from "../stored-file-read";
+import { storedFileReadUrl } from "./stored-file-read";
 import { sourceDocumentImageModalCopy } from "@/copy/source-document";
 
 export interface SourceDocumentModalImage {

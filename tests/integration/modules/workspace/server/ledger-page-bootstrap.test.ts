@@ -19,7 +19,7 @@ import {
 } from "@/modules/workspace/server/ledger-page-bootstrap";
 import { buildStatsQueryDescriptor } from "@/modules/workspace/ledger-tab-query-descriptors";
 import { resolveAuthenticatedHome } from "@/modules/workspace/server/resolve-authenticated-home";
-import type { LedgerTab } from "@/lib/ledger-tabs";
+import type { LedgerTab } from "@/modules/workspace/ledger-tabs";
 import type { Period } from "@/modules/ledger/domain/period";
 import type { LedgerAdvancedFilters } from "@/modules/ledger/ledger-query";
 
@@ -176,8 +176,7 @@ describe("ledger page bootstrap", () => {
     expect(view.books).toHaveLength(2);
     // A ledger that never had a run says so, rather than leaving the read to the client.
     const run = query(shell, "ledger", "category-assignment");
-    expect(run).toBeDefined();
-    expect(run?.state.data).toBeNull();
+    expect(run).toMatchObject({ state: { data: null } });
   });
 
   it("dehydrates the ledger's latest assignment run for the shell", async () => {
@@ -339,6 +338,8 @@ describe("ledger page bootstrap", () => {
       bookId: otherBookId,
     });
     expect(books.queries).toEqual([]);
-    expect(query(shell, "ledger", "categories")).toBeDefined();
+    expect(query(shell, "ledger", "categories")?.state.data).toEqual([
+      expect.objectContaining({ name: "吃喝" }),
+    ]);
   });
 });

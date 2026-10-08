@@ -20,7 +20,7 @@ import {
   throwIfProcessingCancelled,
   type InvalidDiagnostic,
 } from "@/modules/source-document/domain/parse/contracts";
-import { normalizeFailureReason } from "@/modules/source-document/failure-reason-policy";
+import { normalizeFailureReason } from "@/modules/source-document/domain/failure-reason-policy";
 import {
   isFailedLoadImageResult,
   isSuccessfulLoadImageResult,
@@ -33,8 +33,8 @@ import { ensureExchangeRates } from "@/modules/currency/server/exchange-rates";
 import { recordProcessingFailure } from "@/modules/source-document/server/extraction-attempts";
 import { activateAttempt } from "@/modules/source-document/server/projections/writes";
 import { generateStructured, type GenerateStructured } from "@/lib/ai/structured";
-import { createDateOrganizationSuggestion } from "@/modules/source-document/date-organization";
-import { createDuplicateSuggestion } from "@/modules/source-document/duplicate-suggestion";
+import { createDateOrganizationSuggestion } from "@/modules/source-document/domain/date-organization";
+import { createDuplicateSuggestion } from "@/modules/source-document/domain/duplicate-suggestion";
 import { loadRecentEntriesForParse } from "@/modules/source-document/server/recent-entries";
 
 function failureLogContext(
@@ -184,7 +184,6 @@ export async function processAttempt(
     currency: entry.currency,
     itemName: entry.itemName,
     description: entry.description,
-    createdAt: entry.entryDate,
     ...(entry.dateHint == null ? {} : { dateHint: entry.dateHint }),
   }));
 
