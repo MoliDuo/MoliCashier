@@ -20,8 +20,9 @@ const nextConfig: NextConfig = {
   // so its build skips Next's second, identical pass.
   ...(process.env.CASHIER_CHECK_BUILD === "1" ? { typescript: { ignoreBuildErrors: true } } : {}),
   experimental: {
-    // No `proxyClientMaxBodySize`: the proxy does not match API routes, where the large bodies
-    // (uploads, API v1) go, so it never buffers one. A repository test holds the matcher to it.
+    // No `proxyClientMaxBodySize`: the app has no proxy, so no request body is buffered ahead of
+    // its route; the large ones (uploads, API v1) go to API routes that authenticate first and
+    // read the body with a limit. A repository test keeps a proxy from coming back unnoticed.
     // The ledger's pages are dynamic but carry no data of their own on a
     // client move — React Query holds it — so a page just left is safe to show
     // again at once instead of waiting on the server for the same payload.
