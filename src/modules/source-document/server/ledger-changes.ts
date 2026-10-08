@@ -4,9 +4,6 @@ import { db } from "@/lib/db";
 
 interface ChangeSummaryRow extends Record<string, unknown> {
   currentVersion: string;
-  categoriesChanged: boolean;
-  settingsChanged: boolean;
-  statsChanged: boolean;
   hasTransitionalWork: boolean;
 }
 
@@ -47,19 +44,19 @@ export async function getLedgerRefreshBaseline(): Promise<{
   return { version: BigInt(row.version), hasTransitionalWork: row.hasTransitionalWork };
 }
 
-export async function summarizeLedgerChanges({ afterVersion }: { afterVersion: bigint }): Promise<{
+/**
+ * The ledger's current version and whether any record is still processing. The
+ * per-resource watermarks the triggers also keep (categories, settings, stats)
+ * are not read: any change moves the version, and a moved version refreshes
+ * every visible read.
+ */
+export async function summarizeLedgerChanges(): Promise<{
   currentVersion: bigint;
-  categoriesChanged: boolean;
-  settingsChanged: boolean;
-  statsChanged: boolean;
   hasTransitionalWork: boolean;
 }> {
   const result = await db.execute<ChangeSummaryRow>(sql`
       SELECT
         COALESCE(state.version, 0)::text AS "currentVersion",
-        COALESCE(state.categories_version > ${afterVersion}, false) AS "categoriesChanged",
-        COALESCE(state.settings_version > ${afterVersion}, false) AS "settingsChanged",
-        COALESCE(state.stats_version > ${afterVersion}, false) AS "statsChanged",
         EXISTS (
           SELECT 1
           FROM source_documents document
@@ -77,9 +74,6 @@ export async function summarizeLedgerChanges({ afterVersion }: { afterVersion: b
   }
   return {
     currentVersion: BigInt(row.currentVersion),
-    categoriesChanged: row.categoriesChanged,
-    settingsChanged: row.settingsChanged,
-    statsChanged: row.statsChanged,
     hasTransitionalWork: row.hasTransitionalWork,
   };
 }

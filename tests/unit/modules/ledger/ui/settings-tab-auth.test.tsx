@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Ledger } from "@/modules/ledger/contracts";
+import type { LedgerDto } from "@/modules/ledger/contracts";
 import { getDefaultLedger } from "tests/helpers/default-ledger";
 
 const { queryState, refetchQueries, BOOKS } = vi.hoisted(() => ({
@@ -92,7 +92,7 @@ describe("SettingsTab account authentication controls", () => {
     vi.clearAllMocks();
   });
   it("shows who is signed in and offers sign-out, but no destructive account mutations", () => {
-    const ledger: Ledger = {
+    const ledger: LedgerDto = {
       settings: { ...getDefaultLedger().settings },
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
@@ -120,7 +120,7 @@ describe("SettingsTab account authentication controls", () => {
   });
 
   it("runs from the short preferences to the lists, and ends with signing out", () => {
-    const ledger: Ledger = {
+    const ledger: LedgerDto = {
       settings: { ...getDefaultLedger().settings },
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
@@ -152,7 +152,7 @@ describe("SettingsTab account authentication controls", () => {
     vi.spyOn(window, "location", "get").mockReturnValue({ ...window.location, assign });
     const logout = vi.fn(async () => new Response(null, { status: 204 }));
     vi.stubGlobal("fetch", logout);
-    const ledger: Ledger = {
+    const ledger: LedgerDto = {
       settings: { ...getDefaultLedger().settings },
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
@@ -178,7 +178,7 @@ describe("SettingsTab account authentication controls", () => {
 
   it("keeps loaded settings visible when a query fails and exposes a local retry", () => {
     queryState.status = "error";
-    const ledger: Ledger = {
+    const ledger: LedgerDto = {
       settings: { ...getDefaultLedger().settings },
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",

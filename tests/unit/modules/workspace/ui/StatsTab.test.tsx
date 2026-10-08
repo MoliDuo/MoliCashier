@@ -5,7 +5,7 @@ import { fetchForecast } from "@/modules/forecast/queries";
 import type { ForecastDto } from "@/modules/forecast/contracts";
 import { fetchEnhancedStats } from "@/modules/stats/queries";
 import { StatsTab } from "@/modules/workspace/ui/StatsTab";
-import type { Ledger } from "@/modules/ledger/contracts";
+import type { LedgerDto } from "@/modules/ledger/contracts";
 import { getDefaultLedger } from "tests/helpers/default-ledger";
 import type { EnhancedStatsDto } from "@/modules/stats/contracts";
 import { buildEnhancedStatsFixture } from "tests/helpers/stats-fixture";
@@ -28,7 +28,7 @@ vi.mock("@/modules/forecast/queries", () => ({
   fetchForecast: vi.fn(),
 }));
 
-const ledgerFixture: Ledger = {
+const ledgerFixture: LedgerDto = {
   settings: { ...getDefaultLedger().settings, mainCurrency: "CNY" },
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",

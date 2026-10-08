@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import type { LedgerEntry } from "@/modules/ledger/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import { formatCurrencyAmount } from "@/lib/format/currency";
 import { formatDateTimeForApi } from "@/lib/date-utils";
 import { DISPLAY_LOCALE } from "@/lib/constants";
@@ -22,7 +22,7 @@ import { sourceDocumentDetailCopy } from "@/copy/source-document";
 
 interface SourceDocumentSplitDialogProps {
   open: boolean;
-  selectedEntries?: LedgerEntry[];
+  selectedEntries?: LedgerEntryDto[];
   selectedCount?: number;
   initialDate: string;
   isSubmitting: boolean;

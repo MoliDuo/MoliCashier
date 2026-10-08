@@ -5,7 +5,7 @@ import {
   buildLedgerEntryValueConditions,
 } from "./build-ledger-entry-filters";
 import type { LedgerEntryFilterParams } from "@/modules/ledger/filters";
-import type { LedgerEntrySummary } from "@/modules/ledger/contracts";
+import type { LedgerSummaryDto } from "@/modules/ledger/contracts";
 import { normalize as decimalNormalize } from "@/lib/money/decimal";
 
 // Single-statement aggregate implementation. The visible_entries CTE scans the
@@ -31,7 +31,7 @@ interface StatsRow {
 
 export async function calculateLedgerEntryStats({
   filters,
-}: CalculateLedgerEntryStatsInput): Promise<LedgerEntrySummary> {
+}: CalculateLedgerEntryStatsInput): Promise<LedgerSummaryDto> {
   const { currency, ...filtersWithoutCurrency } = filters;
   const conditions = [
     ...buildLedgerEntryDocumentDateConditions(filters),

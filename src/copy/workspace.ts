@@ -3,7 +3,6 @@ export const detailsTabCopy = {
   noMore: "没有更多了",
   batchUpdated: (v: { count: string | number }) => `已更新 ${v.count} 项明细`,
   batchDeleted: (v: { count: string | number }) => `已删除 ${v.count} 项明细`,
-  batchUnresolved: (v: { count: string | number }) => `${v.count} 项未修改，仍保持选中`,
   deleteSelectedTitle: "删除所选明细",
   deleteSelectedDescription: (v: { count: string | number }) =>
     `将删除 ${v.count} 项明细，无法撤销。`,

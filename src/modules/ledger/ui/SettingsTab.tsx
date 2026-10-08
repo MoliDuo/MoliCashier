@@ -1,6 +1,6 @@
 "use client";
 import { textRoleClassName } from "@/components/typography";
-import type { EntryCategoryWithCount, Ledger } from "@/modules/ledger/contracts";
+import type { EntryCategoryWithCountDto, LedgerDto } from "@/modules/ledger/contracts";
 import { BookkeepingSettings } from "./settings/BookkeepingSettings";
 import { AccountSettings } from "./settings/AccountSettings";
 import { BookSettings } from "./settings/BookSettings";
@@ -17,8 +17,8 @@ import type { BookDto } from "@/modules/ledger/contracts";
 import { ledgerQueryErrorCopy } from "@/copy/app";
 
 interface SettingsTabProps {
-  ledger: Ledger;
-  initialCategories: EntryCategoryWithCount[];
+  ledger: LedgerDto;
+  initialCategories: EntryCategoryWithCountDto[];
   /** The switcher's books, hydrated by the page bootstrap. */
   initialBooks: readonly BookDto[];
   userEmail?: string;

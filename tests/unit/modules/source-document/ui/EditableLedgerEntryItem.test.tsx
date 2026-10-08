@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { expectAmountVariant } from "tests/helpers/class-tables";
-import type { LedgerEntry } from "@/modules/ledger/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import { EditableLedgerEntryItem } from "@/modules/source-document/ui/EditableLedgerEntryItem";
 
 const amountDisplay = vi.hoisted(() => ({
@@ -21,7 +21,7 @@ vi.mock("@/modules/currency/hooks/useAmountDisplay", () => ({
   useAmountDisplay: () => amountDisplay.current,
 }));
 
-const entry: LedgerEntry = {
+const entry: LedgerEntryDto = {
   id: "entry-1",
   categoryId: null,
   sourceDocumentId: "doc-1",

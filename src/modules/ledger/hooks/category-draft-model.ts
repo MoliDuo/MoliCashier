@@ -1,4 +1,4 @@
-import type { EntryCategory } from "@/modules/ledger/contracts";
+import type { EntryCategoryDto } from "@/modules/ledger/contracts";
 
 export interface CategoryDraft {
   key: string;
@@ -22,7 +22,7 @@ export interface EditSession {
   draft: EditDraft;
 }
 
-export function toCategoryDraft(category: EntryCategory): CategoryDraft {
+export function toCategoryDraft(category: EntryCategoryDto): CategoryDraft {
   return {
     key: category.id,
     id: category.id,

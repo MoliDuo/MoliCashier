@@ -11,7 +11,7 @@ import {
 import {
   getCategoryAssignmentJob,
   getLatestCategoryAssignmentJob,
-} from "@/server/category-assignment/jobs";
+} from "@/server/category-assignment/reads";
 import { getTestDb } from "tests/setup";
 import { createLedgerData, createSourceDocumentData } from "tests/helpers/factories";
 import { ensureTestLedgerBooks } from "tests/helpers/schema-setup";

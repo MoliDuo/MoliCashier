@@ -1,11 +1,11 @@
 "use client";
 
 import type {
-  EntryCategory,
-  EntryCategoryWithCount,
-  Ledger,
+  EntryCategoryDto,
+  EntryCategoryWithCountDto,
+  LedgerDto,
   SaveEntryCategoriesInput,
-  Settings,
+  LedgerSettingsDto,
 } from "@/modules/ledger/contracts";
 import { CurrencySection } from "../CurrencySection";
 import { CategorySection } from "../CategorySection";
@@ -31,13 +31,13 @@ import { formatInstantDateLabel } from "@/lib/date-utils";
 import { DISPLAY_LOCALE } from "@/lib/constants";
 
 interface BookkeepingSettingsProps {
-  settings: Settings;
-  categories: EntryCategoryWithCount[];
+  settings: LedgerSettingsDto;
+  categories: EntryCategoryWithCountDto[];
   uncategorizedCount: number;
-  onUpdateSettings: (data: Partial<Settings>) => Promise<Ledger>;
-  onClearLearnedPreferences: () => Promise<Ledger>;
-  onSaveCategories: (input: SaveEntryCategoriesInput) => Promise<EntryCategory[]>;
-  onReloadCategories?: () => Promise<EntryCategory[]>;
+  onUpdateSettings: (data: Partial<LedgerSettingsDto>) => Promise<LedgerDto>;
+  onClearLearnedPreferences: () => Promise<LedgerDto>;
+  onSaveCategories: (input: SaveEntryCategoriesInput) => Promise<EntryCategoryDto[]>;
+  onReloadCategories?: () => Promise<EntryCategoryDto[]>;
   generatingCategoryIds: Set<string>;
   failedCategoryIds: Set<string>;
   onRetryMetadata: (id: string) => void;
@@ -60,11 +60,11 @@ export function BookkeepingSettings({
   // Every change is saved as it is made. The field shows the value on its way
   // to the server until the answer lands, and the fields stay disabled while it
   // is in flight so each save is made against the version the last one wrote.
-  const [pending, setPending] = useState<Partial<Settings> | null>(null);
+  const [pending, setPending] = useState<Partial<LedgerSettingsDto> | null>(null);
   const shown = { ...settings, ...pending };
   const saving = pending != null;
 
-  const save = async (patch: Partial<Settings>) => {
+  const save = async (patch: Partial<LedgerSettingsDto>) => {
     if (saving) return;
     setPending(patch);
     try {

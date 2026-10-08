@@ -1,5 +1,5 @@
 import type { CategoryAssignmentJobDto } from "@/modules/ledger/contracts";
-import type { CategoryAssignmentJobRecord } from "@/server/category-assignment/jobs";
+import type { CategoryAssignmentJobRecord } from "@/server/category-assignment/reads";
 
 /**
  * The stored run as the client sees it. Selection rows stay on the server;

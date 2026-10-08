@@ -9,6 +9,7 @@ import {
   UUID_REGEX,
 } from "@/lib/validation";
 import { MAX_BATCH_SIZE } from "@/lib/batch-ids";
+import { STREAM_PAGE_LIMIT } from "@/config/tuning";
 import { MAX_SEARCH_LENGTH, normalizeSearchTerm } from "@/lib/search";
 import { MAX_FILES, MAX_TEXT_CHARACTERS, SUPPORTED_MIME_TYPES } from "@/lib/storage/upload-policy";
 import {
@@ -249,7 +250,7 @@ export const streamTotalInputSchema =
 export const streamPageInputSchema = strictObjectSchema({
   ...streamFilterInputShape,
   cursor: streamPageCursorSchema.optional(),
-  limit: z.coerce.number().int().min(1).max(20).default(20),
+  limit: z.coerce.number().int().min(1).max(STREAM_PAGE_LIMIT).default(STREAM_PAGE_LIMIT),
 }).superRefine(validateFilterRange);
 
 export const updateSourceDocumentInputSchema = strictObjectSchema({

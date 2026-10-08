@@ -109,6 +109,14 @@ export async function listBooks(options?: { includeArchived?: boolean }): Promis
   return rows.map(toBook);
 }
 
+/**
+ * 设置 shows archived books too, and so does every write that answers with the list; the detail
+ * page has to name a retired book, while the switcher and the pickers must not.
+ */
+export function listBooksIncludingArchived(): Promise<BookDto[]> {
+  return listBooks({ includeArchived: true });
+}
+
 /** A live book, or null. Write paths use this: an archived book is no target. */
 export async function getBook(bookId: string): Promise<BookDto | null> {
   const row = await db

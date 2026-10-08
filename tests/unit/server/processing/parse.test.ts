@@ -1,11 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import type { GenerateStructured } from "@/lib/ai/structured";
 import type { ParseSourceDocumentInput } from "@/modules/source-document/domain/parse/contracts";
-import {
-  runParsePipeline,
-  buildParserInput,
-} from "@/modules/source-document/domain/parse/pipeline";
-import { fakeAiTransport, generateVia, type FakeAiTransport } from "../../../../../helpers/fake-ai";
+import { runParsePipeline } from "@/server/processing/parse";
+import { fakeAiTransport, generateVia, type FakeAiTransport } from "../../../helpers/fake-ai";
 
 // Mock DB so pipeline unit tests don't need a real database
 vi.mock("@/lib/db", () => ({
@@ -330,29 +327,5 @@ describe("runParsePipeline — single-pass flow", () => {
 
     const result = await runParsePipeline(createInput(), ctx);
     expect(result.kind).toBe("cancelled");
-  });
-});
-
-describe("buildParserInput", () => {
-  it("includes categories, text, evidence, aiLanguage, currencies, and custom prompt", () => {
-    const input = createInput({
-      text: "user text",
-      evidence: { images: [{ dataUrl: "data:image/jpeg;base64,FAKE" }] },
-      aiLanguage: "en-US",
-      preferredCurrencies: ["USD"],
-      settings: { aiCustomPrompt: "Prefer food-related detail" },
-      categories: [{ id: "cat-1", name: "Food", description: null }],
-    });
-
-    const firstParseInput = buildParserInput(input);
-
-    expect(firstParseInput.text).toBe("user text");
-    expect(firstParseInput.evidence).toEqual({
-      images: [{ dataUrl: "data:image/jpeg;base64,FAKE" }],
-    });
-    expect(firstParseInput.aiLanguage).toBe("en-US");
-    expect(firstParseInput.preferredCurrencies).toEqual(["USD"]);
-    expect(firstParseInput.aiCustomPrompt).toBe("Prefer food-related detail");
-    expect(firstParseInput.originalCategories).toEqual([{ name: "Food", description: null }]);
   });
 });

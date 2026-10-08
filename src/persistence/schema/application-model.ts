@@ -271,7 +271,11 @@ export const categoryAssignmentEntries = pgTable(
   ]
 );
 
-/** The ledger's one row of change watermarks, kept by the change-log triggers. */
+/**
+ * The ledger's one row of change watermarks, kept by the change-log triggers. The
+ * triggers still keep `categories_version`, `settings_version` and `stats_version`
+ * in the database, but nothing reads them; a later release drops them.
+ */
 export const ledgerSyncState = pgTable(
   "ledger_sync_state",
   {
@@ -280,15 +284,6 @@ export const ledgerSyncState = pgTable(
       .notNull()
       .default(sql`0`),
     transactionId: bigint("transaction_id", { mode: "bigint" }),
-    categoriesVersion: bigint("categories_version", { mode: "bigint" })
-      .notNull()
-      .default(sql`0`),
-    settingsVersion: bigint("settings_version", { mode: "bigint" })
-      .notNull()
-      .default(sql`0`),
-    statsVersion: bigint("stats_version", { mode: "bigint" })
-      .notNull()
-      .default(sql`0`),
     updatedAt: rowTimestamp("updated_at"),
   },
   (table) => [

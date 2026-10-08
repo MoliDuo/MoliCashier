@@ -1,7 +1,5 @@
 import { z } from "zod";
 import { AppError } from "@/lib/errors";
-import type { AiContentPart } from "@/lib/ai/client";
-import { evidenceImageContent, type EvidenceImage } from "@/lib/ai/evidence-images";
 import { buildLedgerInstructionSections } from "./ledger-instructions";
 
 /**
@@ -157,29 +155,27 @@ function documentHeaderLines(group: CategoryAssignmentDocumentGroup): string[] {
 }
 
 /**
- * The user message for one source document: the document's own context and
- * numbered entries as text, then its images as content parts.
+ * The text of the user message for one source document: the document's own
+ * context and its numbered entries. The caller sends the images after it as
+ * content parts (`decideEntryCategories`).
  *
  * Pictures follow the text rather than being interleaved with the rows: the
  * evidence belongs to the document, and a multi-row receipt must not upload the
- * same image once per entry. The images are passed through untouched — the
- * caller has already validated and encoded them, a tall screenshot as its parts.
+ * same image once per entry.
  */
-export function buildCategoryAssignmentDocumentMessage(input: {
+export function buildCategoryAssignmentDocumentText(input: {
   group: CategoryAssignmentDocumentGroup;
-  images?: readonly EvidenceImage[];
-}): AiContentPart[] {
-  const images = input.images ?? [];
-  const text = [
+  imageCount?: number;
+}): string {
+  const imageCount = input.imageCount ?? 0;
+  return [
     "### Source Document",
     ...documentHeaderLines(input.group),
-    ...(images.length > 0 ? [`attached_images: ${images.length}`] : []),
+    ...(imageCount > 0 ? [`attached_images: ${imageCount}`] : []),
     "",
     "### Expense Entries",
     ...input.group.subjects.map(subjectLine),
   ].join("\n");
-
-  return [{ type: "text", text }, ...evidenceImageContent(images)];
 }
 
 /**

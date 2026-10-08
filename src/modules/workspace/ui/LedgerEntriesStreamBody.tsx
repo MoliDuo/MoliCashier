@@ -1,6 +1,6 @@
 "use client";
 import { textRoleClassName } from "@/components/typography";
-import type { LedgerEntry } from "@/modules/ledger/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import type { SourceDocumentListItemDto } from "@/modules/source-document/contracts";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,10 +17,10 @@ interface LedgerEntriesStreamBodyProps {
   streamGroups: UnifiedStreamGroup[];
   mainCurrency: string;
   filters: EntryFilters;
-  onViewLedgerEntry: (entry: LedgerEntry) => void;
+  onViewLedgerEntry: (entry: LedgerEntryDto) => void;
   onViewSourceDetail: (group: {
     sourceDocument: SourceDocumentListItemDto;
-    ledgerEntries: LedgerEntry[];
+    ledgerEntries: LedgerEntryDto[];
   }) => void;
   onViewSourceDetailIntent?: (doc: SourceDocumentListItemDto) => void;
   onEditRetry: (doc: SourceDocumentListItemDto) => void;

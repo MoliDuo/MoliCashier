@@ -16,7 +16,7 @@ import {
   deleteServiceCredentialAction,
 } from "@/modules/ledger/server-actions/credentials";
 import { listServiceCredentials } from "@/modules/ledger/server/service-credentials";
-import { getLedgerSettingsAction } from "@/modules/ledger/server/get-ledger-settings";
+import { getLedgerSettingsView } from "@/modules/ledger/server/get-ledger-settings";
 import { getDateInTimezone } from "@/lib/date-utils";
 import { ValidationError } from "@/lib/errors";
 import { computeHash } from "@/lib/security/service-credential-token";
@@ -442,15 +442,15 @@ describe("Service Credentials & Ledger Entry Ingestion", () => {
     expect((await readLastUsedAt())?.getTime()).toBeGreaterThan(sixMinutesAgo.getTime());
   });
 
-  it("should return credentials with prefix/suffix via getLedgerSettingsAction", async () => {
+  it("should return credentials with prefix/suffix via getLedgerSettingsView", async () => {
     // Create a credential via action to get proper hash-based credential
     const created = await createCredential({
       name: "New Credential",
       bookId: await testBookId(getTestDb()),
     });
 
-    // Get settings via getLedgerSettingsAction
-    const settings = await getLedgerSettingsAction();
+    // Get settings via getLedgerSettingsView
+    const settings = await getLedgerSettingsView();
     const settingsCredential = requireFirst(settings.credentials, "settings credential");
 
     expect(settings.credentials).toHaveLength(1);

@@ -1,4 +1,4 @@
-import type { EntryCategory, Ledger } from "@/modules/ledger/contracts";
+import type { EntryCategoryDto, LedgerDto } from "@/modules/ledger/contracts";
 import type { Period } from "@/modules/ledger/domain/period";
 import { type EntryFilters } from "@/modules/ledger/ui/EntryFilterPanel";
 import type { LedgerAdvancedFilters } from "@/modules/ledger/ledger-query";
@@ -12,9 +12,9 @@ import { IncompleteConversionNotice } from "@/components/IncompleteConversionNot
 interface LedgerEntriesTabProps {
   /** The book the list is narrowed to; undefined means 总账. */
   bookId?: string | undefined;
-  ledger?: Ledger;
+  ledger?: LedgerDto;
   /** Offered by the filter; a bill matches when one of its entries does. */
-  categories: EntryCategory[];
+  categories: EntryCategoryDto[];
   period: Period;
   today: string;
   onPeriodChange: (period: Period) => void;

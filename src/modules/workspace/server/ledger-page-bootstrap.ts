@@ -10,52 +10,33 @@ import {
 import { logger } from "@/lib/logger";
 import { queryKeys } from "@/lib/query-keys";
 import { LEDGER, QUERY } from "@/lib/constants";
-import { calculateLedgerStats } from "@/modules/ledger/server/stats";
-import { listLedgerEntries } from "@/modules/ledger/server/list-entries";
 import { listCategoriesWithCount } from "@/modules/ledger/server/categories";
 import { listBooks } from "@/modules/ledger/server/books";
-import { toCategoryAssignmentJobDto } from "@/modules/ledger/server/category-assignment-job-dto";
-import { getLatestCategoryAssignmentJob } from "@/server/category-assignment/jobs";
-import { getLedgerSettingsView } from "@/modules/ledger/server/get-ledger-settings";
-import {
-  findEarliestDocumentDate,
-  queryEnhancedStats,
-} from "@/modules/stats/server/enhanced-stats-query";
-import { parseEnhancedStatsInput } from "@/modules/stats/contract-schemas";
-import {
-  ledgerToday,
-  withResolvedPeriod,
-  withResolvedStatsPeriod,
-} from "@/modules/ledger/server/query-period";
+import { getLatestCategoryAssignmentJobDto } from "@/modules/ledger/server/get-category-assignment-job";
+import { ledgerToday } from "@/modules/ledger/server/query-period";
 import { DEFAULT_PERIOD, type Period } from "@/modules/ledger/domain/period";
-import { listStreamPage } from "@/modules/source-document/server/list-stream-page";
-import { getStreamTotal } from "@/modules/source-document/server/stream-total";
 import type { StreamPage } from "@/modules/source-document/contracts";
-import {
-  streamPageInputSchema,
-  streamTotalInputSchema,
-} from "@/modules/source-document/contract-schemas";
-import { omitUndefinedProperties } from "@/lib/validation";
 import type { LedgerAdvancedFilters } from "@/modules/ledger/ledger-query";
 import type { LedgerTab } from "@/lib/ledger-tabs";
+import { buildDetailsQueryDescriptor } from "@/modules/ledger/ledger-query-descriptor";
 import {
-  buildDetailsQueryDescriptor,
   buildStatsQueryDescriptor,
   buildStreamQueryDescriptor,
 } from "@/modules/workspace/ledger-tab-query-descriptors";
-import { SOURCE_DOC_STALE_TIME_MS } from "@/config/tuning";
 
 import type {
   BookDto,
   CategoryAssignmentJobDto,
-  EntryCategoryWithCount,
+  EntryCategoryWithCountDto,
   LedgerDto,
+  LedgerEntryPageDto,
 } from "@/modules/ledger/contracts";
 import { BOOK_SCOPE_COOKIE, parseBookScopeCookie } from "@/lib/book-scope-cookie";
 import {
   resolveAuthenticatedHome,
   type AuthenticatedHomeContext,
 } from "./resolve-authenticated-home";
+import { runLedgerQuery, type LedgerQueryContext } from "./ledger-queries";
 
 export interface LedgerViewScope {
   /**
@@ -96,7 +77,7 @@ export interface LedgerView extends LedgerViewScope {
    * The categories read, started alongside the books rather than after them.
    * The shell's bootstrap awaits it and handles its failure.
    */
-  categories: Promise<EntryCategoryWithCount[]>;
+  categories: Promise<EntryCategoryWithCountDto[]>;
   /**
    * The ledger's latest assignment run, or null when it has had none; started
    * with the categories and awaited by the shell's bootstrap, which drops it on
@@ -116,9 +97,7 @@ export const loadLedgerView = cache(async (): Promise<LedgerView> => {
   const rememberedBookId = parseBookScopeCookie(cookieStore.get(BOOK_SCOPE_COOKIE)?.value ?? null);
   const categories = listCategoriesWithCount();
   categories.catch(() => {});
-  const categoryAssignmentJob = getLatestCategoryAssignmentJob().then((job) =>
-    job == null ? null : toCategoryAssignmentJobDto(job)
-  );
+  const categoryAssignmentJob = getLatestCategoryAssignmentJobDto();
   categoryAssignmentJob.catch(() => {});
   let books: readonly BookDto[] | null;
   try {
@@ -160,7 +139,7 @@ export function getLedgerBooksBootstrap(books: readonly BookDto[] | null): Dehyd
  */
 export async function getLedgerShellBootstrap(input: {
   ledgerDto: LedgerDto;
-  categories: Promise<EntryCategoryWithCount[]>;
+  categories: Promise<EntryCategoryWithCountDto[]>;
   categoryAssignmentJob: Promise<CategoryAssignmentJobDto | null>;
 }): Promise<DehydratedState> {
   const queryClient = new QueryClient();
@@ -187,14 +166,15 @@ export interface GetLedgerRouteBootstrapInput {
 
 /**
  * The first screen of one route, so its HTML arrives filled rather than as a
- * skeleton. The keys name the period and the reads resolve it exactly as the
- * browser's own reads are resolved, so the cache it fills is the one the tab
- * mounts.
+ * skeleton. The keys name the period and the reads run through the same query
+ * registry as the browser's own reads, so the cache it fills is the one the tab
+ * mounts. The page has already authenticated and loaded the ledger.
  */
 export async function getLedgerRouteBootstrap(
   input: GetLedgerRouteBootstrapInput
 ): Promise<DehydratedState> {
-  const { mainCurrency, timeZone } = input.ledgerDto.settings;
+  const { mainCurrency } = input.ledgerDto.settings;
+  const context: LedgerQueryContext = { ledger: input.ledgerDto };
   const { bookId } = input.scope;
   const period = input.period ?? DEFAULT_PERIOD;
   const queryClient = new QueryClient();
@@ -202,7 +182,7 @@ export async function getLedgerRouteBootstrap(
   if (input.page === "settings") {
     await queryClient.prefetchQuery({
       queryKey: queryKeys.ledgerSettings(),
-      queryFn: () => getLedgerSettingsView(),
+      queryFn: () => runLedgerQuery("settings", undefined, context),
       staleTime: LEDGER.STALE_TIME_MS,
     });
     return dehydrate(queryClient);
@@ -223,13 +203,10 @@ export async function getLedgerRouteBootstrap(
       queryClient.prefetchInfiniteQuery({
         queryKey: descriptor.queryKey,
         queryFn: async ({ pageParam }) => {
-          const parsed = streamPageInputSchema.parse(
-            withResolvedPeriod(descriptor.getPageInput(pageParam as string | undefined), timeZone)
-          );
-          const pageInput = { ...omitUndefinedProperties(parsed), limit: parsed.limit };
-          let page = await listStreamPage(pageInput);
+          const pageInput = descriptor.getPageInput(pageParam as string | undefined);
+          let page = await runLedgerQuery("stream", pageInput, context);
           if (pageParam == null && page.restartRequired) {
-            page = await listStreamPage(pageInput);
+            page = await runLedgerQuery("stream", pageInput, context);
             if (page.restartRequired) {
               throw new Error("Stream restart did not produce a valid first page");
             }
@@ -238,16 +215,11 @@ export async function getLedgerRouteBootstrap(
         },
         initialPageParam: undefined as string | undefined,
         getNextPageParam: (lastPage: StreamPage) => lastPage.nextCursor,
-        staleTime: SOURCE_DOC_STALE_TIME_MS,
+        staleTime: QUERY.SOURCE_DOC_STALE_TIME_MS,
       }),
       queryClient.prefetchQuery({
         queryKey: descriptor.totalQueryKey,
-        queryFn: () =>
-          getStreamTotal(
-            omitUndefinedProperties(
-              streamTotalInputSchema.parse(withResolvedPeriod(descriptor.totalInput, timeZone))
-            )
-          ),
+        queryFn: () => runLedgerQuery("total", descriptor.totalInput, context),
         staleTime: QUERY.DEFAULT_STALE_TIME_MS,
       }),
     ]);
@@ -258,7 +230,6 @@ export async function getLedgerRouteBootstrap(
         version: firstPage.generation,
         changed: false,
         hasTransitionalWork: firstPage.hasTransitionalWork,
-        invalidations: { categories: false, settings: false, stats: false },
       });
     }
     return dehydrate(queryClient);
@@ -274,21 +245,19 @@ export async function getLedgerRouteBootstrap(
     await Promise.all([
       queryClient.prefetchQuery({
         queryKey: descriptor.summaryQueryKey,
-        queryFn: () => calculateLedgerStats(withResolvedPeriod(descriptor.summaryInput, timeZone)),
+        queryFn: () => runLedgerQuery("summary", descriptor.summaryInput, context),
         staleTime: QUERY.DEFAULT_STALE_TIME_MS,
       }),
       queryClient.prefetchInfiniteQuery({
         queryKey: descriptor.entriesQueryKey,
         queryFn: ({ pageParam }) =>
-          listLedgerEntries(
-            withResolvedPeriod(
-              descriptor.getEntriesInput(pageParam as string | undefined),
-              timeZone
-            )
+          runLedgerQuery(
+            "entries",
+            descriptor.getEntriesInput(pageParam as string | undefined),
+            context
           ),
         initialPageParam: undefined as string | undefined,
-        getNextPageParam: (lastPage: Awaited<ReturnType<typeof listLedgerEntries>>) =>
-          lastPage.nextCursor,
+        getNextPageParam: (lastPage: LedgerEntryPageDto) => lastPage.nextCursor,
         staleTime: QUERY.DEFAULT_STALE_TIME_MS,
       }),
     ]);
@@ -302,14 +271,7 @@ export async function getLedgerRouteBootstrap(
   });
   await queryClient.prefetchQuery({
     queryKey: descriptor.queryKey,
-    queryFn: async () =>
-      queryEnhancedStats(
-        parseEnhancedStatsInput(
-          await withResolvedStatsPeriod(descriptor.input, timeZone, (scopeBookId) =>
-            findEarliestDocumentDate(scopeBookId)
-          )
-        )
-      ),
+    queryFn: () => runLedgerQuery("stats", descriptor.input, context),
     staleTime: QUERY.DEFAULT_STALE_TIME_MS,
   });
   return dehydrate(queryClient);

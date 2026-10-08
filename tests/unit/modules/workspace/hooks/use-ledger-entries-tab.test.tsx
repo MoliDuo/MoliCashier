@@ -48,8 +48,8 @@ vi.mock("@/modules/source-document/server-actions/retry", () => ({
 vi.mock("@/modules/source-document/server-actions/processing", () => ({
   cancelSourceDocumentProcessingAction: mocks.cancel,
 }));
-vi.mock("@/modules/workspace/server-actions/date-impact", () => ({
-  previewSourceDocumentDateImpactAction: vi.fn(),
+vi.mock("@/modules/workspace/queries", () => ({
+  fetchSourceDocumentDateImpact: vi.fn(),
 }));
 
 const { useLedgerEntriesTab } = await import("@/modules/workspace/hooks/useLedgerEntriesTab");

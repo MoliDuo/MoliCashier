@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { CategoryAssignmentJob } from "@/modules/ledger/contracts";
+import type { CategoryAssignmentJobDto } from "@/modules/ledger/contracts";
 import { isCategoryAssignmentJobActive } from "@/modules/ledger/ui/category-assignment-job-state";
 
-function job(overrides: Partial<CategoryAssignmentJob> = {}): CategoryAssignmentJob {
+function job(overrides: Partial<CategoryAssignmentJobDto> = {}): CategoryAssignmentJobDto {
   return {
     id: "job-1",
 

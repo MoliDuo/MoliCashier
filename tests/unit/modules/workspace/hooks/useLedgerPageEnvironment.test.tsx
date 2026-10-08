@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { WorkspaceStoreProvider, useWorkspaceStore } from "@/modules/workspace/store";
 import { queryKeys } from "@/lib/query-keys";
-import type { EntryCategoryWithCount, LedgerDto } from "@/modules/ledger/contracts";
+import type { EntryCategoryWithCountDto, LedgerDto } from "@/modules/ledger/contracts";
 import { getDefaultLedger } from "tests/helpers/default-ledger";
 
 const { getLedgerActionMock, getEntryCategoriesActionMock } = vi.hoisted(() => ({
@@ -29,7 +29,7 @@ function renderEnvironment({ withInitialData = true }: { withInitialData?: boole
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   if (withInitialData) {
     client.setQueryData(queryKeys.ledger(), ledgerDto);
-    client.setQueryData(queryKeys.entryCategories(), [] as EntryCategoryWithCount[]);
+    client.setQueryData(queryKeys.entryCategories(), [] as EntryCategoryWithCountDto[]);
   }
   function Wrapper({ children }: { children: ReactNode }) {
     return (

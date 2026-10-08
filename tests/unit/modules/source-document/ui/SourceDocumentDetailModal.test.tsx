@@ -5,8 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { commonCopy } from "@/copy/common";
 import { sourceDocumentActionCopy, sourceDocumentDetailCopy } from "@/copy/source-document";
 import { queryKeys } from "@/lib/query-keys";
-import type { LedgerEntry } from "@/modules/ledger/contracts";
-import type { SourceDocument } from "@/modules/source-document/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
+import type { SourceDocumentDetailDto } from "@/modules/source-document/contracts";
 import type { EntryEditData } from "@/modules/source-document/types";
 import { SourceDocumentDetailModal } from "@/modules/source-document/ui/SourceDocumentDetailModal";
 
@@ -241,7 +241,7 @@ vi.mock("@/lib/navigation/ledger-detail-navigation", () => ({
   openLedgerDetail: vi.fn(),
 }));
 
-const entry: LedgerEntry = {
+const entry: LedgerEntryDto = {
   id: "entry-1",
   sourceDocumentId: "doc-1",
   categoryId: null,
@@ -255,7 +255,7 @@ const entry: LedgerEntry = {
   updatedAt: "2026-07-28T00:00:00.000Z",
 };
 
-const secondEntry: LedgerEntry = {
+const secondEntry: LedgerEntryDto = {
   ...entry,
   id: "entry-2",
   itemName: "Dinner",
@@ -263,7 +263,7 @@ const secondEntry: LedgerEntry = {
   convertedAmount: "18.00",
 };
 
-const sourceDocument: SourceDocument = {
+const sourceDocument: SourceDocumentDetailDto = {
   id: "doc-1",
   version: 1,
   latestAttemptId: null,
@@ -287,7 +287,7 @@ const detailKey = queryKeys.sourceDocument("doc-1");
 
 let client: QueryClient;
 
-function newClient(document: SourceDocument | null = sourceDocument) {
+function newClient(document: SourceDocumentDetailDto | null = sourceDocument) {
   client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -312,7 +312,7 @@ function modal(onClose: () => void = vi.fn()) {
 }
 
 function renderModal(
-  document: SourceDocument | null = sourceDocument,
+  document: SourceDocumentDetailDto | null = sourceDocument,
   onClose: () => void = vi.fn()
 ) {
   newClient(document);
@@ -456,7 +456,7 @@ describe("SourceDocumentDetailModal", () => {
   });
 
   it("offers the record's commands in its menu", async () => {
-    const retryable: SourceDocument = {
+    const retryable: SourceDocumentDetailDto = {
       ...sourceDocument,
       supportedActions: ["split_entries", "retry", "edit_retry", "delete"],
     };

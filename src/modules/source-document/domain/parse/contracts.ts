@@ -1,5 +1,5 @@
 import type { CategoryInfo, ParsedLedgerEntry } from "@/lib/ai/types";
-import type { EvidenceImage } from "@/lib/ai/evidence-images";
+import type { EvidenceImage } from "@/lib/ai/types";
 
 /** One already-recorded entry the parse compares the evidence against. */
 export interface RecentEntryForParse {

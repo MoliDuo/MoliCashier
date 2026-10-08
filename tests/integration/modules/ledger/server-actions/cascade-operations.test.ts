@@ -1,6 +1,6 @@
 import { listCategories } from "@/modules/ledger/server/categories";
 import { computeCategoryCollectionRevision } from "@/modules/ledger/category-collection-revision";
-import { getLedgerSettingsAction } from "@/modules/ledger/server/get-ledger-settings";
+import { getLedgerSettingsView } from "@/modules/ledger/server/get-ledger-settings";
 import { sql } from "drizzle-orm";
 /**
  * Cascade Operations Integration Tests
@@ -28,7 +28,7 @@ import { eq } from "drizzle-orm";
 
 // Import actions
 import { saveEntryCategoriesAction } from "@/modules/ledger/server-actions/categories";
-import { getEntryCategoriesAction } from "@/modules/ledger/server/list-categories";
+import { listCategoriesWithCount } from "@/modules/ledger/server/categories";
 import {
   deleteLedgerEntryAction,
   createLedgerEntryAction,
@@ -42,7 +42,7 @@ async function getTargetEntryCategoriesAction() {
   for (const document of documents) {
     await activateTestSourceDocumentProjection(db, document.id);
   }
-  return getEntryCategoriesAction();
+  return listCategoriesWithCount();
 }
 
 /**
@@ -387,5 +387,5 @@ async function removeCategoryFromCollection(categoryId: string) {
   return result.categories;
 }
 async function readUncategorizedCount() {
-  return (await getLedgerSettingsAction()).uncategorizedCount;
+  return (await getLedgerSettingsView()).uncategorizedCount;
 }

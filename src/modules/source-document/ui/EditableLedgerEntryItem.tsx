@@ -1,7 +1,7 @@
 "use client";
-import type { EntryCategory } from "@/modules/ledger/contracts";
+import type { EntryCategoryDto } from "@/modules/ledger/contracts";
 import { memo, type ReactNode } from "react";
-import type { LedgerEntry } from "@/modules/ledger/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 import { EditableCategorySelect } from "@/components/editable-category-select";
@@ -49,8 +49,8 @@ const itemVariants = cva(
 export { type EntryEditData };
 
 export interface EditableLedgerEntryItemProps extends VariantProps<typeof itemVariants> {
-  ledgerEntry: LedgerEntry;
-  categories: EntryCategory[];
+  ledgerEntry: LedgerEntryDto;
+  categories: EntryCategoryDto[];
   /** Only needed while the row is editable; read-only rows never show it. */
   categoryPlaceholder?: string;
   preferredCurrencies?: string[];

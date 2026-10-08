@@ -1,10 +1,10 @@
 import Decimal from "decimal.js";
 import { roundToCurrency } from "@/lib/money/currency-precision";
-import type { LedgerEntry } from "@/modules/ledger/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import type { EntryEditData } from "@/modules/source-document/types";
 
 interface SourceDocumentDetailDisplayEntry extends Omit<
-  LedgerEntry,
+  LedgerEntryDto,
   "amount" | "convertedAmount" | "exchangeRate" | "currency"
 > {
   amount: string;
@@ -15,7 +15,7 @@ interface SourceDocumentDetailDisplayEntry extends Omit<
 }
 
 interface BuildSourceDocumentDetailViewModelInput {
-  ledgerEntries: LedgerEntry[];
+  ledgerEntries: LedgerEntryDto[];
   /** Entry values being written, keyed by entry id. */
   pendingChanges: { entries: Record<string, Partial<EntryEditData>> };
   mainCurrency: string;

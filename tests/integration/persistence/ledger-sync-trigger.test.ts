@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getTestDb } from "tests/setup";
 import { createTestSourceDocument, createTestLedger } from "tests/helpers/schema-setup";
 import {
@@ -12,14 +12,28 @@ import {
   serviceCredentials,
 } from "@/persistence";
 
+/**
+ * The row as the triggers keep it. The per-resource watermarks are no longer in the
+ * model (nothing reads them; a later release drops them), so they are read directly.
+ */
 async function syncState() {
-  const state = await getTestDb().query.ledgerSyncState.findFirst();
+  const result = await getTestDb().execute<{
+    version: string;
+    categories: string;
+    settings: string;
+    stats: string;
+  }>(sql`
+    SELECT version::text, categories_version::text AS categories,
+      settings_version::text AS settings, stats_version::text AS stats
+    FROM ledger_sync_state
+  `);
+  const state = result.rows[0];
   if (state == null) throw new Error("Expected a sync row for the ledger");
   return {
-    version: state.version,
-    categories: state.categoriesVersion,
-    settings: state.settingsVersion,
-    stats: state.statsVersion,
+    version: BigInt(state.version),
+    categories: BigInt(state.categories),
+    settings: BigInt(state.settings),
+    stats: BigInt(state.stats),
   };
 }
 

@@ -20,32 +20,35 @@ import { queryKeys } from "@/lib/query-keys";
 import { periodKey, type Period } from "@/modules/ledger/domain/period";
 import type {
   ActiveLedgerEntryDto,
+  BatchEntryDateImpact,
   CategoryAssignmentMode,
-  CategoryAssignmentJob,
-  Ledger,
+  CategoryAssignmentJobDto,
+  LedgerDto,
   StartCategoryAssignmentErrorCode,
 } from "@/modules/ledger/contracts";
 import { buildDetailsQueryDescriptor } from "@/modules/ledger/ledger-query-descriptor";
-import { fetchLedgerEntries, fetchLedgerSummary } from "@/modules/ledger/queries";
+import {
+  fetchBatchEntryDateImpact,
+  fetchLedgerEntries,
+  fetchLedgerSummary,
+} from "@/modules/ledger/queries";
 import {
   batchDeleteLedgerEntriesAction,
   batchUpdateLedgerEntriesAction,
   batchUpdateLedgerEntryDatesAction,
-  previewBatchLedgerEntryDateAction,
 } from "@/modules/ledger/server-actions/entries";
 import { startCategoryAssignmentAction } from "@/modules/ledger/server-actions/category-assignment";
 import { resolveBatchCategoryPick } from "@/modules/ledger/ui/batch-action-toolbar";
 import { useCategoryAssignment } from "@/modules/ledger/ui/category-assignment-context";
 import type { LedgerAdvancedFilters } from "@/modules/ledger/ledger-query";
 import { useBatchDatePreview } from "./useBatchDatePreview";
+import { settleBatchResult } from "./settle-batch-result";
 import { uniquePagedItems } from "../paged-items";
 import { commonCopy } from "@/copy/common";
 import { batchActionsCopy, detailsTabCopy } from "@/copy/workspace";
 
 /** One pick is written through as-is up to this many entries; more start a run. */
 const DIRECT_ASSIGNMENT_LIMIT = 100;
-
-type BatchDateImpact = Awaited<ReturnType<typeof previewBatchLedgerEntryDateAction>>;
 
 interface EntryDateGroup {
   title: string;
@@ -57,7 +60,7 @@ interface EntryDateGroup {
 interface UseDetailsTabOptions {
   /** The book the list is narrowed to; undefined means 总账. */
   bookId?: string | undefined;
-  ledger?: Ledger | undefined;
+  ledger?: LedgerDto | undefined;
   period: Period;
   advancedFilters: LedgerAdvancedFilters;
   timeZone?: string | undefined;
@@ -226,14 +229,12 @@ export function useDetailsTab({
       batchDeleteLedgerEntriesAction(sourceDocumentIdsFor(selectedIds), selectedIds),
     errorMessage: commonCopy.deleteFailed,
     onSuccess: (result) => {
-      const unresolved = result.failed.map((item) => item.id);
-      if (unresolved.length === 0) setDeleteDialogOpen(false);
-      if (unresolved.length > 0) selection.retainSelection(unresolved);
-      else exitSelectionMode();
-      if (result.succeeded.length > 0)
-        toast.success(detailsTabCopy.batchDeleted({ count: result.succeeded.length }));
-      if (unresolved.length > 0)
-        toast.warning(detailsTabCopy.batchUnresolved({ count: unresolved.length }));
+      if (result.failed.length === 0) setDeleteDialogOpen(false);
+      settleBatchResult(result, {
+        successLabel: detailsTabCopy.batchDeleted({ count: result.succeeded.length }),
+        exitSelectionMode,
+        retainSelection: selection.retainSelection,
+      });
     },
   });
 
@@ -243,9 +244,7 @@ export function useDetailsTab({
   const [selectedDate, setSelectedDate] = useState(
     () => getDateInTimezone(timeZone) ?? formatDateTimeForApi(new Date())
   );
-  const datePreview = useBatchDatePreview(() =>
-    previewBatchLedgerEntryDateAction([...selectedIds])
-  );
+  const datePreview = useBatchDatePreview(() => fetchBatchEntryDateImpact([...selectedIds]));
   const { start: startDatePreview, close: closeDatePreview } = datePreview;
 
   const setDateDialogVisibility = useCallback(
@@ -267,7 +266,7 @@ export function useDetailsTab({
   const datePreviewFailed = datePreview.failed;
   const isPreviewingDate = datePreview.isPreviewing;
 
-  const updateDates = useLedgerMutation<{ impact: BatchDateImpact }, void>({
+  const updateDates = useLedgerMutation<{ impact: BatchEntryDateImpact }, void>({
     waitFor: false,
     mutationFn: () =>
       batchUpdateLedgerEntryDatesAction(
@@ -320,7 +319,7 @@ export function useDetailsTab({
   }, []);
 
   const startAiCategory = useLedgerMutation<
-    CategoryAssignmentJob,
+    CategoryAssignmentJobDto,
     { requestKey: string; mode: CategoryAssignmentMode; ledgerEntryIds: string[] }
   >({
     waitFor: false,

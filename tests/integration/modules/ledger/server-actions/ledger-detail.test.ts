@@ -1,5 +1,4 @@
 import { describe, it, expect } from "vitest";
-import { getLedgerAction } from "@/modules/ledger/server/get-ledger";
 import { updateLedgerSettingsAction } from "@/modules/ledger/server-actions/update";
 import { getTestDb } from "tests/setup";
 import { ledgers } from "@/persistence";
@@ -14,10 +13,6 @@ async function setupTestLedger(db: ReturnType<typeof getTestDb>) {
 }
 
 describe("Ledger Actions", () => {
-  it("rejects when there is no live ledger (Get)", async () => {
-    await expect(getLedgerAction()).rejects.toBeInstanceOf(NotFoundError);
-  });
-
   it("should update ledger settings", async () => {
     const db = getTestDb();
     await setupTestLedger(db);

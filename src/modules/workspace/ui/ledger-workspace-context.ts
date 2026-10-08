@@ -1,14 +1,14 @@
 "use client";
 
 import { createContext, useContext } from "react";
-import type { BookDto, EntryCategoryWithCount, LedgerDto } from "@/modules/ledger/contracts";
+import type { BookDto, EntryCategoryWithCountDto, LedgerDto } from "@/modules/ledger/contracts";
 import type { RecordScope } from "@/modules/ledger/filters";
 
 /** What every ledger route renders against, resolved once by the shared layout. */
 export interface LedgerWorkspaceValue {
   ledger: LedgerDto;
   books: readonly BookDto[];
-  categories: EntryCategoryWithCount[];
+  categories: EntryCategoryWithCountDto[];
   /** The book being viewed, or null for 总账. */
   recordScope: RecordScope;
   /** The ledger's zone: every day on every route is named in it. */

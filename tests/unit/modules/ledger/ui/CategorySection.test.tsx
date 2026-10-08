@@ -4,7 +4,7 @@ import type { PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { commonCopy } from "@/copy/common";
 import { settingsCopy } from "@/copy/settings";
-import type { EntryCategoryWithCount } from "@/modules/ledger/contracts";
+import type { EntryCategoryWithCountDto } from "@/modules/ledger/contracts";
 import { CategorySection } from "@/modules/ledger/ui/CategorySection";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -19,7 +19,7 @@ vi.mock("@/modules/ledger/ui/category-assignment-context", () => ({
   }),
 }));
 
-const category: EntryCategoryWithCount = {
+const category: EntryCategoryWithCountDto = {
   id: "category-1",
   name: "Meals",
   description: null,
@@ -31,7 +31,7 @@ const category: EntryCategoryWithCount = {
 };
 
 function renderSection(
-  props: { uncategorizedCount?: number; categories?: EntryCategoryWithCount[] } = {}
+  props: { uncategorizedCount?: number; categories?: EntryCategoryWithCountDto[] } = {}
 ) {
   const queryClient = new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
@@ -46,7 +46,7 @@ function renderSection(
     <CategorySection categories={[category]} onSaveCategories={onSaveCategories} {...props} />,
     { wrapper }
   );
-  const rerender = (categories: EntryCategoryWithCount[]) =>
+  const rerender = (categories: EntryCategoryWithCountDto[]) =>
     view.rerender(<CategorySection categories={categories} onSaveCategories={onSaveCategories} />);
   return { onSaveCategories, rerender, unmount: view.unmount };
 }

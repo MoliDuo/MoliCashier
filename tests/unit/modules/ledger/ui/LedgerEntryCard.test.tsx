@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { LedgerEntry } from "@/modules/ledger/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import { batchActionsCopy } from "@/copy/workspace";
 import { LedgerEntryCard } from "@/modules/ledger/ui/LedgerEntryCard";
 import { LedgerEntryItem } from "@/modules/source-document/ui/LedgerEntryItem";
@@ -13,7 +13,7 @@ vi.mock("@/modules/currency/ui/AmountDisplay", () => ({
   AmountDisplay: () => <span>CNY 12.00</span>,
 }));
 
-const ledgerEntry: LedgerEntry = {
+const ledgerEntry: LedgerEntryDto = {
   id: "entry-1",
   categoryId: null,
   sourceDocumentId: "document-1",

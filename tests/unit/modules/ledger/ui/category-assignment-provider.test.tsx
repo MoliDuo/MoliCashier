@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { batchActionsCopy } from "@/copy/workspace";
-import type { CategoryAssignmentJob } from "@/modules/ledger/contracts";
+import type { CategoryAssignmentJobDto } from "@/modules/ledger/contracts";
 import { CategoryAssignmentProvider } from "@/modules/ledger/ui/CategoryAssignmentProvider";
 import { useCategoryAssignment } from "@/modules/ledger/ui/category-assignment-context";
 import { useCategoryAssignmentEntryState } from "@/modules/ledger/ui/category-assignment-entry-states";
@@ -43,7 +43,7 @@ vi.mock("@/modules/ledger/server-actions/category-assignment", () => ({
   retryCategoryAssignmentLatestAction: vi.fn(),
 }));
 
-function job(overrides: Partial<CategoryAssignmentJob> = {}): CategoryAssignmentJob {
+function job(overrides: Partial<CategoryAssignmentJobDto> = {}): CategoryAssignmentJobDto {
   return {
     id: "job-1",
 
@@ -87,7 +87,7 @@ const succeededJob = () =>
 const DONE_9_OF_10 = batchActionsCopy.aiCategoryDone({ applied: 9, confirmed: 1, issues: 0 });
 
 /** Asks the page for a run, the way the batch toolbar does after a submit. */
-function SubmitProbe({ run }: { run: CategoryAssignmentJob }) {
+function SubmitProbe({ run }: { run: CategoryAssignmentJobDto }) {
   const { registerSubmittedJob } = useCategoryAssignment();
   return (
     <button type="button" onClick={() => registerSubmittedJob(run)}>

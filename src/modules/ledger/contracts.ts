@@ -19,7 +19,6 @@ export type LedgerDto = {
   createdAt: string;
   updatedAt: string;
 };
-export type Ledger = LedgerDto;
 
 export type UpdateLedgerActionErrorCode =
   "unsupported_currency" | "validation_failed" | "unexpected";
@@ -51,10 +50,8 @@ export type ServiceCredentialDto = {
   lastUsedAt: string | null;
   deletedAt: string | null;
 };
-export type ServiceCredential = ServiceCredentialDto;
 
 export type CreatedServiceCredentialDto = ServiceCredentialDto & { token: string };
-export type CreatedServiceCredential = CreatedServiceCredentialDto;
 
 /**
  * Why a new key was refused. The two conflicts are kept apart: a book that is gone
@@ -75,10 +72,8 @@ export type EntryCategoryDto = {
   createdAt: string;
   updatedAt: string;
 };
-export type EntryCategory = EntryCategoryDto;
 
 export type EntryCategoryWithCountDto = EntryCategoryDto & { entryCount: number };
-export type EntryCategoryWithCount = EntryCategoryWithCountDto;
 
 /**
  * `conflict`: the collection changed since the draft was loaded. `assignment_active`:
@@ -152,7 +147,6 @@ export interface CategoryAssignmentJobDto {
   canRetryFailed: boolean;
   evidenceIncomplete: boolean;
 }
-export type CategoryAssignmentJob = CategoryAssignmentJobDto;
 
 /** `busy`: another run is active, or the selection changed under the request. */
 export type StartCategoryAssignmentErrorCode = "busy" | "invalid" | "unexpected";
@@ -211,16 +205,14 @@ export type LedgerEntryDto = {
   category?: EntryCategoryDto | null;
   sourceDocument?: SourceDocumentReferenceDto | null;
 };
-export type LedgerEntry = LedgerEntryDto;
 
 export type ActiveLedgerEntryDto = LedgerEntryDto & { sourceDocument: SourceDocumentReferenceDto };
 
 export type LedgerEntryEmbeddedViewDto = Omit<LedgerEntryDto, "sourceDocument">;
 
-type LedgerSettingsDto = {
+export type LedgerSettingsDto = {
   id?: string;
 } & LedgerSettings;
-export type Settings = LedgerSettingsDto;
 
 export interface LedgerSummaryDto {
   unconvertedCount: number;
@@ -246,7 +238,6 @@ export interface LedgerSummaryDto {
     count: number;
   }[];
 }
-export type LedgerEntrySummary = LedgerSummaryDto;
 
 export interface LedgerEntryPageDto {
   items: ActiveLedgerEntryDto[];

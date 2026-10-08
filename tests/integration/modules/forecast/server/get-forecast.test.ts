@@ -10,7 +10,7 @@ import {
   ledgers,
   sourceDocuments,
 } from "@/persistence";
-import { historyFingerprint } from "@/modules/forecast/domain/judgment/fingerprint";
+import { historyFingerprint } from "@/modules/forecast/server/history-fingerprint";
 import { getPeriodForecast } from "@/modules/forecast/server/get-forecast";
 import { addCivilDays } from "@/modules/ledger/domain/period";
 import { setAiTransportForTests } from "@/lib/ai/client";

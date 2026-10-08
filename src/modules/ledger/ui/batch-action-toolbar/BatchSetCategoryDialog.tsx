@@ -13,14 +13,14 @@ import {
 } from "@/components/ui/dialog";
 import { textRoleClassName } from "@/components/typography";
 import { cn } from "@/lib/utils";
-import type { EntryCategory } from "@/modules/ledger/contracts";
+import type { EntryCategoryDto } from "@/modules/ledger/contracts";
 import { isConfirmableBatchCategoryPick, resolveBatchCategoryPick } from "./batch-category-pick";
 import { batchActionsCopy } from "@/copy/workspace";
 
 interface BatchSetCategoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  categories: EntryCategory[];
+  categories: EntryCategoryDto[];
   selectedCount: number;
   /** Null is the clear row, which excludes every category pick. */
   pickedCategoryIds: readonly string[];

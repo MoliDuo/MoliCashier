@@ -1,4 +1,3 @@
-import { withLedgerAccess } from "../access";
 import { parseLedgerStatsQuery } from "@/modules/ledger/contract-schemas";
 import type { LedgerSummaryDto } from "@/modules/ledger/contracts";
 import { toLedgerEntryFilters } from "../domain/to-ledger-entry-filters";
@@ -13,7 +12,3 @@ export async function calculateLedgerStats(query: unknown): Promise<LedgerSummar
   const validated = parseLedgerStatsQuery(query);
   return calculateLedgerEntryStats({ filters: toLedgerEntryFilters(validated) });
 }
-
-export const getLedgerStatsAction = withLedgerAccess(async (query: unknown = {}) =>
-  calculateLedgerStats(query)
-);

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
-import type { BookDto, EntryCategory } from "@/modules/ledger/contracts";
+import type { BookDto, EntryCategoryDto } from "@/modules/ledger/contracts";
 import {
   closeLedgerDetail,
   restoreDetailReturnFocus,
@@ -22,7 +22,7 @@ interface DetailSheetHostProps {
   detailId: string | null;
   /** The live books, so an open record can be moved between them. */
   books: readonly BookDto[];
-  categories: EntryCategory[];
+  categories: EntryCategoryDto[];
   mainCurrency: string;
   preferredCurrencies: string[];
   timeZone: string;

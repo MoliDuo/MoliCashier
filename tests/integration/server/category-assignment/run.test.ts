@@ -23,14 +23,14 @@ import { setAiTransportForTests, type CompleteRequest } from "@/lib/ai/client";
 import { AppError } from "@/lib/errors";
 import {
   cancelCategoryAssignment,
-  nextCategoryAssignmentDocument,
   startCategoryAssignment,
-} from "@/server/category-assignment/assignments";
+} from "@/server/category-assignment/commands";
+import { nextCategoryAssignmentDocument } from "@/server/category-assignment/lease";
 import { runNextCategoryAssignmentJob } from "@/server/category-assignment/run";
 
 // Passes through to the real function; one test makes it fail as a database outage would.
-vi.mock("@/server/category-assignment/assignments", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/server/category-assignment/assignments")>();
+vi.mock("@/server/category-assignment/lease", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/server/category-assignment/lease")>();
   return {
     ...actual,
     nextCategoryAssignmentDocument: vi.fn(actual.nextCategoryAssignmentDocument),

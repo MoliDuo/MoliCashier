@@ -9,7 +9,7 @@ import {
   ledgers,
   sourceDocuments,
 } from "@/persistence";
-import { listCategoryAssignmentEntryStates } from "@/server/category-assignment/assignments";
+import { listCategoryAssignmentEntryStates } from "@/server/category-assignment/reads";
 import { getTestDb } from "tests/setup";
 import { createLedgerData, createSourceDocumentData } from "tests/helpers/factories";
 import { ensureTestLedgerBooks } from "tests/helpers/schema-setup";

@@ -4,8 +4,8 @@ import type {
   SourceDocumentDetailDto,
   SourceDocumentStoredFileDto,
   SourceDocumentListItemDto,
-  SourceDocumentLedgerEntryDto,
 } from "@/modules/source-document/contracts";
+import type { LedgerEntryEmbeddedViewDto } from "@/modules/ledger/contracts";
 import {
   toStableFailureCode,
   type ProcessingFailureCode,
@@ -98,7 +98,7 @@ export function mapStoredFileDto(file: {
 
 function mapLedgerEntryAggregateDto(
   entry: SourceDocumentLedgerEntryAggregateRow
-): SourceDocumentLedgerEntryDto {
+): LedgerEntryEmbeddedViewDto {
   return {
     id: entry.id,
     categoryId: entry.categoryId,

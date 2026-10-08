@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { EntryCategory } from "@/modules/ledger/contracts";
+import type { EntryCategoryDto } from "@/modules/ledger/contracts";
 import { SUPPORTED_CURRENCIES } from "@/config/currencies";
 import type { AddEntryData } from "@/modules/source-document/detail-types";
 import { normalize } from "@/lib/money/decimal";
@@ -29,7 +29,7 @@ import { sourceDocumentDetailCopy } from "@/copy/source-document";
 
 interface AddLedgerEntryDialogProps {
   open: boolean;
-  categories: EntryCategory[];
+  categories: EntryCategoryDto[];
   preferredCurrencies?: string[];
   mainCurrency?: string;
   isSubmitting: boolean;

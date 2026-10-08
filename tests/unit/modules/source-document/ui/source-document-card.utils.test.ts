@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import type { EntryCategory, LedgerEntry } from "@/modules/ledger/contracts";
+import type { EntryCategoryDto, LedgerEntryDto } from "@/modules/ledger/contracts";
 import { calculateSourceDocumentCardTotal } from "@/modules/source-document/ui/source-document-card.utils";
 
-const defaultCategory: EntryCategory = {
+const defaultCategory: EntryCategoryDto = {
   id: "cat-food",
   name: "餐饮",
   description: null,
@@ -13,7 +13,7 @@ const defaultCategory: EntryCategory = {
   updatedAt: "2024-01-01",
 };
 
-function createEntry(overrides: Partial<LedgerEntry> = {}): LedgerEntry {
+function createEntry(overrides: Partial<LedgerEntryDto> = {}): LedgerEntryDto {
   return {
     id: "entry-1",
     categoryId: defaultCategory.id,

@@ -1,4 +1,4 @@
-import type { LedgerEntry } from "@/modules/ledger/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
 import { memo, useMemo } from "react";
 
 import { formatCurrencyAmount } from "@/lib/format/currency";
@@ -7,7 +7,7 @@ import { calculateSourceDocumentCardTotal } from "./source-document-card.utils";
 import { DISPLAY_LOCALE } from "@/lib/constants";
 
 interface SourceDocumentCardTotalProps {
-  entries: LedgerEntry[];
+  entries: LedgerEntryDto[];
   mainCurrency: string;
 }
 

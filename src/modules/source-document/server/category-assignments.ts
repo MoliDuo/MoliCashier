@@ -12,7 +12,7 @@ import {
 import { lockLedgerForUpdate } from "@/lib/db/transaction-locks";
 import { assertSourceDocumentsNotProcessing } from "@/modules/source-document/server/write-guards";
 import { leaseHeldBy } from "@/lib/db/lease";
-import type { CategoryAssignmentLease } from "@/server/category-assignment/assignments";
+import type { CategoryAssignmentLease } from "@/server/category-assignment/lease";
 import { ConflictError } from "@/lib/errors";
 
 export interface ApplyCategoryAssignmentsInput {

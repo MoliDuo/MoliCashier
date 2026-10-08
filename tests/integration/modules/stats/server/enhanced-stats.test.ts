@@ -1,6 +1,10 @@
 import { sql } from "drizzle-orm";
 import { describe, it, expect, beforeEach } from "vitest";
-import { getEnhancedStats } from "@/modules/stats/server/get-enhanced-stats";
+import { queryEnhancedStats } from "@/modules/stats/server/enhanced-stats-query";
+import {
+  parseEnhancedStatsInput,
+  type GetEnhancedStatsInput,
+} from "@/modules/stats/contract-schemas";
 import { ValidationError } from "@/lib/errors";
 import { getTestDb } from "tests/setup";
 import { activateTestSourceDocumentProjection, createTestLedger } from "tests/helpers/schema-setup";
@@ -18,9 +22,12 @@ function normalizeSql(sqlStatement: string): string {
   return sqlStatement.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-async function getTargetEnhancedStats(
-  input: Parameters<typeof getEnhancedStats>[0]
-): ReturnType<typeof getEnhancedStats> {
+/** What the `stats` ledger query runs once the period is resolved: validate, then read. */
+function getEnhancedStats(input: GetEnhancedStatsInput) {
+  return queryEnhancedStats(parseEnhancedStatsInput(input));
+}
+
+async function getTargetEnhancedStats(input: GetEnhancedStatsInput) {
   const db = getTestDb();
   const documents = await db.query.sourceDocuments.findMany({ columns: { id: true } });
   for (const document of documents) {

@@ -2,8 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
-import type { LedgerEntry } from "@/modules/ledger/contracts";
-import type { SourceDocument } from "@/modules/source-document/contracts";
+import type { LedgerEntryDto } from "@/modules/ledger/contracts";
+import type { SourceDocumentDetailDto } from "@/modules/source-document/contracts";
 import { SourceDocumentViewDetails } from "@/modules/source-document/ui/SourceDocumentViewDetails";
 
 vi.mock("next/image", () => ({
@@ -47,7 +47,7 @@ vi.mock("@/modules/source-document/ui/EditableLedgerEntryItem", () => ({
     readOnly,
     onDelete,
   }: {
-    ledgerEntry: LedgerEntry;
+    ledgerEntry: LedgerEntryDto;
     pendingChanges?: { itemName?: string };
     readOnly?: boolean;
     onDelete?: () => void;
@@ -64,7 +64,7 @@ vi.mock("@/modules/source-document/ui/EditableLedgerEntryItem", () => ({
   ),
 }));
 
-function documentWithFiles(count: number): SourceDocument {
+function documentWithFiles(count: number): SourceDocumentDetailDto {
   return {
     id: "doc-1",
     version: 1,
@@ -96,7 +96,7 @@ function renderWithQueryClient(element: ReactElement) {
   return render(<QueryClientProvider client={queryClient}>{element}</QueryClientProvider>);
 }
 
-const entry = (id: string, itemName: string): LedgerEntry => ({
+const entry = (id: string, itemName: string): LedgerEntryDto => ({
   id,
   categoryId: null,
   sourceDocumentId: "doc-1",

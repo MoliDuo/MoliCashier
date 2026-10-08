@@ -5,13 +5,13 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { textRoleClassName } from "@/components/typography";
 import { AmountText } from "@/modules/currency/ui/amount-text";
-import type { SourceDocument } from "@/modules/source-document/contracts";
+import type { SourceDocumentDetailDto } from "@/modules/source-document/contracts";
 import { diagnosticDescription, diagnosticLabel } from "./diagnostic-messages";
 import { commonCopy } from "@/copy/common";
 import { diagnosticCodeCopy, sourceDocumentDetailCopy } from "@/copy/source-document";
 
 interface SourceDocumentDetailStatusPanelsProps {
-  sourceDocument: SourceDocument | null;
+  sourceDocument: SourceDocumentDetailDto | null;
   loadError: boolean;
   isLoading: boolean;
   isReloading: boolean;

@@ -4,7 +4,7 @@ import {
   scoreJudgment,
   summarizeScores,
 } from "@/modules/forecast/domain/judgment/accuracy";
-import { historyFingerprint } from "@/modules/forecast/domain/judgment/fingerprint";
+import { historyFingerprint } from "@/modules/forecast/server/history-fingerprint";
 import type { Judgment } from "@/modules/forecast/domain/judgment/schema";
 import type { HistoryRow } from "@/modules/forecast/domain/series";
 import { addCivilDays } from "@/modules/ledger/domain/period";

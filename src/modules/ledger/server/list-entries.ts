@@ -1,4 +1,3 @@
-import { withLedgerAccess } from "../access";
 import { parseListLedgerEntriesInput } from "@/modules/ledger/contract-schemas";
 import type { LedgerEntryPageDto } from "@/modules/ledger/contracts";
 import { toLedgerEntryFilters } from "../domain/to-ledger-entry-filters";
@@ -17,7 +16,3 @@ export async function listLedgerEntries(params: unknown): Promise<LedgerEntryPag
     filters: toLedgerEntryFilters(validated),
   });
 }
-
-export const getLedgerEntriesAction = withLedgerAccess((params: unknown) =>
-  listLedgerEntries(params)
-);
