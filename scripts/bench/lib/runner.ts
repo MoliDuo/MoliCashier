@@ -7,12 +7,13 @@
  * flaky/stable split come from the same data.
  */
 import type { GenerateStructured } from "@/lib/ai/structured";
+import type { EvidenceImage } from "@/lib/ai/types";
 import type { BenchDocument, BenchLabels } from "./schema";
 import type { BenchTask } from "../tasks/types";
 
 export interface BenchCase {
   document: BenchDocument;
-  images: readonly { dataUrl: string }[];
+  images: readonly EvidenceImage[];
   labels: BenchLabels;
   expect: unknown;
 }

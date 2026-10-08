@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import sharp from "sharp";
 import { z } from "zod";
 import type { GenerateStructured } from "@/lib/ai/structured";
 import { loadCases } from "../../../../scripts/bench/lib/cases";
@@ -229,7 +230,7 @@ describe("case selection", () => {
     entries: [{ itemName: "Lunch", amount: "45.00", currency: "CNY", category: "Food" }],
   };
 
-  it("defaults to gold cases and filters by rule, id and limit", () => {
+  it("defaults to gold cases and filters by rule, id and limit", async () => {
     const dir = makeDataDir();
     writeFixtureCase(dir, "doc-gold", { text: "x", expect: SUCCESS });
     writeFixtureCase(dir, "doc-cand", {
@@ -238,16 +239,35 @@ describe("case selection", () => {
       labels: { ...GOLD_LABELS, status: "candidate", rules: ["other"] },
     });
     const ids = (selection: Parameters<typeof loadCases>[2]) =>
-      loadCases(dir, parseNamed, selection).cases.map((entry) => entry.document.id);
+      loadCases(dir, parseNamed, selection).then(({ cases }) =>
+        cases.map((entry) => entry.document.id)
+      );
 
-    expect(ids({ status: "gold" })).toEqual(["doc-gold"]);
-    expect(ids({ status: "all" })).toEqual(["doc-cand", "doc-gold"]);
-    expect(ids({ status: "all", rule: "other" })).toEqual(["doc-cand"]);
-    expect(ids({ status: "all", idContains: "gold" })).toEqual(["doc-gold"]);
-    expect(ids({ status: "all", limit: 1 })).toEqual(["doc-cand"]);
+    expect(await ids({ status: "gold" })).toEqual(["doc-gold"]);
+    expect(await ids({ status: "all" })).toEqual(["doc-cand", "doc-gold"]);
+    expect(await ids({ status: "all", rule: "other" })).toEqual(["doc-cand"]);
+    expect(await ids({ status: "all", idContains: "gold" })).toEqual(["doc-gold"]);
+    expect(await ids({ status: "all", limit: 1 })).toEqual(["doc-cand"]);
   });
 
-  it("reports an annotation the task's own check rejects instead of loading it", () => {
+  it("hands the model a tall screenshot cut into parts, as the app does", async () => {
+    const dir = makeDataDir();
+    const tall = await sharp({
+      create: { width: 100, height: 600, channels: 3, background: { r: 255, g: 255, b: 255 } },
+    })
+      .png()
+      .toBuffer();
+    writeFixtureCase(dir, "doc-tall", { image: tall, expect: SUCCESS });
+
+    const [loaded] = (await loadCases(dir, parseNamed, { status: "gold" })).cases;
+    const [image] = loaded?.images ?? [];
+    if (image == null || "dataUrl" in image) throw new Error("expected a cut screenshot");
+    expect(image.parts.length).toBeGreaterThan(1);
+    expect(image.overlapPx).toBeGreaterThan(0);
+    for (const part of image.parts) expect(part).toMatch(/^data:image\/png;base64,/);
+  });
+
+  it("reports an annotation the task's own check rejects instead of loading it", async () => {
     const dir = makeDataDir();
     writeFixtureCase(dir, "doc-bad", { text: "x", expect: SUCCESS });
     const strict = defineTask<unknown, string>({
@@ -257,7 +277,7 @@ describe("case selection", () => {
       run: async () => "",
       score: () => ({ pass: true, metrics: {}, notes: [] }),
     });
-    const loaded = loadCases(dir, strict, { status: "gold" });
+    const loaded = await loadCases(dir, strict, { status: "gold" });
     expect(loaded.cases).toEqual([]);
     expect(loaded.problems).toEqual(["parse/doc-bad: category is unknown"]);
   });
