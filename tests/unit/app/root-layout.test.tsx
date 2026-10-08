@@ -10,7 +10,7 @@ describe("root layout", () => {
   it("renders the document in Chinese", () => {
     const layout = RootLayout({ children: <div>Child page</div> });
 
-    expect(layout).toMatchObject({ type: "html", props: { lang: "zh" } });
+    expect(layout).toMatchObject({ type: "html", props: { lang: "zh-CN" } });
   });
 
   it("offers a skip link to the main content", () => {

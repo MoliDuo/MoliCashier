@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import GlobalError from "@/app/error";
+import { errorCopy } from "@/copy/app";
 
 const originalLocation = window.location;
 
@@ -34,5 +35,14 @@ describe("error boundary retry buttons", () => {
 
     expect(reloadMock).toHaveBeenCalledTimes(1);
     expect(reset).not.toHaveBeenCalled();
+  });
+
+  it("describes the error instead of repeating its title", () => {
+    render(
+      <GlobalError error={Object.assign(new Error("boom"), { digest: "abc" })} reset={vi.fn()} />
+    );
+
+    expect(screen.getByText(errorCopy.description)).toBeInTheDocument();
+    expect(screen.getByText(errorCopy.errorId({ id: "abc" }))).toBeInTheDocument();
   });
 });

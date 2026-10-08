@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { THEME_COLOR } from "@/lib/theme-colors";
+import { metadataCopy } from "@/copy/app";
 
 const icons: MetadataRoute.Manifest["icons"] = [
   { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
@@ -10,9 +11,9 @@ const icons: MetadataRoute.Manifest["icons"] = [
 
 export function buildPwaManifest(): MetadataRoute.Manifest {
   return {
-    name: "Moli Cashier - AI 记账助手",
-    short_name: "Moli Cashier",
-    description: "AI 驱动的智能记账工具",
+    name: metadataCopy.manifestName,
+    short_name: metadataCopy.appName,
+    description: metadataCopy.description,
     start_url: "/records",
     display: "standalone",
     background_color: THEME_COLOR.light,

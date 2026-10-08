@@ -1,5 +1,8 @@
 export const metadataCopy = {
   title: "Moli Cashier",
+  /** The installed app's name: home screen, task switcher. */
+  appName: "Moli Cashier",
+  manifestName: "Moli Cashier - AI 记账助手",
   description: "AI 驱动的智能记账工具",
 };
 
@@ -11,10 +14,15 @@ export const notFoundCopy = {
 
 export const errorCopy = {
   title: "应用错误",
-  description: (v: { message: string | number }) => `发生意外错误：${v.message}`,
+  description: "页面遇到意外错误，请重试。问题一直出现时，请记下下面的错误 ID。",
   errorId: (v: { id: string | number }) => `错误 ID：${v.id}`,
   goHome: "返回首页",
   retry: "重试",
+};
+
+export const routeErrorCopy = {
+  title: "这个页面出错了",
+  description: "可以重试，或者先切换到其他页面。",
 };
 
 export const ledgerQueryErrorCopy = {

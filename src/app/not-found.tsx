@@ -5,7 +5,11 @@ import { notFoundCopy } from "@/copy/app";
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg px-4">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className="min-h-screen flex items-center justify-center bg-bg px-4"
+    >
       <div className="max-w-md w-full text-center">
         <div className="mb-8 flex justify-center">
           <div className="relative">
@@ -30,6 +34,6 @@ export default function NotFound() {
           {notFoundCopy.backToHome}
         </Link>
       </div>
-    </div>
+    </main>
   );
 }

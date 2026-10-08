@@ -85,6 +85,18 @@ describe("session ledger query transport", () => {
     expect((await POST(request("stats", [{}]))).status).toBe(400);
   });
 
+  it("refuses a stats book that is not a book id before reading with it", async () => {
+    await getTestDb().insert(ledgers).values(createLedgerData());
+    await ensureTestLedgerBooks(getTestDb());
+
+    const response = await POST(
+      request("stats", [{ bookId: "not-a-book", period: { range: "all" } }])
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "QUERY_FAILED" });
+  });
+
   it("serves the settings reads over the same scoped transport", async () => {
     const db = getTestDb();
     await db.insert(ledgers).values(createLedgerData());

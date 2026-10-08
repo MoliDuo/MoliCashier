@@ -57,7 +57,9 @@ async function LedgerShellData({
 
   return (
     <HydrationBoundary state={state}>
-      <LedgerWorkspace ledgerToday={view.ledgerToday}>{children}</LedgerWorkspace>
+      <LedgerWorkspace ledgerToday={view.ledgerToday} pendingFallback={<LedgerRouteFallback />}>
+        {children}
+      </LedgerWorkspace>
     </HydrationBoundary>
   );
 }

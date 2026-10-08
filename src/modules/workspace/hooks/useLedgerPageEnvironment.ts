@@ -14,15 +14,16 @@ const STALE_TIME = LEDGER.STALE_TIME_MS;
  * waits on the device to name one.
  */
 export function useLedgerPageEnvironment() {
-  const { data: ledger } = useQuery({
+  const ledgerQuery = useQuery({
     queryKey: queryKeys.ledger(),
-    queryFn: () => fetchLedger(),
+    queryFn: ({ signal }) => fetchLedger({ signal }),
     staleTime: STALE_TIME,
   });
+  const ledger = ledgerQuery.data;
 
   const categoriesQuery = useQuery({
     queryKey: queryKeys.entryCategories(),
-    queryFn: () => fetchEntryCategories(),
+    queryFn: ({ signal }) => fetchEntryCategories({ signal }),
     staleTime: STALE_TIME,
   });
   const categories = categoriesQuery.data ?? [];
@@ -38,6 +39,7 @@ export function useLedgerPageEnvironment() {
 
   return {
     ledger,
+    ledgerQuery,
     categoriesQuery,
     categories,
     categoriesHaveNoData,

@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Moli Cashier",
+    title: metadataCopy.appName,
   },
 };
 
@@ -28,6 +28,9 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover", // Ensure content extends to edges including notches
+  // The on-screen keyboard shrinks the layout viewport, so fixed bars and
+  // full-height sheets stay above it instead of under it.
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({
@@ -37,7 +40,7 @@ export default function RootLayout({
   // router it may turn that off for the scroll it performs on navigation, so
   // route changes land where they intend to instead of animating there.
   return (
-    <html lang="zh" suppressHydrationWarning data-scroll-behavior="smooth">
+    <html lang="zh-CN" suppressHydrationWarning data-scroll-behavior="smooth">
       <body data-app="cashier" className="antialiased" style={{ backgroundColor: "var(--bg)" }}>
         <a
           href="#main-content"
@@ -48,13 +51,11 @@ export default function RootLayout({
         >
           {commonCopy.skipToContent}
         </a>
-        <main
-          id="main-content"
-          tabIndex={-1}
-          className="max-w-screen-2xl mx-auto min-h-screen pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]"
-        >
+        {/* Each page names its own <main id="main-content">: in the ledger that is
+            the content below the bars, so the skip link passes them. */}
+        <div className="max-w-screen-2xl mx-auto min-h-screen pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
           {children}
-        </main>
+        </div>
       </body>
     </html>
   );

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { AppError, NotFoundError } from "@/lib/errors";
-import { omitUndefinedProperties } from "@/lib/validation";
+import { logError } from "@/lib/error-handlers";
+import { omitUndefinedProperties, UUID_REGEX } from "@/lib/validation";
 import { requireLedgerAccess } from "@/modules/ledger/access";
 import { getSourceDocumentDetailAction } from "@/modules/source-document/server/get-document-detail";
 import { listStreamPage } from "@/modules/source-document/server/list-stream-page";
@@ -64,6 +65,11 @@ const requestSchema = z
   })
   .strict();
 
+/** The stats read's book, if it names one, is a book id before anything queries with it. */
+const statsScopeSchema = z.looseObject({
+  bookId: z.string().regex(UUID_REGEX, "Invalid book").optional(),
+});
+
 /** The reads that take no input: the ledger itself is resolved from the session. */
 const noArgumentsSchema = z.array(z.unknown()).length(0);
 
@@ -72,13 +78,18 @@ export async function POST(request: Request) {
   if (request.headers.get("sec-fetch-site") === "cross-site") {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403, headers });
   }
+  let queryName: string | undefined;
   try {
     const payload = requestSchema.parse(await request.json());
+    queryName = payload.query;
     const input = payload.args[0];
     let result: unknown;
     switch (payload.query) {
       case "stats": {
         const { ledger } = await requireLedgerAccess();
+        // The book is checked before the period is resolved, which reads the
+        // earliest record of that book.
+        statsScopeSchema.parse(input);
         const resolved = await withResolvedStatsPeriod(input, ledger.settings.timeZone, (bookId) =>
           findEarliestDocumentDate(bookId)
         );
@@ -195,6 +206,8 @@ export async function POST(request: Request) {
         : error instanceof z.ZodError || error instanceof SyntaxError
           ? 400
           : 500;
+    // Only the query's name: its arguments carry search terms and ids.
+    if (status === 500) logError(`ledger-queries:${queryName ?? "unknown"}`, error);
     return NextResponse.json(
       { error: status === 500 ? "INTERNAL_ERROR" : "QUERY_FAILED" },
       { status, headers }
