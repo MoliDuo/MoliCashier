@@ -258,6 +258,7 @@ describe("PostgreSQL schema contract", () => {
       "idx_ledger_entries_document_position",
       "idx_source_documents_feed",
       "idx_source_documents_book_feed",
+      "idx_source_documents_created",
       "idx_extraction_attempts_due",
       "idx_ledger_entries_category",
       "idx_ledger_entries_search",
@@ -266,6 +267,7 @@ describe("PostgreSQL schema contract", () => {
     }
     expect(byName.get("idx_source_documents_feed")).toContain("(document_date DESC");
     expect(byName.get("idx_source_documents_book_feed")).toContain("(book_id, document_date DESC");
+    expect(byName.get("idx_source_documents_created")).toContain("(created_at DESC, id DESC)");
     expect(byName.get("idx_ledger_entries_search")).toContain("gin");
   });
 
