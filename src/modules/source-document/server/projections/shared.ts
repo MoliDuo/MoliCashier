@@ -4,6 +4,7 @@ import { NotFoundError, ValidationError } from "@/lib/errors";
 import { isValidDecimal } from "@/lib/money/decimal";
 import { entryCategories, ledgerEntries, sourceDocuments } from "@/persistence";
 import type { PostgresTransaction } from "@/lib/db/transaction-locks";
+import type { DuplicateSuggestion } from "@/lib/ai/duplicate-suggestion";
 
 export function activeDocumentWhere(sourceDocumentId: string) {
   return eq(sourceDocuments.id, sourceDocumentId);
@@ -39,6 +40,51 @@ export async function assertCategoryOwnership(
   if (owned.length !== categoryIds.length) {
     throw new NotFoundError("Entry category");
   }
+}
+
+/**
+ * The entries with any category that no longer exists cleared. The AI path
+ * loads the categories before the model call, so one deleted while the parse
+ * ran leaves the entry uncategorised instead of failing the whole parse.
+ */
+export async function withoutMissingCategories<T extends { categoryId: string | null }>(
+  tx: PostgresTransaction,
+  entries: readonly T[]
+): Promise<T[]> {
+  const categoryIds = [
+    ...new Set(entries.flatMap((entry) => (entry.categoryId == null ? [] : [entry.categoryId]))),
+  ];
+  if (categoryIds.length === 0) return [...entries];
+  const present = new Set(
+    await tx
+      .select({ id: entryCategories.id })
+      .from(entryCategories)
+      .where(inArray(entryCategories.id, categoryIds))
+      .then((rows) => rows.map((row) => row.id))
+  );
+  return entries.map((entry) =>
+    entry.categoryId == null || present.has(entry.categoryId)
+      ? entry
+      : { ...entry, categoryId: null }
+  );
+}
+
+/** The suggestion without items whose recorded counterpart has been deleted since the parse. */
+export async function stillMatchedSuggestion(
+  tx: PostgresTransaction,
+  suggestion: DuplicateSuggestion | null | undefined
+): Promise<DuplicateSuggestion | null> {
+  if (suggestion == null) return null;
+  const matchedIds = suggestion.items.map((item) => item.matched.ledgerEntryId);
+  const present = new Set(
+    await tx
+      .select({ id: ledgerEntries.id })
+      .from(ledgerEntries)
+      .where(inArray(ledgerEntries.id, matchedIds))
+      .then((rows) => rows.map((row) => row.id))
+  );
+  const items = suggestion.items.filter((item) => present.has(item.matched.ledgerEntryId));
+  return items.length === 0 ? null : { ...suggestion, items };
 }
 
 export async function insertDocumentEntries(

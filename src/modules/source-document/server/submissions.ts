@@ -17,11 +17,14 @@ async function submitInTransaction(
   idempotency?: SourceDocumentIdempotencyInput
 ): Promise<SourceDocumentSubmissionResult> {
   let attemptInput = input.input;
+  // Lock order: ledger → source document, as every other writer takes them.
+  await lockLedgerForUpdate(tx);
 
   if (input.sourceDocumentId != null) {
     const document = await tx
       .select({
         inputText: sourceDocuments.inputText,
+        documentDate: sourceDocuments.documentDate,
         latestAttemptId: sourceDocuments.latestAttemptId,
       })
       .from(sourceDocuments)
@@ -34,13 +37,12 @@ async function submitInTransaction(
     if (input.inheritInput === true) {
       if (inputAttemptId == null)
         throw new ConflictError("Source document has no submission input");
-      // The text and files are the document's current input; the dates the
-      // parse read them with stay on the submission they came with.
+      // The text and files are the document's current input. The day is the
+      // record's own, so a date the owner set by hand since the last parse
+      // survives the retry; the reference date the parse read the input with
+      // stays on the submission it came with.
       const previousInput = await tx
-        .select({
-          documentDate: extractionAttempts.requestedDate,
-          dateReference: extractionAttempts.referenceDate,
-        })
+        .select({ dateReference: extractionAttempts.referenceDate })
         .from(extractionAttempts)
         .where(
           and(
@@ -57,7 +59,12 @@ async function submitInTransaction(
           .where(eq(sourceDocumentFiles.sourceDocumentId, input.sourceDocumentId))
           .orderBy(asc(sourceDocumentFiles.position))
       ).map((file) => file.id);
-      attemptInput = { ...previousInput, text: document.inputText, storedFileIds };
+      attemptInput = {
+        ...previousInput,
+        documentDate: document.documentDate,
+        text: document.inputText,
+        storedFileIds,
+      };
     }
 
     if (input.supersedeProcessing === true && document?.latestAttemptId != null) {

@@ -53,6 +53,17 @@ describe("books", () => {
     expect(await listBooks()).toEqual(reordered);
   });
 
+  it("gives books created at the same time their own positions", async () => {
+    const { db } = await fixture();
+
+    await Promise.all(["A", "B", "C", "D"].map((name) => createBook({ name })));
+
+    const positions = (await db.select({ sortOrder: books.sortOrder }).from(books)).map(
+      (row) => row.sortOrder
+    );
+    expect(new Set(positions).size).toBe(positions.length);
+  });
+
   it("refuses a reorder that does not list every active book exactly once", async () => {
     const { firstBookId, secondBookId } = await fixture();
 

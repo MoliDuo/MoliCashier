@@ -134,6 +134,8 @@ export async function getBookIncludingArchived(bookId: string): Promise<BookDto 
 
 export async function createBook(input: { name: string }): Promise<BookDto> {
   return db.transaction(async (tx) => {
+    // Two books created at once would otherwise read the same last position.
+    await lockLedgerForUpdate(tx);
     const next = await tx
       .select({ sortOrder: sql<number | null>`max(${books.sortOrder})` })
       .from(books)

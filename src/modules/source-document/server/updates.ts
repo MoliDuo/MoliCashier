@@ -7,6 +7,7 @@ import type { BatchUpdateSourceDocumentsInput as BatchUpdateSourceDocumentsPaylo
 import { ensureExchangeRates } from "@/modules/currency/server/exchange-rates";
 import { recordAiCorrectionsInTransaction } from "@/modules/ledger/server/ai-corrections";
 import { replaceDocumentEntriesInTransaction } from "./projections/manual-entries";
+import { assertSourceDocumentsNotProcessing } from "./write-guards";
 import {
   lockLedgerForUpdate,
   lockSourceDocumentForUpdate,
@@ -217,6 +218,9 @@ export async function updateSourceDocuments({
       (document) => data.title !== undefined && data.title !== document.title
     );
     if (changedDocuments.length > 0) {
+      // A parse that completes writes its own title, so a title typed while it
+      // runs would be lost; refuse it like every other hand edit.
+      await assertSourceDocumentsNotProcessing(tx, changedDocuments);
       const updated = await tx
         .update(sourceDocuments)
         .set({

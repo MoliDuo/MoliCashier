@@ -12,6 +12,7 @@ import {
 } from "@/modules/source-document/server/duplicate-suggestion";
 import { batchUpdateLedgerEntries } from "@/modules/source-document/server/entry-commands";
 import { deleteSourceDocumentAtomically } from "@/modules/source-document/server/delete";
+import { splitSourceDocumentAtomically } from "@/modules/source-document/server/split";
 
 const entry = (itemName: string, amount: string) => ({
   categoryId: null,
@@ -72,6 +73,59 @@ async function createFixture(
     })
     .where(eq(sourceDocuments.id, current.sourceDocumentId));
   return { db, earlier, current, currentEntries, suggestionId };
+}
+
+/**
+ * A record whose two entries both repeat a row in two different earlier
+ * records, so one counterpart can be deleted without touching the other.
+ */
+async function createTwoMatchFixture(extraEntries: ReturnType<typeof entry>[] = []) {
+  const db = getTestDb();
+  await createTestLedger(db);
+  const bookId = await testBookId(db);
+  const rows = (sourceDocumentId: string) =>
+    db.query.ledgerEntries.findMany({
+      where: eq(ledgerEntries.sourceDocumentId, sourceDocumentId),
+      orderBy: (row, { asc }) => [asc(row.position)],
+    });
+  const cableRecord = await createTestRecord(db, {
+    bookId,
+    entryDate: "2026-09-10",
+    entries: [entry("Data cable", "19.90"), entry("Phone case", "5.00")],
+  });
+  const lampRecord = await createTestRecord(db, {
+    bookId,
+    entryDate: "2026-09-10",
+    entries: [entry("Desk lamp", "42.00"), entry("Light bulb", "8.00")],
+  });
+  const current = await createTestRecord(db, {
+    bookId,
+    entryDate: "2026-09-10",
+    entries: [entry("Data cable", "19.90"), entry("Desk lamp", "42.00"), ...extraEntries],
+  });
+  const [earlierCable] = await rows(cableRecord.sourceDocumentId);
+  const [earlierLamp] = await rows(lampRecord.sourceDocumentId);
+  const currentEntries = await rows(current.sourceDocumentId);
+  const suggestionId = crypto.randomUUID();
+  await db
+    .update(sourceDocuments)
+    .set({
+      duplicateSuggestion: {
+        schemaVersion: 1,
+        id: suggestionId,
+        items: [earlierCable!, earlierLamp!].map((matched, index) => ({
+          ledgerEntryId: currentEntries[index]!.id,
+          snapshot: {
+            itemName: currentEntries[index]!.itemName,
+            amount: currentEntries[index]!.amount,
+            currency: "CNY",
+          },
+          matched: { ledgerEntryId: matched.id, sourceDocumentId: matched.sourceDocumentId },
+        })),
+      },
+    })
+    .where(eq(sourceDocuments.id, current.sourceDocumentId));
+  return { db, current, currentEntries, suggestionId, earlierCable: earlierCable!, rows };
 }
 
 async function detail(sourceDocumentId: string) {
@@ -203,6 +257,40 @@ describe("duplicate suggestion", () => {
       });
       expect(remaining).toHaveLength(2);
     });
+
+    it("keeps a flagged entry whose recorded counterpart was deleted since the parse", async () => {
+      const fixture = await createTwoMatchFixture();
+      await fixture.db.delete(ledgerEntries).where(eq(ledgerEntries.id, fixture.earlierCable.id));
+
+      const result = await applyDuplicateSuggestion({
+        sourceDocumentId: fixture.current.sourceDocumentId,
+        suggestionId: fixture.suggestionId,
+      });
+
+      // Only the lamp still repeats something, so the record is not deleted
+      // even though every entry was flagged when it was parsed.
+      expect(result).toMatchObject({ removedCount: 1, deleted: false });
+      expect(result.sourceDocument?.ledgerEntries.map((row) => row.itemName)).toEqual([
+        "Data cable",
+      ]);
+    });
+
+    it("refuses when every recorded counterpart has been deleted", async () => {
+      const fixture = await createFixture();
+      await deleteSourceDocumentAtomically({ sourceDocumentId: fixture.earlier.sourceDocumentId });
+
+      await expect(
+        applyDuplicateSuggestion({
+          sourceDocumentId: fixture.current.sourceDocumentId,
+          suggestionId: fixture.suggestionId,
+        })
+      ).rejects.toBeInstanceOf(ConflictError);
+      expect(
+        await fixture.db.query.ledgerEntries.findMany({
+          where: eq(ledgerEntries.sourceDocumentId, fixture.current.sourceDocumentId),
+        })
+      ).toHaveLength(2);
+    });
   });
 
   describe("dismissing", () => {
@@ -246,6 +334,36 @@ describe("duplicate suggestion", () => {
         sourceDocumentIds: [fixture.current.sourceDocumentId],
         ledgerEntryIds: [fixture.currentEntries[0]!.id],
         amount: "20.00",
+      });
+
+      const stored = await storedSuggestion(fixture.current.sourceDocumentId);
+      expect(stored?.duplicateSuggestion).toBeNull();
+    });
+
+    it("keeps the flags on entries a split leaves behind", async () => {
+      const fixture = await createTwoMatchFixture([entry("Notebook", "12.00")]);
+      const [cable, lamp, notebook] = fixture.currentEntries;
+
+      await splitSourceDocumentAtomically({
+        sourceDocumentId: fixture.current.sourceDocumentId,
+        ledgerEntryIds: [lamp!.id, notebook!.id],
+        entryDate: "2026-09-11",
+      });
+
+      const stored = await storedSuggestion(fixture.current.sourceDocumentId);
+      expect(stored?.duplicateSuggestion?.id).toBe(fixture.suggestionId);
+      expect(stored?.duplicateSuggestion?.items.map((item) => item.ledgerEntryId)).toEqual([
+        cable!.id,
+      ]);
+    });
+
+    it("drops the suggestion when a split moves every flagged entry", async () => {
+      const fixture = await createFixture();
+
+      await splitSourceDocumentAtomically({
+        sourceDocumentId: fixture.current.sourceDocumentId,
+        ledgerEntryIds: [fixture.currentEntries[0]!.id],
+        entryDate: "2026-09-11",
       });
 
       const stored = await storedSuggestion(fixture.current.sourceDocumentId);

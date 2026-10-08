@@ -34,6 +34,11 @@ export function getAiOutputCopy(locale: string | undefined): AiOutputCopy {
   return ENGLISH_COPY;
 }
 
+/** True for the placeholder title the parser writes when the document had none. */
+export function isFallbackDocumentTitle(title: string): boolean {
+  return Object.values(AI_OUTPUT_COPY).some((copy) => copy.untitledDocument === title);
+}
+
 export function buildAiOutputLocaleInstruction(locale: string | undefined): string {
   const targetLocale = locale ?? "zh-CN";
   const language = AI_LANGUAGES.find((candidate) => candidate.value === targetLocale)?.label;

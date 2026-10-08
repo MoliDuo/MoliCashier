@@ -30,6 +30,8 @@ import {
   submitSourceDocumentIdempotently,
 } from "@/modules/source-document/server/submissions";
 import { recordProcessingFailure } from "@/modules/source-document/server/extraction-attempts";
+import { updateSourceDocuments } from "@/modules/source-document/server/updates";
+import { getSourceDocumentInput } from "@/modules/source-document/server/reads/input";
 
 const objectStore = vi.hoisted(() => ({ current: undefined as ObjectStore | undefined }));
 vi.mock("@/lib/storage/s3", () => ({ getS3Storage: () => objectStore.current }));
@@ -692,5 +694,91 @@ describe("the day a new record is filed under", () => {
     expect(await filedDay(created.document.id)).toBe("2026-03-02");
     await failProcessing(created.document.id, created.attempt.id);
     expect(await filedDay(created.document.id)).toBe("2026-03-02");
+  });
+});
+
+describe("a retry after the owner changed the record by hand", () => {
+  async function parsedRecord() {
+    const db = getTestDb();
+    await createTestLedger(db);
+    const created = await submitSourceDocument({
+      bookId: await testBookId(db),
+      input: { text: "Breakfast 12", storedFileIds: [], documentDate: "2026-03-02" },
+    });
+    await activateAttempt({
+      lease: await claimAttemptForTest(created.attempt.id),
+      sourceDocumentId: created.document.id,
+      attemptId: created.attempt.id,
+      entries: [entry],
+    });
+    return { db, sourceDocumentId: created.document.id };
+  }
+
+  async function completeRetry(sourceDocumentId: string, attemptId: string) {
+    return activateAttempt({
+      lease: await claimAttemptForTest(attemptId),
+      sourceDocumentId,
+      attemptId,
+      entries: [entry],
+    });
+  }
+
+  it("keeps the date the owner set after the last parse", async () => {
+    const { db, sourceDocumentId } = await parsedRecord();
+    await updateSourceDocuments({
+      sourceDocumentIds: [sourceDocumentId],
+      data: { documentDate: "2026-03-05" },
+    });
+
+    const retry = await submitSourceDocument({ sourceDocumentId, inheritInput: true });
+    expect(await completeRetry(sourceDocumentId, retry.attempt.id)).toBe(true);
+
+    const document = await db.query.sourceDocuments.findFirst({
+      where: eq(sourceDocuments.id, sourceDocumentId),
+    });
+    expect(document?.documentDate).toBe("2026-03-05");
+  });
+
+  it("seeds an edit-and-retry draft with the record's current date", async () => {
+    const { sourceDocumentId } = await parsedRecord();
+    await updateSourceDocuments({
+      sourceDocumentIds: [sourceDocumentId],
+      data: { documentDate: "2026-03-05" },
+    });
+
+    expect((await getSourceDocumentInput(sourceDocumentId))?.documentDate).toBe("2026-03-05");
+  });
+
+  it("keeps the record's date for an edited retry sent without one", async () => {
+    const { db, sourceDocumentId } = await parsedRecord();
+    await updateSourceDocuments({
+      sourceDocumentIds: [sourceDocumentId],
+      data: { documentDate: "2026-03-05" },
+    });
+
+    const retry = await submitSourceDocument({
+      sourceDocumentId,
+      supersedeProcessing: true,
+      input: { text: "Breakfast 15", storedFileIds: [], documentDate: null },
+    });
+    await completeRetry(sourceDocumentId, retry.attempt.id);
+
+    const document = await db.query.sourceDocuments.findFirst({
+      where: eq(sourceDocuments.id, sourceDocumentId),
+    });
+    expect(document?.documentDate).toBe("2026-03-05");
+  });
+
+  it("refuses a title typed while the record is being parsed", async () => {
+    const { db, sourceDocumentId } = await parsedRecord();
+    await submitSourceDocument({ sourceDocumentId, inheritInput: true });
+
+    await expect(
+      updateSourceDocuments({ sourceDocumentIds: [sourceDocumentId], data: { title: "Mine" } })
+    ).rejects.toBeInstanceOf(ConflictError);
+    const document = await db.query.sourceDocuments.findFirst({
+      where: eq(sourceDocuments.id, sourceDocumentId),
+    });
+    expect(document?.title).toBeNull();
   });
 });

@@ -107,11 +107,19 @@ export async function splitSourceDocumentAtomically(input: {
     if (updatedEntries.rows.length !== currentEntries.length) {
       throw new ConflictError("Source document entries changed during the split");
     }
+    // Only the flags on entries that moved go; the rest still describe rows
+    // that stay on this record.
+    const remainingDuplicateItems = (lockedDocument.duplicateSuggestion?.items ?? []).filter(
+      (item) => !movedIds.has(item.ledgerEntryId)
+    );
     await tx
       .update(sourceDocuments)
       .set({
         dateOrganizationSuggestion: null,
-        duplicateSuggestion: null,
+        duplicateSuggestion:
+          lockedDocument.duplicateSuggestion == null || remainingDuplicateItems.length === 0
+            ? null
+            : { ...lockedDocument.duplicateSuggestion, items: remainingDuplicateItems },
         version: sql`${sourceDocuments.version} + 1`,
         updatedAt: now,
       })

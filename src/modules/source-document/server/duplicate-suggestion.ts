@@ -13,6 +13,7 @@ import { lockLedgerForUpdate, lockSourceDocumentForUpdate } from "@/lib/db/trans
 import { assertSourceDocumentsNotProcessing } from "./write-guards";
 import { listProjectionEntries, toProjectionEntry } from "./entry-commands";
 import { replaceDocumentEntriesInTransaction } from "./projections/manual-entries";
+import { stillMatchedSuggestion } from "./projections/shared";
 import { getSourceDocumentInTransaction } from "./reads/list";
 
 /** Keeps the entries and drops the suggestion; it is not part of the record's content. */
@@ -38,8 +39,9 @@ export async function dismissDuplicateSuggestion(
 
 /**
  * Removes the entries the suggestion flagged. An entry the owner has changed
- * since the parse stays, since it is no longer the row that was flagged. When
- * nothing else would be left, the record goes with them.
+ * since the parse stays, since it is no longer the row that was flagged, and so
+ * does one whose recorded counterpart has been deleted, since it no longer
+ * repeats anything. When nothing else would be left, the record goes with them.
  */
 export async function applyDuplicateSuggestion(
   input: ApplyDuplicateSuggestionInput
@@ -51,10 +53,16 @@ export async function applyDuplicateSuggestion(
       throw new ConflictError("Duplicate suggestion is no longer current");
     }
     await assertSourceDocumentsNotProcessing(tx, [document]);
+    const suggestion = await stillMatchedSuggestion(tx, document.duplicateSuggestion);
+    if (suggestion == null) {
+      throw new ConflictError(
+        "The recorded entries were deleted before the suggestion was applied"
+      );
+    }
     const entries = await listProjectionEntries(tx, document.id);
     const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
     const removedIds = new Set(
-      document.duplicateSuggestion.items.flatMap((item) => {
+      suggestion.items.flatMap((item) => {
         const entry = entriesById.get(item.ledgerEntryId);
         return entry != null &&
           entry.itemName === item.snapshot.itemName &&

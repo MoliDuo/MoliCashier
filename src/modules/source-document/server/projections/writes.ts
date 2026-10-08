@@ -1,12 +1,10 @@
 import { forgetTitleCorrectionInTransaction } from "@/modules/ledger/server/ai-corrections";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import "server-only";
 import type { ActivateAttemptInput } from "@/modules/source-document/server/projections/types";
 import { db } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
-import { extractionAttempts, ledgerEntries, sourceDocuments } from "@/persistence";
-import type { DuplicateSuggestion } from "@/lib/ai/duplicate-suggestion";
-import type { PostgresTransaction } from "@/lib/db/transaction-locks";
+import { extractionAttempts, sourceDocuments } from "@/persistence";
 import {
   lockLedgerForUpdate,
   lockSourceDocumentForUpdate,
@@ -14,25 +12,13 @@ import {
 } from "@/lib/db/transaction-locks";
 import { closeProcessingLeaseInTransaction } from "@/server/processing/terminal";
 
-import { activeDocumentWhere, replaceProjection } from "./shared";
-
-/** The suggestion without items whose recorded counterpart was deleted while the parse ran. */
-async function stillMatchedSuggestion(
-  tx: PostgresTransaction,
-  suggestion: DuplicateSuggestion | null | undefined
-): Promise<DuplicateSuggestion | null> {
-  if (suggestion == null) return null;
-  const matchedIds = suggestion.items.map((item) => item.matched.ledgerEntryId);
-  const present = new Set(
-    await tx
-      .select({ id: ledgerEntries.id })
-      .from(ledgerEntries)
-      .where(inArray(ledgerEntries.id, matchedIds))
-      .then((rows) => rows.map((row) => row.id))
-  );
-  const items = suggestion.items.filter((item) => present.has(item.matched.ledgerEntryId));
-  return items.length === 0 ? null : { ...suggestion, items };
-}
+import { isFallbackDocumentTitle } from "@/config/ai-output-locales";
+import {
+  activeDocumentWhere,
+  replaceProjection,
+  stillMatchedSuggestion,
+  withoutMissingCategories,
+} from "./shared";
 
 export async function activateAttempt(input: ActivateAttemptInput): Promise<boolean> {
   return db.transaction(async (tx) => {
@@ -70,10 +56,21 @@ export async function activateAttempt(input: ActivateAttemptInput): Promise<bool
 
     await replaceProjection(tx, {
       sourceDocumentId: input.sourceDocumentId,
-      entries: input.entries.map((entry) => ({ ...entry, extracted: true })),
+      entries: await withoutMissingCategories(
+        tx,
+        input.entries.map((entry) => ({ ...entry, extracted: true }))
+      ),
     });
+    // The placeholder the parser falls back to when it found no title never
+    // replaces a title the record already has.
+    const title =
+      input.title == null ||
+      input.title === "" ||
+      (isFallbackDocumentTitle(input.title) && (document.title ?? "").trim() !== "")
+        ? null
+        : input.title;
     // The title the AI writes now replaces the one a correction was about.
-    if (input.title != null && input.title !== "") {
+    if (title != null) {
       await forgetTitleCorrectionInTransaction(tx, input.sourceDocumentId);
     }
     const duplicateSuggestion = await stillMatchedSuggestion(tx, input.duplicateSuggestion);
@@ -94,7 +91,7 @@ export async function activateAttempt(input: ActivateAttemptInput): Promise<bool
         version: sql`${sourceDocuments.version} + 1`,
         // A submission without a date keeps the day the record already has.
         ...(attempt.requestedDate == null ? {} : { documentDate: attempt.requestedDate }),
-        ...(input.title == null || input.title === "" ? {} : { title: input.title }),
+        ...(title == null ? {} : { title }),
         dateOrganizationSuggestion: input.dateOrganizationSuggestion ?? null,
         duplicateSuggestion,
         updatedAt: now,

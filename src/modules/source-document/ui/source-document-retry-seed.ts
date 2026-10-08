@@ -22,8 +22,7 @@ export function buildSourceDocumentRetrySeed(
 ): SourceDocumentInputInitialData {
   const files = inputData?.files ?? sourceDocument.files ?? [];
   const text = inputData?.text ?? sourceDocument.text ?? undefined;
-  const documentDate =
-    inputData !== undefined ? inputData.documentDate : sourceDocument.documentDate;
+  const documentDate = inputData?.documentDate ?? sourceDocument.documentDate;
 
   return {
     images: files.map((file) => ({

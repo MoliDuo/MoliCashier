@@ -23,7 +23,7 @@ describe("source document retry seed", () => {
     expect(JSON.stringify(seed)).not.toContain("storageKey");
   });
 
-  it("prefers the latest submission date over the active result date", () => {
+  it("prefers the date the input read returns over the one the list row carried", () => {
     const seed = buildSourceDocumentRetrySeed(
       { id: "doc-1", documentDate: "2026-08-01" },
       { text: "retried receipt", files: [], documentDate: "2026-09-10" }
@@ -32,12 +32,12 @@ describe("source document retry seed", () => {
     expect(seed.entryDate).toBe("2026-09-10");
   });
 
-  it("preserves a cleared latest submission date", () => {
+  it("falls back to the record's date when the input read has none", () => {
     const seed = buildSourceDocumentRetrySeed(
       { id: "doc-1", documentDate: "2026-08-01" },
       { text: "retried receipt", files: [], documentDate: null }
     );
 
-    expect(seed.entryDate).toBeUndefined();
+    expect(seed.entryDate).toBe("2026-08-01");
   });
 });
