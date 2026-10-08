@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getTestDb } from "tests/setup";
 import { createTestSourceDocument, createTestLedger } from "tests/helpers/schema-setup";
 import {
@@ -12,29 +12,11 @@ import {
   serviceCredentials,
 } from "@/persistence";
 
-/**
- * The row as the triggers keep it. The per-resource watermarks are no longer in the
- * model (nothing reads them; a later release drops them), so they are read directly.
- */
+/** The row as the triggers keep it. */
 async function syncState() {
-  const result = await getTestDb().execute<{
-    version: string;
-    categories: string;
-    settings: string;
-    stats: string;
-  }>(sql`
-    SELECT version::text, categories_version::text AS categories,
-      settings_version::text AS settings, stats_version::text AS stats
-    FROM ledger_sync_state
-  `);
-  const state = result.rows[0];
+  const state = await getTestDb().query.ledgerSyncState.findFirst();
   if (state == null) throw new Error("Expected a sync row for the ledger");
-  return {
-    version: BigInt(state.version),
-    categories: BigInt(state.categories),
-    settings: BigInt(state.settings),
-    stats: BigInt(state.stats),
-  };
+  return { version: state.version };
 }
 
 describe("record_ledger_change trigger", () => {
@@ -62,12 +44,9 @@ describe("record_ledger_change trigger", () => {
 
     const after = await syncState();
     expect(after.version).toBe(before.version + BigInt(1));
-    expect(after.stats).toBe(after.version);
-    expect(after.categories).toBe(before.categories);
-    expect(after.settings).toBe(before.settings);
   });
 
-  it("moves each watermark only for the changes it covers", async () => {
+  it("moves the version for an attempt, a category, a setting and the main currency", async () => {
     const db = getTestDb();
     await createTestLedger(db);
     const sourceDocumentId = await createTestSourceDocument(db, { status: "processing" });
@@ -79,27 +58,17 @@ describe("record_ledger_change trigger", () => {
       .where(eq(extractionAttempts.sourceDocumentId, sourceDocumentId));
     const afterAttempt = await syncState();
     expect(afterAttempt.version).toBe(initial.version + BigInt(1));
-    expect(afterAttempt.stats).toBe(initial.stats);
 
     await db.insert(entryCategories).values({ name: "Snacks" });
     const afterCategory = await syncState();
-    expect(afterCategory.categories).toBe(afterCategory.version);
-    expect(afterCategory.stats).toBe(afterCategory.version);
-    expect(afterCategory.settings).toBe(initial.settings);
+    expect(afterCategory.version).toBe(afterAttempt.version + BigInt(1));
 
     await db.update(ledgers).set({ aiCustomPrompt: "Be brief" });
     const afterSetting = await syncState();
-    expect(afterSetting.settings).toBe(afterSetting.version);
-    expect(afterSetting.categories).toBe(afterCategory.categories);
+    expect(afterSetting.version).toBe(afterCategory.version + BigInt(1));
 
     await db.update(ledgers).set({ mainCurrency: "USD" });
-    const afterCurrency = await syncState();
-    expect(afterCurrency).toEqual({
-      version: afterCurrency.version,
-      categories: afterCurrency.version,
-      settings: afterCurrency.version,
-      stats: afterCurrency.version,
-    });
+    expect((await syncState()).version).toBe(afterSetting.version + BigInt(1));
   });
 
   it("moves the version for a book, an API key and the ledger's zone, not a key's use", async () => {
@@ -133,7 +102,6 @@ describe("record_ledger_change trigger", () => {
     await db.update(ledgers).set({ timeZone: "Europe/Paris" });
     const afterZone = await syncState();
     expect(afterZone.version).toBe(afterKey.version + BigInt(1));
-    expect(afterZone.stats).toBe(afterZone.version);
   });
 
   it("creates the sync row on the first change", async () => {
