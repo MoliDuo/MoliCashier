@@ -43,7 +43,7 @@ Moli Cashier 会从图片或文字中提取日期、商家、金额、币种、�
 
 ## 安装或访问
 
-- 线上地址：<https://cashier.xiangyu.pro>（需要先由管理员在认证服务里放行你的账号）。
+- 线上地址：见 `moli.yaml` 的 `deploy.domain`（需要先由管理员在认证服务里放行你的账号）。
 - 想自己跑一份：见 [docs/self-hosting.md](./docs/self-hosting.md)，环境变量见 [docs/configuration.md](./docs/configuration.md)。
 
 先在本地试一试，不碰任何真实服务（需要 Node.js 24 和 Docker）：
@@ -87,8 +87,8 @@ npm run demo:reset -- --apply # 重建 dev@cashier.local 的专用数据
 npm run check
 ```
 
-它依次检查格式、架构（dependency-cruiser）与死代码（knip）、lint、类型，跑带覆盖率的全部测试，
-再用隔离的占位配置做一次生产构建并检查受保护路由的包体积。集成测试需要 Docker。
+它先并行做静态检查：格式、架构（dependency-cruiser）、死代码（knip）、lint、类型，任何一项失败就停下；
+再同时跑带覆盖率的全部测试，和一次用隔离占位配置的生产构建（顺带报告受保护路由的包体积）。集成测试需要 Docker。
 
 | 命令                    | 用途                           |
 | ----------------------- | ------------------------------ |

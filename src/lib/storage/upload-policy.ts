@@ -10,13 +10,9 @@ import { ValidationError } from "@/lib/errors";
  * These defaults apply to the Web submission flow only. The API v1 flow
  * has its own separate limits and is not covered by this module.
  *
- * KNOWN GAP (escalation condition — not fixed in Task 6):
- * The Web submission path (createSourceDocumentAction) accepts already-stored
- * storedFileIds without re-validating them against the current upload policy.
- * A stored file that passed policy checks when it was uploaded could later
- * exceed policy limits if the policy is tightened. Closing this gap requires
- * a policy version stamp on stored files or a re-validation step at attempt
- * creation time. See Issue 2 in the Task 6 review.
+ * A stored file is checked against this policy when it is uploaded, not again when a later
+ * submission reuses its id; a policy tightened in between does not reach files already stored.
+ * The per-attempt byte budget is still enforced when the attempt is created.
  */
 
 // ---------------------------------------------------------------------------

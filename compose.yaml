@@ -73,6 +73,8 @@ services:
       interval: 30s
       timeout: 5s
       start_period: 90s
+      # Traefik routes only to a healthy container, so check often while starting.
+      start_interval: 2s
       retries: 3
     networks:
       - internal

@@ -11,6 +11,15 @@ beforeAll(() => {
   eslint = new ESLint({
     cwd: repositoryRoot,
     overrideConfigFile: path.join(repositoryRoot, "eslint.config.mjs"),
+    // The probes below are virtual files the TypeScript project does not contain, and these
+    // tests check the syntax rules only, so the type-aware server rules stay out of the way.
+    overrideConfig: {
+      languageOptions: { parserOptions: { projectService: false, project: null } },
+      rules: {
+        "@typescript-eslint/no-floating-promises": "off",
+        "@typescript-eslint/no-misused-promises": "off",
+      },
+    },
   });
 });
 

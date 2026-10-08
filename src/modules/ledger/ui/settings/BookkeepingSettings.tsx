@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { AI_LANGUAGES } from "@/config/languages";
 import { LEDGER_TIME_ZONES } from "@/config/time-zones";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { settingsCopy } from "@/copy/settings";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -81,21 +81,25 @@ export function BookkeepingSettings({
   // than on every keystroke, and on the way out if the tab closes mid-edit.
   const [prompt, setPrompt] = useState<string | null>(null);
   const flushPrompt = useRef<() => void>(() => {});
-  flushPrompt.current = () => {
-    if (prompt == null) return;
-    setPrompt(null);
-    if (prompt !== settings.aiCustomPrompt) void save({ aiCustomPrompt: prompt });
-  };
+  useLayoutEffect(() => {
+    flushPrompt.current = () => {
+      if (prompt == null) return;
+      setPrompt(null);
+      if (prompt !== settings.aiCustomPrompt) void save({ aiCustomPrompt: prompt });
+    };
+  });
   useEffect(() => () => flushPrompt.current(), []);
 
   // The learned text is edited the same way as the prompt above.
   const [learned, setLearned] = useState<string | null>(null);
   const flushLearned = useRef<() => void>(() => {});
-  flushLearned.current = () => {
-    if (learned == null) return;
-    setLearned(null);
-    if (learned !== settings.aiLearnedPreferences) void save({ aiLearnedPreferences: learned });
-  };
+  useLayoutEffect(() => {
+    flushLearned.current = () => {
+      if (learned == null) return;
+      setLearned(null);
+      if (learned !== settings.aiLearnedPreferences) void save({ aiLearnedPreferences: learned });
+    };
+  });
   useEffect(() => () => flushLearned.current(), []);
   const [confirmingClear, setConfirmingClear] = useState(false);
 

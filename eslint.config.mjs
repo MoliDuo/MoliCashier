@@ -138,4 +138,24 @@ export default defineConfig([
       "no-restricted-syntax": ["error", ...architectureSyntax],
     },
   },
+  {
+    // Server code runs in one long-lived process: a promise nobody awaits fails silently, or after
+    // the work it should have finished. These two rules need type information, so they are scoped
+    // to the server side, where a dropped await does that damage.
+    files: [
+      "src/server/**/*.ts",
+      "src/modules/*/server/**/*.ts",
+      "src/modules/*/server-actions/**/*.ts",
+      "src/lib/**/*.ts",
+      "src/app/api/**/*.ts",
+      "src/instrumentation.ts",
+    ],
+    languageOptions: {
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+    },
+    rules: {
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/no-misused-promises": "error",
+    },
+  },
 ]);

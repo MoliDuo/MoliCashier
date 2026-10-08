@@ -1,8 +1,10 @@
-# The Moli server's compose for Moli Cashier: /data/apps/cashier/docker-compose.yml (docs/deploy.md).
+# The Moli server's compose for Moli Cashier: <app dir>/docker-compose.yml (docs/deploy.md).
 # The administrator keeps this file on the server. The deploy only rewrites .tag, which holds
 # APP_TAG=<commit sha>; start with: docker compose --env-file .tag up -d
-# Secrets come from .env (mode 600) through env_file, not through ${...}: --env-file replaces the
-# default .env for interpolation.
+# Secrets come from env files (mode 600) through env_file, not through ${...}: --env-file replaces
+# the default .env for interpolation. Each container gets only its own file: the app's .env, the
+# database's postgres.env and the object store's s3.env, so a third-party image never sees the
+# app's AI, sign-in or signing secrets.
 services:
   cashier:
     image: moli-cashier:${APP_TAG}
@@ -28,6 +30,9 @@ services:
       interval: 30s
       timeout: 5s
       start_period: 90s
+      # Traefik routes only to a healthy container, so check often while starting: the new release
+      # takes traffic seconds after it is ready instead of after the first 30-second interval.
+      start_interval: 2s
       retries: 3
     networks:
       - internal
@@ -35,7 +40,7 @@ services:
     labels:
       - traefik.enable=true
       - traefik.docker.network=server-internal-net
-      - traefik.http.routers.cashier.rule=Host(`cashier.xiangyu.pro`)
+      - traefik.http.routers.cashier.rule=Host(`cashier.example.com`) # the real host name; see docs/deploy.md
       - traefik.http.routers.cashier.entrypoints=websecure
       - traefik.http.services.cashier.loadbalancer.server.port=3000
 
@@ -43,7 +48,7 @@ services:
     image: postgres:17-alpine
     container_name: cashier-postgres
     restart: unless-stopped
-    env_file: .env # POSTGRES_PASSWORD
+    env_file: postgres.env # POSTGRES_PASSWORD
     environment:
       TZ: Asia/Singapore
       POSTGRES_DB: moli-cashier-db
@@ -64,7 +69,7 @@ services:
     container_name: cashier-s3
     restart: unless-stopped
     command: ["posix", "/data"]
-    env_file: .env # ROOT_ACCESS_KEY_ID, ROOT_SECRET_ACCESS_KEY
+    env_file: s3.env # ROOT_ACCESS_KEY_ID, ROOT_SECRET_ACCESS_KEY
     environment:
       TZ: Asia/Singapore
       VGW_PORT: ":7070"
@@ -88,7 +93,7 @@ services:
       s3:
         condition: service_healthy
     restart: "no"
-    env_file: .env # AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+    env_file: s3.env # AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
     environment:
       AWS_DEFAULT_REGION: auto
     entrypoint: ["/bin/sh", "-c"]

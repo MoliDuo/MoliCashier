@@ -66,6 +66,36 @@ function isPgTable(value: unknown): value is AnyPgTable {
   );
 }
 
+/**
+ * Names the database still has but the model no longer mentions: a column, constraint or index the
+ * code stopped using in this release, dropped by a migration in the next one (expand/contract,
+ * docs/architecture.md §2.8). Columns are written `table.column`. Remove an entry in the same change
+ * as the migration that drops it.
+ */
+const retiredNames = new Set<string>([]);
+
+function getDrizzleColumnNames(): Set<string> {
+  const columns = new Set<string>();
+  for (const table of Object.values(schema).filter(isPgTable) as AnyPgTable[]) {
+    const config = getTableConfig(table);
+    for (const column of config.columns) columns.add(`${config.name}.${column.name}`);
+  }
+  return columns;
+}
+
+async function fetchAllColumnNames(): Promise<Set<string>> {
+  const result = await getTestDb().execute<{ name: string } & Record<string, unknown>>(sql`
+    SELECT columns.table_name || '.' || columns.column_name AS name
+    FROM information_schema.columns columns
+    JOIN information_schema.tables tables
+      ON tables.table_schema = columns.table_schema AND tables.table_name = columns.table_name
+    WHERE columns.table_schema = current_schema()
+      AND tables.table_type = 'BASE TABLE'
+      AND columns.table_name NOT LIKE '\\_\\_drizzle%'
+  `);
+  return new Set(result.rows.map((row) => row.name));
+}
+
 function getDrizzleContractNames() {
   const constraints = new Set<string>();
   const indexes = new Set<string>();
@@ -416,11 +446,36 @@ describe("PostgreSQL schema contract", () => {
 
     expect({
       missingFromDatabase: [...model.constraints].filter((name) => !databaseConstraints.has(name)),
-      missingFromModel: [...databaseConstraints].filter((name) => !model.constraints.has(name)),
+      missingFromModel: [...databaseConstraints].filter(
+        (name) => !model.constraints.has(name) && !retiredNames.has(name)
+      ),
     }).toEqual({ missingFromDatabase: [], missingFromModel: [] });
     expect({
       missingFromDatabase: [...model.indexes].filter((name) => !databaseIndexes.has(name)),
-      missingFromModel: [...databaseIndexes].filter((name) => !model.indexes.has(name)),
+      missingFromModel: [...databaseIndexes].filter(
+        (name) => !model.indexes.has(name) && !retiredNames.has(name)
+      ),
     }).toEqual({ missingFromDatabase: [], missingFromModel: [] });
+  });
+
+  it("has no column drift from the Drizzle model", async () => {
+    // The migrations are hand-written SQL, so a column can exist on one side only without any
+    // generated diff noticing.
+    const model = getDrizzleColumnNames();
+    const database = await fetchAllColumnNames();
+    expect({
+      missingFromDatabase: [...model].filter((name) => !database.has(name)),
+      missingFromModel: [...database].filter((name) => !model.has(name) && !retiredNames.has(name)),
+    }).toEqual({ missingFromDatabase: [], missingFromModel: [] });
+  });
+
+  it("lists only retired names the database still has", async () => {
+    const constraints = new Set((await fetchConstraints()).map((row) => row.conname));
+    const indexes = new Set((await fetchIndexes()).map((row) => row.indexname));
+    const columns = await fetchAllColumnNames();
+    const stale = [...retiredNames].filter(
+      (name) => !constraints.has(name) && !indexes.has(name) && !columns.has(name)
+    );
+    expect(stale).toEqual([]);
   });
 });
