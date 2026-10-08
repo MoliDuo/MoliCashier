@@ -134,7 +134,7 @@ export async function calculateLedgerEntryStats({
     .filter((row) => row.kind === "category")
     .map((row) => ({
       categoryId: row.category_id,
-      categoryName: row.category_name ?? "Uncategorized",
+      categoryName: row.category_name,
       categoryIcon: row.category_icon,
       currency: row.currency,
       total: decimalNormalize(String(row.total ?? "0")),

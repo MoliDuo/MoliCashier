@@ -2,7 +2,8 @@ import type { CalendarDayData, CalendarHeatmapStats } from "@/types/calendar";
 
 type EnhancedCategoryStatDto = {
   id: string | null;
-  name: string;
+  /** Null for the entries without a category; the page names them. */
+  name: string | null;
   icon: string | null;
   totalConverted: string;
   currency: string;
@@ -23,7 +24,8 @@ type EnhancedCategoryStatDto = {
 /** A category spent on in the comparison period and not at all in this one. */
 type PreviousOnlyCategoryDto = {
   id: string | null;
-  name: string;
+  /** Null for the entries without a category; the page names them. */
+  name: string | null;
   icon: string | null;
   /** What it came to in the comparison period; it has fallen by all of it. */
   previousTotal: string;

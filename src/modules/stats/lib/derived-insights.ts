@@ -36,7 +36,8 @@ export interface StatsInsights {
   busiestDay: { date: string; total: string } | null;
   topMover: {
     id: string | null;
-    name: string;
+    /** Null for the entries without a category; the page names them. */
+    name: string | null;
     amountDelta: string;
     direction: "up" | "down";
   } | null;

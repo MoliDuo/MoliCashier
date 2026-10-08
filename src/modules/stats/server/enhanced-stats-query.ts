@@ -96,7 +96,7 @@ function addRowToBucket(
   const categoryKey = row.categoryId ?? "uncategorized";
   const category = bucket.categories.get(categoryKey) ?? {
     id: row.categoryId,
-    name: row.categoryName ?? "Uncategorized",
+    name: row.categoryName,
     icon: row.categoryIcon ?? null,
     total: new Decimal(0),
     count: 0,
