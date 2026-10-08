@@ -30,19 +30,37 @@ function isNotFound(error: unknown): boolean {
   );
 }
 
+function httpStatusOf(error: unknown): number | undefined {
+  if (error == null || typeof error !== "object") return undefined;
+  const status = (error as { $metadata?: { httpStatusCode?: unknown } }).$metadata?.httpStatusCode;
+  return typeof status === "number" ? status : undefined;
+}
+
 function storageError(message: string, code: string, key: string, cause?: unknown): AppError {
   const keyHash = crypto.createHash("sha256").update(key).digest("hex").slice(0, 12);
+  const httpStatusCode = httpStatusOf(cause);
   logger.error(
-    { provider: "s3", keyHash, errorName: cause instanceof Error ? cause.name : "UnknownError" },
+    {
+      provider: "s3",
+      keyHash,
+      errorName: cause instanceof Error ? cause.name : "UnknownError",
+      ...(httpStatusCode == null ? {} : { httpStatusCode }),
+    },
     message
   );
+  // The status tells an outage (5xx, none at all) from a refusal (4xx) when the failure is classified.
   return new AppError(message, code, code === "FILE_NOT_FOUND" ? 404 : 503, {
     provider: "s3",
     keyHash,
+    ...(httpStatusCode == null ? {} : { httpStatusCode }),
   });
 }
 
-function createS3ClientConfig(): S3ClientConfig {
+/** How long connecting to the object store, and then one whole request, may take. */
+const S3_CONNECTION_TIMEOUT_MS = 5_000;
+const S3_REQUEST_TIMEOUT_MS = 30_000;
+
+export function createS3ClientConfig(): S3ClientConfig {
   return {
     region: runtimeEnv.s3Region,
     endpoint: runtimeEnv.s3Endpoint,
@@ -50,6 +68,13 @@ function createS3ClientConfig(): S3ClientConfig {
     credentials: {
       accessKeyId: runtimeEnv.s3AccessKeyId,
       secretAccessKey: runtimeEnv.s3SecretAccessKey,
+    },
+    // Without these an object store that accepts the connection and never answers holds the
+    // request, and whatever waits on it, forever.
+    requestHandler: {
+      connectionTimeout: S3_CONNECTION_TIMEOUT_MS,
+      requestTimeout: S3_REQUEST_TIMEOUT_MS,
+      throwOnRequestTimeout: true,
     },
   };
 }
@@ -89,11 +114,13 @@ export class S3StorageProvider implements ObjectStore {
     }
   }
 
-  async download(key: string): Promise<Buffer> {
+  /** Reads a whole object. `signal` abandons the request, its body included. */
+  async download(key: string, options: { signal?: AbortSignal } = {}): Promise<Buffer> {
     assertSafeStorageKey(key);
     try {
       const response = await this.getClient().send(
-        new GetObjectCommand({ Bucket: this.getBucket(), Key: key })
+        new GetObjectCommand({ Bucket: this.getBucket(), Key: key }),
+        options.signal == null ? {} : { abortSignal: options.signal }
       );
       if (response.Body == null) throw storageError("File not found in S3", "FILE_NOT_FOUND", key);
       return Buffer.from(await response.Body.transformToByteArray());

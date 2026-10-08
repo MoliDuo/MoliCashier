@@ -50,6 +50,11 @@ export interface CompleteRequest {
 export interface AiCompletion {
   content: string;
   usage?: AiUsage;
+  /**
+   * Why the model stopped, when the provider says: "length" means the reply was cut off at the
+   * output budget, so whatever it holds is incomplete.
+   */
+  finishReason?: string;
 }
 
 /** The one place a request leaves for the configured model. */
@@ -78,13 +83,23 @@ function isSdkError<T extends Error>(
   return typeof constructor === "function" && error instanceof constructor;
 }
 
+/** The most a cooldown is spread by, so the requests it held back do not all go at once. */
+const COOLDOWN_JITTER_MAX_MS = 2_000;
+
+/** A random spread for a wait of `waitMs`: up to a quarter of it, and never more than two seconds. */
+function cooldownJitterMs(waitMs: number): number {
+  return Math.random() * Math.min(COOLDOWN_JITTER_MAX_MS, waitMs / 4);
+}
+
 export class OpenAiTransport implements AiTransport {
   private client: OpenAI;
   private cooldownUntil = 0;
 
   /**
    * Sends once any provider cooldown is over. Requests run side by side; a 429 with Retry-After holds
-   * back every request sent after it, so running in parallel does not keep hitting the limit.
+   * back every request sent after it, so running in parallel does not keep hitting the limit. Each
+   * request that waited adds its own random spread, so they do not all hit the provider again at
+   * the same instant.
    */
   private async afterCooldown<T>(
     signal: AbortSignal | undefined,
@@ -94,7 +109,7 @@ export class OpenAiTransport implements AiTransport {
       if (signal?.aborted) throw new AppError("Request was aborted", "REQUEST_ABORTED");
       const waitMs = this.cooldownUntil - Date.now();
       if (waitMs <= 0) return await run();
-      await delay(waitMs, undefined, { signal }).catch(() => undefined);
+      await delay(waitMs + cooldownJitterMs(waitMs), undefined, { signal }).catch(() => undefined);
     }
   }
 
@@ -171,9 +186,10 @@ export class OpenAiTransport implements AiTransport {
           try {
             return await this.client.chat.completions.create(body, requestOptions);
           } catch (error) {
+            const retryAfterMs = this.retryAfterMs(error);
             this.cooldownUntil = Math.max(
               this.cooldownUntil,
-              Date.now() + this.retryAfterMs(error)
+              Date.now() + retryAfterMs + cooldownJitterMs(retryAfterMs)
             );
             throw error;
           }
@@ -216,9 +232,13 @@ export class OpenAiTransport implements AiTransport {
           }
         }
 
+        // A reply cut off at the output budget is passed on as such; the structured layer refuses it.
+        const finishReason = choice?.finish_reason ?? undefined;
+        const finish = finishReason == null ? {} : { finishReason };
+
         // Extract token usage from OpenAI response
         if (response.usage == null) {
-          return { content };
+          return { content, ...finish };
         }
 
         const extra = response.usage as ProviderUsage;
@@ -233,6 +253,7 @@ export class OpenAiTransport implements AiTransport {
             ...(cachedPromptTokens == null ? {} : { cachedPromptTokens }),
             ...(reasoningTokens == null ? {} : { reasoningTokens }),
           },
+          ...finish,
         };
       } catch (error) {
         lastError = error;
@@ -312,6 +333,10 @@ export class OpenAiTransport implements AiTransport {
 
     if (isSdkError(lastError, OpenAI.APIConnectionTimeoutError)) {
       throw new AppError("AI request timed out", "ai_timeout", 504);
+    }
+    // The provider could not be reached at all: refused, reset or a failed DNS lookup.
+    if (isSdkError(lastError, OpenAI.APIConnectionError)) {
+      throw new AppError("AI provider could not be reached", "ai_provider_unavailable", 503);
     }
 
     throw lastError;

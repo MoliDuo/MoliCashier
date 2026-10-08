@@ -6,15 +6,24 @@ import { createPendingAttempt } from "tests/helpers/processing-attempt";
 import { extractionAttempts } from "@/persistence";
 import { setAiTransportForTests } from "@/lib/ai/client";
 import { fakeAiTransport } from "tests/helpers/fake-ai";
-import { createBackgroundWorker } from "@/server/background/worker";
+import { createBackgroundWorker, type BackgroundWorkerOptions } from "@/server/background/worker";
 import { requestBackgroundWork } from "@/server/background/wake";
 
 const workers: Array<ReturnType<typeof createBackgroundWorker>> = [];
 
-function worker(pollIntervalMs = 60_000) {
-  const created = createBackgroundWorker({ pollIntervalMs });
+function worker(pollIntervalMs = 60_000, options: BackgroundWorkerOptions = {}) {
+  const created = createBackgroundWorker({ pollIntervalMs, ...options });
   workers.push(created);
   return created;
+}
+
+/** Resolves the next time each of the given lanes has gone to sleep. */
+function idleLanes(lanes: readonly string[]) {
+  const waiting = new Map(lanes.map((lane) => [lane, Promise.withResolvers<void>()]));
+  return {
+    onIdle: (lane: string) => waiting.get(lane)?.resolve(),
+    idle: Promise.all([...waiting.values()].map((entry) => entry.promise)),
+  };
 }
 
 afterEach(async () => {
@@ -75,11 +84,12 @@ describe("background worker", () => {
   });
 
   it("wakes at once when work is requested, without waiting for the poll", async () => {
-    const running = worker(60_000);
+    const { onIdle, idle } = idleLanes(["processing", "category"]);
+    const running = worker(60_000, { onIdle });
     failingModel();
     running.start();
-    // Let both lanes find nothing and go to sleep.
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    // Both lanes find nothing and go to sleep.
+    await idle;
 
     const attemptId = await pendingAttempt();
     requestBackgroundWork();
@@ -120,6 +130,69 @@ describe("background worker", () => {
 
     await expect(worker().drain()).resolves.toBe(3);
     expect(waitedAlone).toBe(false);
+  });
+
+  it("never runs more attempts at once than its concurrency allows", async () => {
+    for (let index = 0; index < 5; index += 1) await pendingAttempt();
+    let active = 0;
+    let most = 0;
+    setAiTransportForTests(
+      fakeAiTransport(async () => {
+        active += 1;
+        most = Math.max(most, active);
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        active -= 1;
+        return "not json";
+      })
+    );
+
+    await expect(worker(60_000, { processingConcurrency: 2 }).drain()).resolves.toBe(5);
+    expect(most).toBe(2);
+
+    for (let index = 0; index < 5; index += 1) await pendingAttempt();
+    most = 0;
+    const running = worker(20, { processingConcurrency: 2 });
+    running.start();
+    await vi.waitFor(async () =>
+      expect(
+        (await getTestDb().query.extractionAttempts.findMany()).every(
+          (attempt) => attempt.status === "failed"
+        )
+      ).toBe(true)
+    );
+    expect(most).toBe(2);
+  });
+
+  it("claims nothing new while it is stopping", async () => {
+    const { onIdle, idle } = idleLanes(["processing"]);
+    const heldId = await pendingAttempt();
+    const started = hangingModel();
+    const running = worker(20, { processingConcurrency: 1, onIdle });
+    running.start();
+    requestBackgroundWork();
+    await started;
+    // Full: the lane waits for the running attempt to finish.
+    await idle;
+
+    const stopped = running.stop({ graceMs: 200 });
+    const lateId = await pendingAttempt();
+    requestBackgroundWork();
+    await stopped;
+
+    expect(await findAttempt(lateId)).toMatchObject({ attemptCount: 0, claimToken: null });
+    expect(await findAttempt(heldId)).toMatchObject({ status: "processing", claimToken: null });
+  });
+
+  it("claims nothing once stopping, even when the due work was already listed", async () => {
+    const attemptId = await pendingAttempt();
+    const transport = failingModel();
+    const stopped = worker();
+    await stopped.stop({ graceMs: 0 });
+
+    await expect(stopped.runOnce()).resolves.toBe(0);
+
+    expect(await findAttempt(attemptId)).toMatchObject({ attemptCount: 0, claimToken: null });
+    expect(transport.complete).not.toHaveBeenCalled();
   });
 
   it("starts a newly submitted attempt while an earlier one is still running", async () => {

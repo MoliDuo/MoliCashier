@@ -1,6 +1,7 @@
 import { z } from "zod";
 import Decimal from "decimal.js";
 import { isValidDecimal, compare } from "@/lib/money/decimal";
+import { roundToCurrency } from "@/lib/money/currency-precision";
 import { getAiOutputCopy } from "@/config/ai-output-locales";
 import { normalizeTitle } from "@/modules/source-document/title-policy";
 import { SUPPORTED_CURRENCIES } from "@/config/currencies";
@@ -20,14 +21,17 @@ const decimalStringSchema = z
   .refine((value) => /^-?(?:0|[1-9]\d{0,17})(?:\.\d{1,3})?$/.test(value), {
     message: "Amount exceeds numeric(21,3)",
   });
-const supportedCurrencySchema = z
+/**
+ * Any ISO 4217 code is accepted here. Whether the ledger supports it is decided afterwards, so an
+ * unsupported currency becomes a clear refusal instead of a schema error the repair round would
+ * "fix" by swapping in another currency.
+ */
+const currencySchema = z
   .string()
   .transform((value) => value.trim().toUpperCase())
-  .refine(
-    (value): value is (typeof SUPPORTED_CURRENCIES)[number] =>
-      (SUPPORTED_CURRENCIES as readonly string[]).includes(value),
-    "Unsupported currency"
-  );
+  .refine((value) => /^[A-Z]{3}$/.test(value), "Must be an ISO 4217 three-letter currency code");
+
+const supportedCurrencies: ReadonlySet<string> = new Set(SUPPORTED_CURRENCIES);
 
 // ===== Raw Zod schema (AI response shape) =====
 
@@ -37,14 +41,14 @@ const alreadyRecordedSchema = z.string().trim().min(1).max(16).nullable().option
 const receiptTotalSchema = z.object({
   receipt_index: z.number().int().min(0),
   amount: decimalStringSchema,
-  currency: supportedCurrencySchema,
+  currency: currencySchema,
 });
 
 const ledgerEntrySchema = z.object({
   receipt_index: z.number().int().min(0),
   item_name: z.string(),
   amount: decimalStringSchema,
-  currency: supportedCurrencySchema,
+  currency: currencySchema,
   category_index: z.number().int().min(0),
   notes: z.string().nullish(),
   date_hint: dateHintSchema,
@@ -56,7 +60,7 @@ const orderAdjustmentSchema = z.object({
   receipt_index: z.number().int().min(0),
   item_name: z.string(),
   amount: decimalStringSchema,
-  currency: supportedCurrencySchema,
+  currency: currencySchema,
   already_recorded: alreadyRecordedSchema,
 });
 
@@ -66,10 +70,11 @@ export const parserOutputSchema = z
     invalid_reason: z.string().nullish(),
     title: z.string().nullish(),
     receipt_count: z.number().int().min(0).default(1),
+    // Ahead of the rows: the model writes its reasoning first and the rows follow from it.
+    reasoning: z.string(),
     receipt_totals: z.array(receiptTotalSchema).default([]),
     ledger_entries: z.array(ledgerEntrySchema).default([]),
     order_adjustments: z.array(orderAdjustmentSchema).default([]),
-    reasoning: z.string(),
   })
   .superRefine((output, ctx) => {
     if (output.outcome !== "success") return;
@@ -133,7 +138,7 @@ export type NormalizedParseOutput = Omit<
    * as opposed to the AI declaring it. Never rendered and never persisted as
    * user-facing text.
    */
-  internal_diagnostic?: "non_positive_entry";
+  internal_diagnostic?: "non_positive_entry" | "unsupported_currency";
   receipt_totals: NormalizedReceiptTotal[];
   ledger_entries: NormalizedLedgerEntry[];
   order_adjustments: NormalizedOrderAdjustment[];
@@ -156,62 +161,102 @@ function normalizeSuccessfulExpenseAmount(amount: string): string {
   return compare(amount, "0") < 0 ? new Decimal(amount).abs().toFixed() : amount;
 }
 
+/** True for an amount that is zero once rounded to its currency's minor unit. */
+function isZeroAmount(amount: string, currency: string): boolean {
+  return compare(roundToCurrency(amount, currency), "0") === 0;
+}
+
 // ===== Normalization =====
 
 export function normalizeResult(
   output: z.infer<typeof parserOutputSchema>,
   aiLanguage?: string
 ): NormalizedParseOutput {
-  // A debit is frequently rendered with a minus sign in banking and app UIs.
-  // For a successful expense parse the sign is presentation, not an expense direction.
-  const ledgerEntries =
-    output.outcome === "success"
-      ? output.ledger_entries.map((entry) => ({
-          ...entry,
-          amount: normalizeSuccessfulExpenseAmount(entry.amount),
-        }))
-      : output.ledger_entries;
-  const receiptTotals =
-    output.outcome === "success"
-      ? output.receipt_totals.map((total) => ({
-          ...total,
-          amount: normalizeSuccessfulExpenseAmount(total.amount),
-        }))
-      : output.receipt_totals;
+  const title = normalizeTitle(output.title, fallbackTitleForOutcome(output, aiLanguage));
+  const base = {
+    title,
+    receipt_count: output.receipt_count,
+    reasoning: output.reasoning,
+  };
+  const invalid = (
+    diagnostic: NonNullable<NormalizedParseOutput["internal_diagnostic"]>,
+    reason?: string
+  ): NormalizedParseOutput => ({
+    ...base,
+    outcome: "invalid",
+    internal_diagnostic: diagnostic,
+    // An invalid result made here keeps the title the model wrote for the document.
+    ...(reason == null ? {} : { invalid_reason: reason }),
+    receipt_totals: output.receipt_totals,
+    ledger_entries: [],
+    order_adjustments: [],
+  });
 
-  // Zero cannot represent a usable expense. Negative successful entries above
-  // have already been normalized from debit-display notation.
-  const hasNonPositiveEntry = ledgerEntries.some((entry) => compare(entry.amount, "0") <= 0);
-  if (hasNonPositiveEntry) {
+  if (output.outcome === "invalid") {
+    // The model's own refusal stands as written, its reason included, whatever rows it listed.
     return {
+      ...base,
       outcome: "invalid",
-      internal_diagnostic: "non_positive_entry",
-      title: normalizeTitle(output.title, fallbackTitleForOutcome(output, aiLanguage)),
-      receipt_count: output.receipt_count,
-      receipt_totals: receiptTotals,
-      ledger_entries: [],
+      ...(output.invalid_reason != null ? { invalid_reason: output.invalid_reason } : {}),
+      receipt_totals: output.receipt_totals,
+      ledger_entries: output.ledger_entries.map(normalizeEntry),
       order_adjustments: output.order_adjustments,
-      reasoning: output.reasoning,
     };
   }
 
+  // A currency the ledger cannot convert is refused outright, never swapped for another.
+  const unsupported = [
+    ...new Set(
+      [...output.ledger_entries, ...output.order_adjustments]
+        .map((row) => row.currency)
+        .filter((currency) => !supportedCurrencies.has(currency))
+    ),
+  ];
+  if (unsupported.length > 0) {
+    return invalid(
+      "unsupported_currency",
+      getAiOutputCopy(aiLanguage).unsupportedCurrency.replace(
+        "{currencies}",
+        unsupported.join(", ")
+      )
+    );
+  }
+
+  // A debit is frequently rendered with a minus sign in banking and app UIs.
+  // For a successful expense parse the sign is presentation, not an expense direction.
+  const ledgerEntries = output.ledger_entries
+    .map((entry) => ({ ...entry, amount: normalizeSuccessfulExpenseAmount(entry.amount) }))
+    // A zero row is a free item or a line the model should have left out; it records nothing.
+    .filter((entry) => !isZeroAmount(entry.amount, entry.currency));
+  if (output.ledger_entries.length > 0 && ledgerEntries.length === 0) {
+    return invalid("non_positive_entry");
+  }
+  const receiptTotals = output.receipt_totals.map((total) => ({
+    ...total,
+    amount: normalizeSuccessfulExpenseAmount(total.amount),
+  }));
+
   return {
-    outcome: output.outcome,
+    ...base,
+    outcome: "success",
     ...(output.invalid_reason != null ? { invalid_reason: output.invalid_reason } : {}),
-    title: normalizeTitle(output.title, fallbackTitleForOutcome(output, aiLanguage)),
-    receipt_count: output.receipt_count,
     receipt_totals: receiptTotals,
-    ledger_entries: ledgerEntries.map((e) => ({
-      receipt_index: e.receipt_index,
-      item_name: e.item_name,
-      amount: e.amount,
-      currency: e.currency,
-      category_index: e.category_index,
-      notes: e.notes ?? null,
-      date_hint: e.date_hint ?? null,
-      already_recorded: e.already_recorded ?? null,
-    })),
-    order_adjustments: output.order_adjustments,
-    reasoning: output.reasoning,
+    ledger_entries: ledgerEntries.map(normalizeEntry),
+    order_adjustments: output.order_adjustments.filter(
+      (adjustment) => !isZeroAmount(adjustment.amount, adjustment.currency)
+    ),
+  };
+}
+
+function normalizeEntry(entry: ParsedOutput["ledger_entries"][number]): NormalizedLedgerEntry {
+  return {
+    receipt_index: entry.receipt_index,
+    item_name: entry.item_name,
+    amount: entry.amount,
+    currency: entry.currency,
+    category_index: entry.category_index,
+    notes: entry.notes ?? null,
+    date_hint: entry.date_hint ?? null,
+    already_recorded: entry.already_recorded ?? null,
   };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { compressImage } from "@/lib/image-utils";
+import { compressImage, NORMALIZED_IMAGE_LIMITS } from "@/lib/image-utils";
 import { MAX_FILES, MAX_ORIGINAL_BYTES_PER_FILE } from "@/lib/storage/upload-policy";
 
 export interface SourceDocumentUploadImage {
@@ -48,7 +48,6 @@ interface InlinePreparationDependencies {
  * every image again, so this is only about bytes on the wire.
  */
 const COMPRESS_ABOVE_BYTES = 2 * 1024 * 1024;
-const COMPRESS_DIMENSION = 2048;
 const COMPRESS_QUALITY = 0.85;
 const UPLOAD_CONCURRENCY = 2;
 const UPLOAD_ATTEMPTS = 3;
@@ -84,8 +83,7 @@ async function prepareFile(file: File, deps: InlinePreparationDependencies): Pro
   try {
     const compressed = await (deps.compress ?? compressImage)(
       file,
-      COMPRESS_DIMENSION,
-      COMPRESS_DIMENSION,
+      NORMALIZED_IMAGE_LIMITS,
       COMPRESS_QUALITY,
       deps.signal
     );

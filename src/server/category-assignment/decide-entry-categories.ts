@@ -1,5 +1,6 @@
 import "server-only";
 import { generateStructured } from "@/lib/ai/structured";
+import type { EvidenceImage } from "@/lib/ai/evidence-images";
 import {
   buildCategoryAssignmentDocumentMessage,
   buildCategoryAssignmentPrompt,
@@ -26,7 +27,7 @@ export async function decideEntryCategories(input: {
   candidates: readonly CategoryAssignmentCandidate[];
   group: CategoryAssignmentDocumentGroup;
   /** Encoded evidence for this document; empty for a text-only submission. */
-  images: readonly { dataUrl: string }[];
+  images: readonly EvidenceImage[];
   customPrompt?: string;
   learnedPreferences?: string;
   signal?: AbortSignal;

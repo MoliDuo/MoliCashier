@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { AppError } from "@/lib/errors";
 import type { AiContentPart } from "@/lib/ai/client";
+import { evidenceImageContent, type EvidenceImage } from "@/lib/ai/evidence-images";
 import { buildLedgerInstructionSections } from "./ledger-instructions";
 
 /**
@@ -161,12 +162,12 @@ function documentHeaderLines(group: CategoryAssignmentDocumentGroup): string[] {
  *
  * Pictures follow the text rather than being interleaved with the rows: the
  * evidence belongs to the document, and a multi-row receipt must not upload the
- * same image once per entry. `dataUrl` is passed through untouched — the
- * caller has already validated and encoded it.
+ * same image once per entry. The images are passed through untouched — the
+ * caller has already validated and encoded them, a tall screenshot as its parts.
  */
 export function buildCategoryAssignmentDocumentMessage(input: {
   group: CategoryAssignmentDocumentGroup;
-  images?: readonly { dataUrl: string }[];
+  images?: readonly EvidenceImage[];
 }): AiContentPart[] {
   const images = input.images ?? [];
   const text = [
@@ -178,11 +179,7 @@ export function buildCategoryAssignmentDocumentMessage(input: {
     ...input.group.subjects.map(subjectLine),
   ].join("\n");
 
-  const content: AiContentPart[] = [{ type: "text", text }];
-  for (const image of images) {
-    content.push({ type: "image_url", image_url: { url: image.dataUrl } });
-  }
-  return content;
+  return [{ type: "text", text }, ...evidenceImageContent(images)];
 }
 
 /**

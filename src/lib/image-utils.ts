@@ -1,18 +1,27 @@
 /**
  * Compresses an image file on the client side.
  * Uses Web Worker with OffscreenCanvas when available for non-blocking compression.
- * @param file The image file to compress
- * @param maxWidth The maximum width of the resulting image
- * @param maxHeight The maximum height of the resulting image
- * @param quality The quality of the JPEG compression (0.0 to 1.0)
- * @returns A promise that resolves to the compressed file and mime type
  */
 import { fitImageDimensions } from "./image-dimensions";
+import { encodeWithinBudget, type ImageSizeLimits } from "./image-encoding";
+import {
+  MAX_NORMALIZED_BYTES_PER_FILE,
+  NORMALIZED_IMAGE_MAX_HEIGHT,
+  NORMALIZED_IMAGE_MAX_PIXELS,
+  NORMALIZED_IMAGE_MAX_WIDTH,
+} from "./storage/upload-policy";
 
 interface CompressionResult {
   file: File;
   mimeType: string;
 }
+
+/** The size the server normalizes a stored image to; compressing to it first saves the upload. */
+export const NORMALIZED_IMAGE_LIMITS: ImageSizeLimits = {
+  maxWidth: NORMALIZED_IMAGE_MAX_WIDTH,
+  maxHeight: NORMALIZED_IMAGE_MAX_HEIGHT,
+  maxPixels: NORMALIZED_IMAGE_MAX_PIXELS,
+};
 
 class WorkerPool {
   private maxWorkers: number;
@@ -67,13 +76,17 @@ function createWorker(): Worker | null {
   }
 }
 
+/**
+ * Re-encodes an image as JPEG within `limits`, keeping its aspect ratio: a long screenshot stays
+ * long. The quality steps down from `quality` while the result is over the per-file byte budget.
+ */
 export async function compressImage(
   file: File,
-  maxWidth = 1080,
-  maxHeight = 1080,
+  limits: ImageSizeLimits = NORMALIZED_IMAGE_LIMITS,
   quality = 0.8,
   signal?: AbortSignal
 ): Promise<CompressionResult> {
+  const maxBytes = MAX_NORMALIZED_BYTES_PER_FILE;
   return workerPool.execute(async () => {
     if (signal?.aborted === true)
       throw new DOMException("Image compression was cancelled", "AbortError");
@@ -113,12 +126,12 @@ export async function compressImage(
         worker.addEventListener("message", handleMessage);
         worker.addEventListener("error", handleError);
         signal?.addEventListener("abort", handleAbort, { once: true });
-        worker.postMessage({ imageData: arrayBuffer, maxWidth, maxHeight, quality }, [arrayBuffer]);
+        worker.postMessage({ imageData: arrayBuffer, limits, quality, maxBytes }, [arrayBuffer]);
       });
     }
 
     // Fallback to synchronous compression (main thread)
-    return compressImageSync(file, maxWidth, maxHeight, quality);
+    return compressImageSync(file, limits, quality, maxBytes);
   });
 }
 
@@ -127,9 +140,9 @@ export async function compressImage(
  */
 function compressImageSync(
   file: File,
-  maxWidth: number,
-  maxHeight: number,
-  quality: number
+  limits: ImageSizeLimits,
+  quality: number,
+  maxBytes: number
 ): Promise<CompressionResult> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -137,7 +150,13 @@ function compressImageSync(
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
-        const { width, height } = fitImageDimensions(img.width, img.height, maxWidth, maxHeight);
+        const { width, height } = fitImageDimensions(
+          img.width,
+          img.height,
+          limits.maxWidth,
+          limits.maxHeight,
+          limits.maxPixels
+        );
 
         canvas.width = width;
         canvas.height = height;
@@ -150,20 +169,22 @@ function compressImageSync(
 
         ctx.drawImage(img, 0, 0, width, height);
 
-        canvas.toBlob(
-          (blob) => {
-            if (blob == null) {
-              reject(new Error("Failed to encode image"));
-              return;
-            }
+        const encode = (at: number) =>
+          new Promise<Blob>((done, fail) =>
+            canvas.toBlob(
+              (blob) => (blob == null ? fail(new Error("Failed to encode image")) : done(blob)),
+              "image/jpeg",
+              at
+            )
+          );
+        encodeWithinBudget(encode, quality, maxBytes)
+          .then((blob) =>
             resolve({
               file: new File([blob], file.name, { type: "image/jpeg" }),
               mimeType: "image/jpeg",
-            });
-          },
-          "image/jpeg",
-          quality
-        );
+            })
+          )
+          .catch(reject);
       };
       img.onerror = () => reject(new Error("Failed to load image"));
       img.src = e.target?.result as string;

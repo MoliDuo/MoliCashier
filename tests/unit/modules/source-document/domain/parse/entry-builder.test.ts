@@ -40,11 +40,35 @@ describe("entry-builder", () => {
     expect(entry).toMatchObject({
       amount: "12.35",
       currency: "USD",
-      itemName: "Uncategorized",
+      itemName: "未命名项目",
       categoryId: "cat-1",
       entryDate: "2026-03-20",
     });
     expect(entry).not.toHaveProperty("convertedAmount");
+  });
+
+  it("trims the item name and names a blank one in the ledger's language", () => {
+    const build = (itemName: string, aiLanguage?: string) =>
+      buildEntriesForInsert({
+        validEntries: [
+          {
+            amount: "5.00",
+            currency: "USD",
+            categoryIndex: 0,
+            entryDate: null,
+            itemName,
+            notes: null,
+          },
+        ],
+        categories: [],
+        sourceDocumentId: "doc-1",
+        fallbackDate: "2026-03-20",
+        ...(aiLanguage === undefined ? {} : { aiLanguage }),
+      })[0]?.itemName;
+
+    expect(build("  Latte \n")).toBe("Latte");
+    expect(build("   ", "en-US")).toBe("Unnamed item");
+    expect(build("\t", "zh-CN")).toBe("未命名项目");
   });
 
   it("category_index 0 means no category — categoryId is null", () => {

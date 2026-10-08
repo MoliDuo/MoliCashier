@@ -58,11 +58,14 @@ async function seed() {
 describe("daily upload maintenance", () => {
   it("deletes unused files and old objects nothing names", async () => {
     const { db, foreignPrefix, storage, oldReady, used } = await seed();
+    const listing = vi.spyOn(storage, "listObjectsPage");
 
     await expect(runDailyMaintenance()).resolves.toMatchObject({
       unused_files: "done",
       orphan_objects: "done",
     });
+    // Only the stored files are listed, never the whole bucket.
+    expect(listing.mock.calls.map(([prefix]) => prefix)).toEqual(["stored/"]);
 
     const kept = [oldReady, used];
     expect((await db.select().from(storedFiles)).map((row) => row.id).sort()).toEqual(
@@ -77,11 +80,21 @@ describe("daily upload maintenance", () => {
     );
   });
 
+  it("skips the steps not yet started once the process is stopping", async () => {
+    const { db, storage } = await seed();
+
+    const outcomes = await runDailyMaintenance({ signal: AbortSignal.abort() });
+
+    expect(new Set(Object.values(outcomes))).toEqual(new Set(["skipped"]));
+    expect(storage.files.has("stored/orphan")).toBe(true);
+    expect(await db.select().from(storedFiles)).toHaveLength(3);
+  });
+
   it("keeps the rest of the sweep going when a step fails", async () => {
     const { db, storage } = await seed();
     const listObjectsPage = storage.listObjectsPage.bind(storage);
     vi.spyOn(storage, "listObjectsPage").mockImplementation(async (prefix) => {
-      if (prefix === "") throw new Error("listing unavailable");
+      if (prefix === "stored/") throw new Error("listing unavailable");
       return listObjectsPage(prefix);
     });
 

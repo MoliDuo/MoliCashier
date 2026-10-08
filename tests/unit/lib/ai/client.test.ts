@@ -187,6 +187,66 @@ describe("ai client", () => {
       expect(resumedAt - limitedAt).toBeGreaterThanOrEqual(75);
     });
 
+    it("spreads the shared cooldown by a random amount past the provider's Retry-After", async () => {
+      const { OpenAI } = await import("openai");
+      const cooldownAfter = async (random: number) => {
+        vi.spyOn(Math, "random").mockReturnValue(random);
+        const client = await loadClient();
+        stubSdkCreate(
+          client,
+          new OpenAI.APIError(429, {}, "Rate limited", new Headers({ "retry-after": "120" }))
+        );
+        await client
+          .complete({ ...base, system: "system", messages: [], maxAttempts: 1 })
+          .catch(() => undefined);
+        vi.restoreAllMocks();
+        return (client as unknown as { cooldownUntil: number }).cooldownUntil - Date.now();
+      };
+
+      const least = await cooldownAfter(0);
+      const most = await cooldownAfter(1);
+
+      expect(least).toBeLessThanOrEqual(120_000);
+      expect(most).toBeGreaterThan(121_500);
+      expect(most).toBeLessThanOrEqual(122_000);
+    });
+
+    it("maps a provider that cannot be reached to ai_provider_unavailable", async () => {
+      const { OpenAI } = await import("openai");
+      const client = await loadClient();
+      stubSdkCreate(client, new OpenAI.APIConnectionError({ message: "ECONNREFUSED" }));
+
+      await expect(
+        client.complete({ ...base, system: "system", messages: [], maxAttempts: 1 })
+      ).rejects.toMatchObject({ code: "ai_provider_unavailable", statusCode: 503 });
+    });
+
+    it("still maps a connection timeout to ai_timeout", async () => {
+      const { OpenAI } = await import("openai");
+      const client = await loadClient();
+      stubSdkCreate(client, new OpenAI.APIConnectionTimeoutError());
+
+      await expect(
+        client.complete({ ...base, system: "system", messages: [], maxAttempts: 1 })
+      ).rejects.toMatchObject({ code: "ai_timeout" });
+    });
+
+    it("says when a reply with content was cut off at the output budget", async () => {
+      const client = await loadClient();
+      const create = vi.fn().mockResolvedValue({
+        choices: [{ finish_reason: "length", message: { content: '{"partial":' } }],
+      });
+      (
+        client as unknown as { client: { chat: { completions: { create: unknown } } } }
+      ).client.chat.completions.create = create;
+
+      await expect(client.complete({ ...base, system: "system", messages: [] })).resolves.toEqual({
+        content: '{"partial":',
+        finishReason: "length",
+      });
+      expect(create).toHaveBeenCalledTimes(1);
+    });
+
     it("maps exhausted 5xx retries to ai_provider_unavailable", async () => {
       const { OpenAI } = await import("openai");
       const client = await loadClient();

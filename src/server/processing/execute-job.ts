@@ -1,6 +1,6 @@
 import "server-only";
 import type { ProcessingFailureCode } from "@/modules/source-document/lifecycle";
-import type { ProcessingJobContract } from "@/server/processing/types";
+import type { ProcessingClaimContract, ProcessingJobContract } from "@/server/processing/types";
 import { logger } from "@/lib/logger";
 import { logIdentifier } from "@/lib/security/log-identifier";
 import { classifyFailure, findAppErrorCode, retryDelayMs } from "@/lib/background/retry";
@@ -34,15 +34,28 @@ function toFailureCode(error: unknown): ProcessingFailureCode {
   }
 }
 
+/**
+ * What a failed attempt stores as its message: a fixed sentence per failure code. The error's own
+ * message can carry database or object-store internals, so it goes to the log only.
+ */
+const FAILURE_MESSAGES: Record<ProcessingFailureCode, string> = {
+  ai_provider_unavailable: "The AI provider could not process the document",
+  ai_schema_invalid: "The AI reply could not be read",
+  exchange_rate_failure: "Exchange rates could not be loaded",
+  storage_failure: "The document's images could not be loaded",
+  processing_unavailable: "Processing failed",
+  request_bound_retry_exhausted: "Processing retry limit reached",
+  processing_timeout: "Processing took too long",
+};
+
 export interface ExecuteProcessingJobOptions {
   /** Aborts when the process is shutting down; the attempt is then handed back uncounted. */
   shutdown?: AbortSignal;
 }
 
 /**
- * Claims one processing attempt, keeps its lease alive while it is parsed, and
- * records the outcome. A transient failure gives the attempt back to the queue
- * until it runs out of attempts. Returns false when another execution holds it.
+ * Claims one processing attempt and runs it to an outcome. Returns false when another execution
+ * holds it. The worker claims and runs in two steps, so that it counts only what it claimed.
  */
 export async function executeProcessingJob(
   job: ProcessingJobContract,
@@ -50,6 +63,18 @@ export async function executeProcessingJob(
 ): Promise<boolean> {
   const claim = await claimProcessingJob(job.attemptId);
   if (claim == null) return false;
+  await runClaimedJob(claim, options);
+  return true;
+}
+
+/**
+ * Runs a claimed processing attempt: keeps its lease alive while it is parsed and records the
+ * outcome. A transient failure gives the attempt back to the queue until it runs out of attempts.
+ */
+export async function runClaimedJob(
+  claim: ProcessingClaimContract,
+  options: ExecuteProcessingJobOptions = {}
+): Promise<void> {
   const lease = { attemptId: claim.job.attemptId, claimToken: claim.claimToken };
   const failure = {
     sourceDocumentId: claim.job.sourceDocumentId,
@@ -61,10 +86,10 @@ export async function executeProcessingJob(
   if (claim.runNumber > BACKGROUND_MAX_ATTEMPTS) {
     await recordProcessingFailure({
       ...failure,
-      failureMessage: "Processing retry limit reached",
+      failureMessage: FAILURE_MESSAGES.request_bound_retry_exhausted,
       failureCode: "request_bound_retry_exhausted",
     });
-    return true;
+    return;
   }
 
   const held = holdLease(
@@ -92,9 +117,9 @@ export async function executeProcessingJob(
       // The release is fenced on the lease and on the attempt still processing, so an attempt that
       // was cancelled or finished in the meantime is left alone.
       await releaseProcessingJob(lease);
-      return true;
+      return;
     }
-    if (error instanceof ProcessingCancelledError || held.signal.aborted) return true;
+    if (error instanceof ProcessingCancelledError || held.signal.aborted) return;
     const classified = classifyFailure(error);
     if (classified.kind === "transient" && claim.runNumber < BACKGROUND_MAX_ATTEMPTS) {
       const delayMs = retryDelayMs(claim.runNumber, classified.retryAfterMs);
@@ -103,22 +128,23 @@ export async function executeProcessingJob(
         "Processing failed transiently; retrying later"
       );
       await rescheduleProcessingJob(lease, delayMs);
-      return true;
+      return;
     }
     if (classified.kind === "configuration") {
       logger.error(
         { attemptSubject, errorCode: classified.code },
         "Processing failed on provider configuration"
       );
+    } else {
+      logger.warn({ attemptSubject, error, errorCode: classified.code }, "Processing failed");
     }
+    const failureCode = toFailureCode(error);
     await recordProcessingFailure({
       ...failure,
-      failureMessage: error instanceof Error ? error.message : "Processing failed",
-      failureCode: toFailureCode(error),
+      failureMessage: FAILURE_MESSAGES[failureCode],
+      failureCode,
     });
   } finally {
     held.stop();
   }
-
-  return true;
 }

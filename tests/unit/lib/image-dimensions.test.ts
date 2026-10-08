@@ -16,6 +16,13 @@ describe("fitImageDimensions", () => {
     });
   });
 
+  it("also keeps within a pixel budget, so a long screenshot shrinks evenly", () => {
+    const fitted = fitImageDimensions(1440, 20_000, 1440, 16_383, 16_000_000);
+    expect(fitted.width * fitted.height).toBeLessThanOrEqual(16_000_000);
+    expect(fitted.height).toBeLessThanOrEqual(16_383);
+    expect(fitted.height / fitted.width).toBeCloseTo(20_000 / 1440, 1);
+  });
+
   it("does not upscale images", () => {
     expect(fitImageDimensions(200, 100, 1200, 400)).toEqual({
       width: 200,

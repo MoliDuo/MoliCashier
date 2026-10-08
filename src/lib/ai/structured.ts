@@ -3,7 +3,13 @@ import crypto from "node:crypto";
 import type { z } from "zod";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
-import { getAiTransport, type AiMessage, type AiTransport, type AiUsage } from "./client";
+import {
+  getAiTransport,
+  type AiCompletion,
+  type AiMessage,
+  type AiTransport,
+  type AiUsage,
+} from "./client";
 import { buildRepairPrompt, extractJson } from "./json";
 
 export interface StructuredRequest<T> {
@@ -59,6 +65,27 @@ function addUsage(total: AiUsage | undefined, next: AiUsage | undefined): AiUsag
   };
 }
 
+function throwIfTruncated(
+  completion: AiCompletion,
+  context: { correlationId: string; task: string; startedAt: number }
+): void {
+  if (completion.finishReason !== "length") return;
+  logger.warn(
+    {
+      correlationId: context.correlationId,
+      task: context.task,
+      durationMs: Date.now() - context.startedAt,
+      errorCode: "ai_output_truncated",
+      contentLength: completion.content.length,
+      ...(completion.usage == null ? {} : { usage: completion.usage }),
+    },
+    "AI reply was cut off at the output budget"
+  );
+  throw new AppError("AI response was cut off", "ai_output_truncated", 502, {
+    task: context.task,
+  });
+}
+
 /**
  * Asks the model for one JSON value and returns it validated against `schema`.
  * Every AI call that wants structured output goes through here, so they share
@@ -85,6 +112,9 @@ export async function generateStructured<T>(
     messages: rest.messages,
     ...common,
   });
+  // A reply cut off at the output budget is not broken JSON to mend: the repair round sees only the
+  // text, not the images, so it could only invent the missing rest.
+  throwIfTruncated(first, { correlationId, task, startedAt });
   let usage = first.usage;
   let attempt = validate(schema, first.content);
   let repaired = false;
@@ -101,6 +131,7 @@ export async function generateStructured<T>(
       ...common,
     });
     usage = addUsage(usage, fixed.usage);
+    throwIfTruncated(fixed, { correlationId, task, startedAt });
     attempt = validate(schema, fixed.content);
   }
 

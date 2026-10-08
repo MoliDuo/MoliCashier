@@ -4,6 +4,11 @@ import { createBackgroundWorker, type BackgroundWorker } from "@/server/backgrou
 import { createDailyScheduler, type DailyScheduler } from "@/server/background/scheduler";
 
 const RUNTIME_KEY = Symbol.for("cashier.background.runtime");
+/**
+ * How long running work gets to finish on SIGTERM. The worker then takes up to five seconds more
+ * to hand back what it aborted, which keeps the whole stop inside the container's 30-second
+ * `stop_grace_period`.
+ */
 const STOP_GRACE_MS = 20_000;
 
 interface Runtime {
@@ -35,7 +40,10 @@ export function startBackgroundRuntime(): void {
   if (process.env.NEXT_MANUAL_SIG_HANDLE !== "true") return;
   const shutDown = (signal: NodeJS.Signals) => {
     logger.info({ signal }, "Stopping background worker");
-    void Promise.all([worker.stop({ graceMs: STOP_GRACE_MS }), scheduler.stop()])
+    void Promise.all([
+      worker.stop({ graceMs: STOP_GRACE_MS }),
+      scheduler.stop({ graceMs: STOP_GRACE_MS }),
+    ])
       .catch((error: unknown) => logger.error({ error }, "Background runtime failed to stop"))
       .finally(() => process.exit(0));
   };

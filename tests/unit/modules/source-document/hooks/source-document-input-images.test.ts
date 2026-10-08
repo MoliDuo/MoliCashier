@@ -4,7 +4,8 @@ const { compressImageMock } = vi.hoisted(() => ({
   compressImageMock: vi.fn(),
 }));
 
-vi.mock("@/lib/image-utils", () => ({
+vi.mock("@/lib/image-utils", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/image-utils")>()),
   compressImage: compressImageMock,
 }));
 
@@ -29,6 +30,23 @@ describe("source-document input images", () => {
     expect(result).toMatchObject({
       kind: "ready",
       image: { data: "blob:preview", mimeType: "image/jpeg", objectUrl: true },
+    });
+  });
+
+  it("narrows images to the stored width instead of squeezing them into a square", async () => {
+    compressImageMock.mockResolvedValue({
+      file: new File([new Uint8Array([1])], "receipt.jpg", { type: "image/jpeg" }),
+      mimeType: "image/jpeg",
+    });
+
+    await loadSourceDocumentInputFiles([
+      new File([new Uint8Array([1])], "long-screenshot.png", { type: "image/png" }),
+    ]);
+
+    expect(compressImageMock.mock.calls[0]?.[1]).toEqual({
+      maxWidth: 1440,
+      maxHeight: 16_383,
+      maxPixels: 16_000_000,
     });
   });
 

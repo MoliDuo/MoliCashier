@@ -91,10 +91,15 @@ async function processDocument(
       // A document that no longer holds these entries is settled by the apply.
       const group = groups.find((candidate) => candidate.sourceDocumentId === sourceDocumentId);
       if (group != null) {
-        const loaded = await loadStoredFilesForAI([...group.storedFileIds]);
-        const images = loaded
-          .filter(isSuccessfulLoadImageResult)
-          .map((image) => ({ dataUrl: image.dataUrl }));
+        const loaded = await loadStoredFilesForAI([...group.storedFileIds], { signal });
+        const images = loaded.filter(isSuccessfulLoadImageResult).map((image) => image.image);
+        // A download abandoned because the run is stopping says nothing about the evidence.
+        if (signal.aborted) {
+          if (stoppedByShutdown(signals)) {
+            await yieldCategoryAssignmentDocument(job, sourceDocumentId);
+          }
+          return false;
+        }
         if (loaded.some((image) => !image.success)) {
           await markCategoryAssignmentEvidenceIncomplete(job, sourceDocumentId);
         }
@@ -169,8 +174,12 @@ async function processDocument(
       return false;
     }
     const failure = classifyFailure(error);
-    const errorCode = failure.code ?? "ai_provider_unavailable";
-    const retrying = failure.kind === "transient" && document.runNumber < BACKGROUND_MAX_ATTEMPTS;
+    // An error without a code of its own is not the provider's fault; it is reported as unknown.
+    const errorCode = failure.code ?? "unknown";
+    // A reply that does not fit the protocol is a matter of chance at this temperature: asked
+    // again, the model usually answers properly.
+    const retryable = failure.kind === "transient" || failure.code === "ai_schema_invalid";
+    const retrying = retryable && document.runNumber < BACKGROUND_MAX_ATTEMPTS;
     const recorded = retrying
       ? await rescheduleCategoryAssignmentDocument({
           lease: job,
@@ -221,8 +230,15 @@ async function runJob(job: ClaimedCategoryAssignmentJob, shutdown: AbortSignal):
     }
   } finally {
     lease.stop();
+    // Handed back however the run ended, a database error included, so the next run need not
+    // wait out the lease. The release is fenced on the lease, so a lost one is left alone.
+    await releaseCategoryAssignmentJob(job).catch((error: unknown) => {
+      logger.warn(
+        { error, jobSubject: logIdentifier("processing-job", job.jobId) },
+        "Category assignment job could not be handed back; its lease will expire"
+      );
+    });
   }
-  await releaseCategoryAssignmentJob(job);
 }
 
 /**

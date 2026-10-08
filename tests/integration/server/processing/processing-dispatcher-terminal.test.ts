@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { getTestDb } from "tests/setup";
 import { createTestLedger, testBookId } from "tests/helpers/schema-setup";
-import { LEASE_HEARTBEAT_MS } from "@/config/tuning";
+import { LEASE_DURATION_MS, LEASE_HEARTBEAT_MS } from "@/config/tuning";
 import { setAiTransportForTests } from "@/lib/ai/client";
 import { fakeAiTransport } from "tests/helpers/fake-ai";
 import { executeProcessingJob } from "@/server/processing/execute-job";
@@ -77,9 +77,15 @@ describe("executeProcessingJob — standalone function with real adapter/process
     });
     const execution = executeProcessingJob(job);
     await generationStarted;
+    // A lost lease stops the work at once; a renewal that keeps failing is retried on each
+    // heartbeat and stops it only before the lease, as last renewed, runs out.
     await vi.advanceTimersByTimeAsync(LEASE_HEARTBEAT_MS);
+    if (mode === "throw") {
+      expect(processingSignal?.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(LEASE_DURATION_MS - LEASE_HEARTBEAT_MS);
+    }
 
-    expect(renew).toHaveBeenCalledTimes(1);
+    expect(renew).toHaveBeenCalledTimes(mode === "null" ? 1 : 2);
     expect(processingSignal?.aborted).toBe(true);
 
     releaseGeneration({

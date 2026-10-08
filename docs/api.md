@@ -42,7 +42,7 @@ Idempotency-Key: <optional-retry-key>
 
 - `images` 必须包含 1–3 张 JPEG、PNG、GIF 或 WebP 图片。
 - 每张解码后最多 20 MiB，整个请求中图片解码后合计最多 24 MiB。服务端会把图片统一缩放、转码并剥离 EXIF；
-  一次提交处理后的图片合计仍不能超过 3 MiB。
+  一次提交处理后的图片合计仍不能超过 6 MiB。
 - `entryDate` 可省略；接受 `YYYY-MM-DD`，带时区的 ISO 时间会转换为日期。
 - 不接受纯文字输入；网页端的文字记账不是 API v1 契约的一部分。
 - `Idempotency-Key` 可省略。提供时必须为 1–512 个字符且不能全为空白；重试必须使用

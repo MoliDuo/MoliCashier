@@ -197,7 +197,28 @@ async function storeDays(days: readonly DayRates[], fetchedAt: Date): Promise<vo
   }
 }
 
-async function fetchAndStoreDays(
+/** Fetches in flight in this process, by the days they cover. */
+const fetchesInFlight = new Map<string, Promise<void>>();
+
+/**
+ * Fetches and stores the given days, sharing one request with any identical one already in flight:
+ * attempts parsed side by side tend to ask for the same day at the same moment.
+ */
+function fetchAndStoreDays(
+  wantedDays: readonly string[],
+  load: (url: string) => Promise<Response>
+): Promise<void> {
+  const key = [...new Set(wantedDays)].sort().join(",");
+  const inFlight = fetchesInFlight.get(key);
+  if (inFlight != null) return inFlight;
+  const fetching = fetchAndStoreDaysOnce(wantedDays, load).finally(() => {
+    fetchesInFlight.delete(key);
+  });
+  fetchesInFlight.set(key, fetching);
+  return fetching;
+}
+
+async function fetchAndStoreDaysOnce(
   wantedDays: readonly string[],
   load: (url: string) => Promise<Response>
 ): Promise<void> {

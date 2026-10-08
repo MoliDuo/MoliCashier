@@ -8,13 +8,20 @@ describe("daily scheduler lock", () => {
       await release.promise;
       return {} as never;
     });
+    const secondFinished = Promise.withResolvers<string>();
     const first = createDailyScheduler({ bootDelayMs: 0, sweep });
-    const second = createDailyScheduler({ bootDelayMs: 0, sweep });
+    const second = createDailyScheduler({
+      bootDelayMs: 0,
+      sweep,
+      onSweepFinished: (outcome) => secondFinished.resolve(outcome),
+    });
 
     first.start();
-    second.start();
     await vi.waitFor(() => expect(sweep).toHaveBeenCalledTimes(1));
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    second.start();
+
+    // The second process finds the lock held and gives up without sweeping.
+    await expect(secondFinished.promise).resolves.toBe("skipped");
     expect(sweep).toHaveBeenCalledTimes(1);
 
     release.resolve();

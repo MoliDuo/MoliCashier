@@ -83,7 +83,11 @@ function resolveOutcome(
 
 // ===== Pipeline =====
 
-async function executeParsePipeline(
+/**
+ * Parses one document under the caller's signal, without a deadline of its own; the caller runs it
+ * inside `withParseDeadline`, together with whatever it loads for the parse.
+ */
+export async function executeParsePipeline(
   input: ParseSourceDocumentInput,
   ctx: StageContext
 ): Promise<ParsePipelineResult> {
@@ -107,13 +111,17 @@ async function executeParsePipeline(
   }
 }
 
-export async function runParsePipeline(
-  input: ParseSourceDocumentInput,
-  ctx: StageContext
-): Promise<ParsePipelineResult> {
+/**
+ * Runs `work` under the whole-parse deadline: past `AI_ATTEMPT_DEADLINE_MS` the signal handed to
+ * it aborts and the call fails as `processing_timeout`, whatever the work was waiting on.
+ */
+export async function withParseDeadline<T>(
+  signal: AbortSignal,
+  work: (signal: AbortSignal) => Promise<T>
+): Promise<T> {
   let timeout: NodeJS.Timeout | undefined;
   const deadlineController = new AbortController();
-  const deadlineSignal = AbortSignal.any([ctx.signal, deadlineController.signal]);
+  const deadlineSignal = AbortSignal.any([signal, deadlineController.signal]);
   const deadline = new Promise<never>((_, reject) => {
     timeout = setTimeout(() => {
       deadlineController.abort();
@@ -128,11 +136,15 @@ export async function runParsePipeline(
   });
 
   try {
-    return await Promise.race([
-      executeParsePipeline(input, { ...ctx, signal: deadlineSignal }),
-      deadline,
-    ]);
+    return await Promise.race([work(deadlineSignal), deadline]);
   } finally {
     if (timeout != null) clearTimeout(timeout);
   }
+}
+
+export function runParsePipeline(
+  input: ParseSourceDocumentInput,
+  ctx: StageContext
+): Promise<ParsePipelineResult> {
+  return withParseDeadline(ctx.signal, (signal) => executeParsePipeline(input, { ...ctx, signal }));
 }

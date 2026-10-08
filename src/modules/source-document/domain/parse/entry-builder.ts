@@ -1,6 +1,7 @@
 import { compare } from "@/lib/money/decimal";
 import { roundToCurrency } from "@/lib/money/currency-precision";
 import type { CategoryInfo, ParsedLedgerEntry } from "@/lib/ai/types";
+import { getAiOutputCopy } from "@/config/ai-output-locales";
 
 export interface EntryToInsert {
   id: string;
@@ -20,6 +21,8 @@ export interface BuildEntriesParams {
   categories: CategoryInfo[];
   sourceDocumentId: string;
   fallbackDate: string;
+  /** The ledger's AI output language, for the name an unnamed entry gets. */
+  aiLanguage?: string;
 }
 
 /**
@@ -31,7 +34,9 @@ export function buildEntriesForInsert({
   categories,
   sourceDocumentId,
   fallbackDate,
+  aiLanguage,
 }: BuildEntriesParams): EntryToInsert[] {
+  const unnamed = getAiOutputCopy(aiLanguage ?? "zh-CN").unnamedItem;
   return validEntries.map((entry) => {
     // categoryIndex is 1-based: 0 = no category, 1 = categories[0], 2 = categories[1], ...
     const categoryId =
@@ -47,7 +52,7 @@ export function buildEntriesForInsert({
       sourceDocumentId,
       amount: roundToCurrency(String(entry.amount), entryCurrency),
       currency: entryCurrency,
-      itemName: entry.itemName !== "" ? entry.itemName : "Uncategorized",
+      itemName: entry.itemName.trim() !== "" ? entry.itemName.trim() : unnamed,
       description: entry.notes ?? null,
       entryDate: fallbackDate,
       ...(entry.dateHint == null ? {} : { dateHint: entry.dateHint }),

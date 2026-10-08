@@ -12,7 +12,7 @@ export interface ListObjectsPage {
 
 export interface ObjectStore {
   upload(key: string, data: Buffer, contentType: string): Promise<unknown>;
-  download(key: string): Promise<Buffer>;
+  download(key: string, options?: { signal?: AbortSignal }): Promise<Buffer>;
   stream(key: string): Promise<ReadableStream<Uint8Array>>;
   delete(key: string): Promise<{ success: boolean; key?: string; error?: Error }>;
   listObjectsPage(

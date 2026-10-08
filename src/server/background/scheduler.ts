@@ -9,15 +9,22 @@ const DAILY_MAINTENANCE_LOCK_KEY = 1_947_001;
 
 export interface DailyScheduler {
   start(): void;
-  /** Stops scheduling and waits for a sweep that is already running. */
-  stop(): Promise<void>;
+  /**
+   * Stops scheduling, tells a sweep that is running to stop after its current step, and waits for
+   * it up to `graceMs`. The sweep is idempotent, so one cut short is simply run again after boot.
+   */
+  stop(options?: { graceMs?: number }): Promise<void>;
 }
 
 export interface DailySchedulerOptions {
   bootDelayMs?: number;
   hourUtc?: number;
   sweep?: (options?: DailyMaintenanceOptions) => ReturnType<typeof runDailyMaintenance>;
+  /** Called after each scheduled sweep: whether it ran, another process held it, or it threw. */
+  onSweepFinished?: (outcome: "ran" | "skipped" | "failed") => void;
 }
+
+const DEFAULT_STOP_GRACE_MS = 20_000;
 
 /** The next moment after `now` at which the clock in UTC reads `hourUtc`:00. */
 export function nextDailyRun(now: Date, hourUtc: number): Date {
@@ -40,20 +47,28 @@ export function createDailyScheduler(options: DailySchedulerOptions = {}): Daily
   let timer: ReturnType<typeof setTimeout> | undefined;
   let stopped = false;
   let running: Promise<void> = Promise.resolve();
+  const stopping = new AbortController();
 
   async function runSweep(): Promise<void> {
+    let outcome: "ran" | "skipped" | "failed" = "ran";
     try {
-      const result = await withAdvisoryLock(DAILY_MAINTENANCE_LOCK_KEY, () => sweep());
+      const result = await withAdvisoryLock(DAILY_MAINTENANCE_LOCK_KEY, () =>
+        sweep({ signal: stopping.signal })
+      );
       if (!result.ran) {
+        outcome = "skipped";
         logger.info("Daily maintenance is running in another process; skipping");
         return;
       }
       const failed = Object.entries(result.value)
-        .filter(([, outcome]) => outcome === "failed")
+        .filter(([, stepOutcome]) => stepOutcome === "failed")
         .map(([step]) => step);
       logger.info({ failedSteps: failed }, "Daily maintenance finished");
     } catch (error) {
+      outcome = "failed";
       logger.error({ error }, "Daily maintenance failed");
+    } finally {
+      options.onSweepFinished?.(outcome);
     }
   }
 
@@ -76,10 +91,20 @@ export function createDailyScheduler(options: DailySchedulerOptions = {}): Daily
         running = runSweep().finally(scheduleNextDay);
       });
     },
-    async stop() {
+    async stop({ graceMs = DEFAULT_STOP_GRACE_MS } = {}) {
       stopped = true;
       clearTimeout(timer);
-      await running;
+      stopping.abort();
+      let grace: ReturnType<typeof setTimeout> | undefined;
+      const timedOut = await Promise.race([
+        running.then(() => false),
+        new Promise<boolean>((resolve) => {
+          grace = setTimeout(() => resolve(true), graceMs);
+          grace.unref();
+        }),
+      ]);
+      clearTimeout(grace);
+      if (timedOut) logger.warn({ graceMs }, "Daily maintenance did not stop in time; leaving it");
     },
   };
 }

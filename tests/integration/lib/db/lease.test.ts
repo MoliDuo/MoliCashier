@@ -93,18 +93,60 @@ describe("holding a lease", () => {
     throw new Error("database unavailable");
   };
 
-  it.each([
-    ["lost", lost],
-    ["renewal_failed", failing],
-  ] as const)("aborts the work once the lease is %s", async (reason, renew) => {
+  it("aborts the work as soon as a renewal finds the lease gone", async () => {
     vi.useFakeTimers();
     const onLost = vi.fn();
-    const lease = holdLease(renew, onLost);
+    const lease = holdLease(lost, onLost);
 
     await vi.advanceTimersByTimeAsync(LEASE_HEARTBEAT_MS);
 
     expect(lease.signal.aborted).toBe(true);
-    expect(onLost).toHaveBeenCalledWith(reason, ...(reason === "lost" ? [] : [expect.any(Error)]));
+    expect(onLost).toHaveBeenCalledWith("lost");
+    lease.stop();
+  });
+
+  it("keeps trying a renewal that fails while the lease still has time left", async () => {
+    vi.useFakeTimers();
+    const onLost = vi.fn();
+    const renew = vi
+      .fn<() => Promise<boolean>>()
+      .mockRejectedValueOnce(new Error("database unavailable"))
+      .mockResolvedValue(true);
+    const lease = holdLease(renew, onLost);
+
+    await vi.advanceTimersByTimeAsync(LEASE_HEARTBEAT_MS * 2);
+    expect(renew).toHaveBeenCalledTimes(2);
+    // Renewed on the second beat, so the lease runs well past its first expiry.
+    await vi.advanceTimersByTimeAsync(LEASE_DURATION_MS);
+
+    expect(lease.signal.aborted).toBe(false);
+    expect(onLost).not.toHaveBeenCalled();
+    lease.stop();
+  });
+
+  it("aborts the work before the lease runs out when every renewal fails", async () => {
+    vi.useFakeTimers();
+    const onLost = vi.fn();
+    const lease = holdLease(failing, onLost);
+
+    await vi.advanceTimersByTimeAsync(LEASE_HEARTBEAT_MS * 2);
+    expect(lease.signal.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(LEASE_DURATION_MS - LEASE_HEARTBEAT_MS * 2 - 1);
+
+    expect(lease.signal.aborted).toBe(true);
+    expect(onLost).toHaveBeenCalledWith("renewal_failed", expect.any(Error));
+    lease.stop();
+  });
+
+  it("aborts the work when a renewal hangs past the lease", async () => {
+    vi.useFakeTimers();
+    const onLost = vi.fn();
+    const lease = holdLease(() => new Promise<boolean>(() => undefined), onLost);
+
+    await vi.advanceTimersByTimeAsync(LEASE_DURATION_MS);
+
+    expect(lease.signal.aborted).toBe(true);
+    expect(onLost).toHaveBeenCalledWith("renewal_failed", undefined);
     lease.stop();
   });
 });

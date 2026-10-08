@@ -15,7 +15,7 @@ export const API_V1_MAX_DECODED_IMAGE_BYTES = 20 * 1024 * 1024; // 20 MiB
 
 /**
  * Maximum total decoded bytes across all images in one API v1 request. What is stored is the
- * normalized form, which a submission still limits to 3 MiB in total.
+ * normalized form, which a submission still limits to 6 MiB in total.
  */
 export const API_V1_MAX_DECODED_BATCH_BYTES = 24 * 1024 * 1024; // 24 MiB
 

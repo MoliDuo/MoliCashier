@@ -103,6 +103,19 @@ describe("generateStructured", () => {
     expect(transport.complete).toHaveBeenCalledTimes(2);
   });
 
+  it("refuses a reply cut off at the output budget without a repair call", async () => {
+    const transport = fakeAiTransport(() => ({
+      content: '{"name":"a","cou',
+      finishReason: "length",
+    }));
+
+    await expect(generateStructured(base, transport)).rejects.toMatchObject({
+      code: "ai_output_truncated",
+      details: { task: "test-task" },
+    });
+    expect(transport.complete).toHaveBeenCalledTimes(1);
+  });
+
   it("lets transport errors through unchanged, without a repair call", async () => {
     const failure = new AppError("rate limited", "ai_rate_limited", 503);
     const transport = fakeAiTransport(() => {

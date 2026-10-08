@@ -7,7 +7,8 @@ import {
   processImage,
   isSupportedImageFormat,
   getImageDimensions,
-  validateStoredImageBytes,
+  planImageParts,
+  prepareStoredImageForAI,
 } from "@/lib/storage/image-processing";
 import sharp from "sharp";
 
@@ -57,25 +58,44 @@ describe("image-processing", () => {
       expect(result.mimeType).toBe("image/png"); // PNGs stay as PNG
     });
 
-    it("should resize image exceeding max dimension", async () => {
-      const { buffer, mimeType } = await createTestImage(3000, 3000, "jpeg");
+    it("narrows a wide photo to the normalized width", async () => {
+      const { buffer, mimeType } = await createTestImage(3000, 2000, "jpeg");
 
-      const result = await processImage(buffer, mimeType, {
-        maxDimension: 1024,
+      const result = await processImage(buffer, mimeType);
+
+      await expect(getImageDimensions(result.buffer)).resolves.toEqual({
+        width: 1440,
+        height: 960,
       });
+    });
 
-      // Check dimensions
+    it("keeps a long screenshot long instead of fitting it in a square", async () => {
+      const { buffer, mimeType } = await createTestImage(1080, 9000, "jpeg");
+
+      const result = await processImage(buffer, mimeType);
+
+      await expect(getImageDimensions(result.buffer)).resolves.toEqual({
+        width: 1080,
+        height: 9000,
+      });
+    });
+
+    it("keeps a very long screenshot within WebP's height and the pixel budget", async () => {
+      const { buffer, mimeType } = await createTestImage(1440, 20000, "jpeg");
+
+      const result = await processImage(buffer, mimeType);
+
       const dimensions = await getImageDimensions(result.buffer);
-      expect(dimensions?.width).toBeLessThanOrEqual(1024);
-      expect(dimensions?.height).toBeLessThanOrEqual(1024);
+      expect(dimensions!.height).toBeLessThanOrEqual(16_383);
+      expect(dimensions!.width * dimensions!.height).toBeLessThanOrEqual(16_000_000);
+      // The aspect ratio survives the shrink.
+      expect(dimensions!.height / dimensions!.width).toBeCloseTo(20000 / 1440, 1);
     });
 
     it("should not enlarge small images", async () => {
       const { buffer, mimeType } = await createTestImage(100, 100, "jpeg");
 
-      const result = await processImage(buffer, mimeType, {
-        maxDimension: 1024,
-      });
+      const result = await processImage(buffer, mimeType);
 
       const dimensions = await getImageDimensions(result.buffer);
       expect(dimensions?.width).toBe(100);
@@ -158,20 +178,73 @@ describe("image-processing", () => {
     });
   });
 
-  describe("validateStoredImageBytes", () => {
-    it("fully decodes supported bytes with matching MIME", async () => {
+  describe("planImageParts", () => {
+    it("leaves an image no taller than twice its width whole", () => {
+      expect(planImageParts(1000, 2000)).toBeNull();
+      expect(planImageParts(2000, 1000)).toBeNull();
+    });
+
+    it("cuts a tall image into overlapping parts no taller than twice its width", () => {
+      const plan = planImageParts(1440, 11_000)!;
+
+      expect(plan.partHeight).toBe(2880);
+      expect(plan.tops[0]).toBe(0);
+      expect(plan.tops.at(-1)! + plan.partHeight).toBe(11_000);
+      expect(plan.overlapPx).toBeGreaterThanOrEqual(288);
+      for (let index = 1; index < plan.tops.length; index += 1) {
+        expect(plan.tops[index - 1]! + plan.partHeight - plan.tops[index]!).toBeGreaterThanOrEqual(
+          plan.overlapPx
+        );
+      }
+    });
+
+    it("cuts a very long, narrow image into at most eight taller parts", () => {
+      const plan = planImageParts(300, 16_000)!;
+
+      expect(plan.tops).toHaveLength(8);
+      expect(plan.tops.at(-1)! + plan.partHeight).toBe(16_000);
+      expect(plan.overlapPx).toBeGreaterThan(0);
+    });
+  });
+
+  describe("prepareStoredImageForAI", () => {
+    it("passes an ordinary image on as stored", async () => {
       const { buffer } = await createTestImage(20, 20, "png");
-      await expect(validateStoredImageBytes(buffer, "image/png")).resolves.toBeUndefined();
+
+      await expect(prepareStoredImageForAI(buffer, "image/png")).resolves.toEqual({
+        contentType: "image/png",
+        parts: [buffer],
+        overlapPx: 0,
+      });
+    });
+
+    it("cuts a tall screenshot into parts of the same width that cover it top to bottom", async () => {
+      const { buffer } = await createTestImage(400, 2000, "webp");
+
+      const prepared = await prepareStoredImageForAI(buffer, "image/webp");
+
+      expect(prepared.contentType).toBe("image/webp");
+      expect(prepared.parts.length).toBe(Math.ceil((2000 - 80) / (800 - 80)));
+      expect(prepared.overlapPx).toBeGreaterThanOrEqual(80);
+      for (const part of prepared.parts) {
+        await expect(getImageDimensions(part)).resolves.toEqual({ width: 400, height: 800 });
+      }
     });
 
     it("rejects malformed bytes and declared MIME mismatches", async () => {
       await expect(
-        validateStoredImageBytes(Buffer.from("not-an-image"), "image/jpeg")
+        prepareStoredImageForAI(Buffer.from("not-an-image"), "image/jpeg")
       ).rejects.toThrow(Error);
       const { buffer } = await createTestImage(20, 20, "png");
-      await expect(validateStoredImageBytes(buffer, "image/jpeg")).rejects.toThrow(
-        "does not match"
-      );
+      await expect(prepareStoredImageForAI(buffer, "image/jpeg")).rejects.toThrow("does not match");
+    });
+
+    it("rejects a file whose header is fine but whose image data is cut short", async () => {
+      const { buffer } = await createTestImage(400, 400, "png");
+
+      await expect(
+        prepareStoredImageForAI(buffer.subarray(0, buffer.length / 2), "image/png")
+      ).rejects.toThrow(Error);
     });
   });
 
