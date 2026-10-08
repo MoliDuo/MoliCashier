@@ -13,6 +13,8 @@ import pg from "pg";
 
 const migrationsFolder = fileURLToPath(new URL("./postgres-migrations", import.meta.url));
 const MIGRATION_LOCK = 112835438754;
+/** How long a migration statement waits for a table lock before it fails. */
+const MIGRATION_LOCK_TIMEOUT = "10s";
 
 interface MigrationJournal {
   entries: Array<{ tag: string; when: number }>;
@@ -60,17 +62,43 @@ export async function migrateDatabase(connectionString: string): Promise<void> {
   const client = new pg.Client({ connectionString });
   await client.connect();
   try {
-    await client.query("select pg_advisory_lock($1)", [MIGRATION_LOCK]);
-    try {
+    await withMigrationLock(client, async () => {
       const schema = (await client.query<{ name: string }>("SELECT current_schema() AS name"))
         .rows[0]?.name;
       const migrationsSchema = schema === "public" ? "drizzle" : `${schema}_migrations`;
       await assertBaselineReached(client, migrationsSchema);
       await migrate(drizzle(client), { migrationsFolder, migrationsSchema });
-    } finally {
-      await client.query("select pg_advisory_unlock($1)", [MIGRATION_LOCK]);
-    }
+    });
   } finally {
     await client.end();
   }
+}
+
+/**
+ * Runs `run` while holding the migration advisory lock on `client`'s session,
+ * so concurrent deploys apply each migration once.
+ *
+ * Once the lock is held, statements wait at most `lock_timeout` for a table
+ * lock, so a migration stuck behind a long transaction fails and rolls back
+ * instead of queueing every later query on that table behind it. Waiting for
+ * the advisory lock itself stays unbounded: that is another deploy migrating.
+ *
+ * A failed unlock never replaces the error that ended the run; closing the
+ * session releases the lock anyway.
+ */
+export async function withMigrationLock<T>(
+  client: pg.ClientBase,
+  run: () => Promise<T>
+): Promise<T> {
+  await client.query("select pg_advisory_lock($1)", [MIGRATION_LOCK]);
+  let result: T;
+  try {
+    await client.query(`SET lock_timeout = '${MIGRATION_LOCK_TIMEOUT}'`);
+    result = await run();
+  } catch (error) {
+    await client.query("select pg_advisory_unlock($1)", [MIGRATION_LOCK]).catch(() => undefined);
+    throw error;
+  }
+  await client.query("select pg_advisory_unlock($1)", [MIGRATION_LOCK]);
+  return result;
 }
