@@ -28,6 +28,9 @@ import { decideEntryCategories } from "@/server/category-assignment/decide-entry
 const REQUEST_CHUNK_SIZE = 50;
 
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  // An abort that came while the next document was being looked up has already fired, and an
+  // "abort" listener added now would never run: the wait would last the whole retry delay.
+  if (signal.aborted) return Promise.resolve();
   return new Promise((resolve) => {
     const timer = setTimeout(done, ms);
     function done() {
