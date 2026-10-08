@@ -99,7 +99,7 @@ export function useSourceDocumentDetail({
   const detailKey = queryKeys.sourceDocument(id);
   const query = useQuery({
     queryKey: detailKey,
-    queryFn: () => fetchSourceDocumentDetail(id),
+    queryFn: ({ signal }) => fetchSourceDocumentDetail(id, { signal }),
     enabled: open && id !== "",
     staleTime: QUERY.SOURCE_DOC_STALE_TIME_MS,
     retry: false,
@@ -116,7 +116,7 @@ export function useSourceDocumentDetail({
   const recordBookIsLive = recordBookId != null && books.some((book) => book.id === recordBookId);
   const { data: archivedRecordBook } = useQuery({
     queryKey: queryKeys.book(recordBookId ?? ""),
-    queryFn: () => fetchBook(recordBookId!),
+    queryFn: ({ signal }) => fetchBook(recordBookId!, { signal }),
     enabled: open && recordBookId != null && !recordBookIsLive,
     staleTime: LEDGER.STALE_TIME_MS,
   });
@@ -146,7 +146,9 @@ export function useSourceDocumentDetail({
     });
   };
 
+  // The sheet reports these failures itself, next to the field or row they were about.
   const documentMutation = useLedgerMutation<unknown, DocumentPatch>({
+    errorMessage: null,
     mutationFn: (data) => batchUpdateSourceDocumentsAction({ sourceDocumentIds: [id], data }),
     waitFor: detailKey,
   });
@@ -154,6 +156,7 @@ export function useSourceDocumentDetail({
     unknown,
     { entryId: string; patch: Partial<EntryEditData> }
   >({
+    errorMessage: null,
     mutationFn: ({ entryId, patch }) => batchUpdateLedgerEntriesAction([id], [entryId], patch),
     waitFor: detailKey,
   });
@@ -161,6 +164,7 @@ export function useSourceDocumentDetail({
     SplitSourceDocumentResultDto,
     Omit<SplitSourceDocumentInput, "sourceDocumentId">
   >({
+    errorMessage: null,
     waitFor: false,
     mutationFn: (input) => splitSourceDocumentAction({ sourceDocumentId: id, ...input }),
     onSuccess: (result) => commitDetailSnapshot(result.sourceDocument),
@@ -169,16 +173,19 @@ export function useSourceDocumentDetail({
     ApplyDateOrganizationResultDto,
     Omit<ApplyDateOrganizationInput, "sourceDocumentId">
   >({
+    errorMessage: null,
     mutationFn: (input) => applyDateOrganizationAction({ sourceDocumentId: id, ...input }),
     waitFor: detailKey,
     onSuccess: (result) => commitDetailSnapshot(result.sourceDocument),
   });
   const dismissDateOrganizationMutation = useLedgerMutation<{ dismissed: true }, string>({
+    errorMessage: null,
     mutationFn: (suggestionId) =>
       dismissDateOrganizationAction({ sourceDocumentId: id, suggestionId }),
     waitFor: detailKey,
   });
   const applyDuplicateMutation = useLedgerMutation<ApplyDuplicateSuggestionResultDto, string>({
+    errorMessage: null,
     mutationFn: (suggestionId) =>
       applyDuplicateSuggestionAction({ sourceDocumentId: id, suggestionId }),
     waitFor: detailKey,
@@ -189,15 +196,18 @@ export function useSourceDocumentDetail({
     },
   });
   const dismissDuplicateMutation = useLedgerMutation<{ dismissed: true }, string>({
+    errorMessage: null,
     mutationFn: (suggestionId) =>
       dismissDuplicateSuggestionAction({ sourceDocumentId: id, suggestionId }),
     waitFor: detailKey,
   });
   const addEntryMutation = useLedgerMutation<{ ledgerEntryId: string }, AddEntryData>({
+    errorMessage: null,
     mutationFn: (data) => createLedgerEntryAction({ sourceDocumentId: id, ...data }),
     waitFor: detailKey,
   });
   const deleteEntryMutation = useLedgerMutation<{ ledgerEntryId: string; deleted: true }, string>({
+    errorMessage: null,
     mutationFn: (entryId) => deleteLedgerEntryAction(id, entryId),
     waitFor: detailKey,
   });
@@ -205,10 +215,12 @@ export function useSourceDocumentDetail({
     { ledgerEntryIds: string[]; affectedCount: number },
     { ids: string[]; patch: BatchPatch }
   >({
+    errorMessage: null,
     mutationFn: ({ ids, patch }) => batchUpdateLedgerEntriesAction([id], ids, patch),
     waitFor: detailKey,
   });
   const batchDeleteMutation = useLedgerMutation<PartialBatchCommandResult, string[]>({
+    errorMessage: null,
     mutationFn: (entryIds) => batchDeleteLedgerEntriesAction([id], entryIds),
     waitFor: detailKey,
   });

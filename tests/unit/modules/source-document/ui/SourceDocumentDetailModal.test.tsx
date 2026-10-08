@@ -342,7 +342,9 @@ describe("SourceDocumentDetailModal", () => {
     newClient(null);
     render(modal());
     await waitFor(() => expect(screen.getByText("editable")).toBeInTheDocument());
-    expect(fetchDetailMock).toHaveBeenCalledExactlyOnceWith("doc-1");
+    expect(fetchDetailMock).toHaveBeenCalledExactlyOnceWith("doc-1", {
+      signal: expect.any(AbortSignal),
+    });
   });
 
   it("writes a new title at once and shows it until the record reads back", async () => {

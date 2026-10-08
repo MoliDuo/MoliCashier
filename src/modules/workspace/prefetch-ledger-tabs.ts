@@ -37,12 +37,13 @@ export async function prefetchDetailsTabQuery(
   await Promise.all([
     queryClient.prefetchQuery({
       queryKey: descriptor.summaryQueryKey,
-      queryFn: () => fetchLedgerSummary(descriptor.summaryInput),
+      queryFn: ({ signal }) => fetchLedgerSummary(descriptor.summaryInput, { signal }),
       staleTime: QUERY.DEFAULT_STALE_TIME_MS,
     }),
     queryClient.prefetchInfiniteQuery({
       queryKey: descriptor.entriesQueryKey,
-      queryFn: ({ pageParam }) => fetchLedgerEntries(descriptor.getEntriesInput(pageParam)),
+      queryFn: ({ pageParam, signal }) =>
+        fetchLedgerEntries(descriptor.getEntriesInput(pageParam), { signal }),
       initialPageParam: undefined as string | undefined,
       getNextPageParam: (lastPage: LedgerEntryPageDto) => lastPage.nextCursor,
       staleTime: QUERY.DEFAULT_STALE_TIME_MS,
@@ -63,7 +64,7 @@ export async function prefetchStatsTabQuery(
 
   await queryClient.prefetchQuery({
     queryKey: descriptor.queryKey,
-    queryFn: () => fetchEnhancedStats(descriptor.input),
+    queryFn: ({ signal }) => fetchEnhancedStats(descriptor.input, { signal }),
     staleTime: QUERY.DEFAULT_STALE_TIME_MS,
   });
 }

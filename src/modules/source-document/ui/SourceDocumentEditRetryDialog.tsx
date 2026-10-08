@@ -61,8 +61,8 @@ function EditRetryDialogContent({
     refetch,
   } = useQuery({
     queryKey: queryKeys.sourceDocumentInput(sourceDocument.id),
-    queryFn: async () => {
-      const result = await fetchSourceDocumentInput(sourceDocument.id);
+    queryFn: async ({ signal }) => {
+      const result = await fetchSourceDocumentInput(sourceDocument.id, { signal });
       if (result == null) return null;
       return result;
     },

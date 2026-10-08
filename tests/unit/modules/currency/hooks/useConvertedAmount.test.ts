@@ -39,12 +39,15 @@ describe("useConvertedAmount", () => {
     });
 
     expect(mockFetchConvertedAmount).toHaveBeenCalledTimes(1);
-    expect(mockFetchConvertedAmount).toHaveBeenCalledWith({
-      amount: "100",
-      from: "CNY",
-      to: "USD",
-      date: "2026-02-04",
-    });
+    expect(mockFetchConvertedAmount).toHaveBeenCalledWith(
+      {
+        amount: "100",
+        from: "CNY",
+        to: "USD",
+        date: "2026-02-04",
+      },
+      { signal: expect.any(AbortSignal) }
+    );
     expect(result.current).toEqual({ status: "success", converted: "42" });
   });
 
@@ -97,12 +100,15 @@ describe("useConvertedAmount", () => {
         wrapper: createWrapper(queryClient),
       });
       await vi.advanceTimersByTimeAsync(1);
-      expect(mockFetchConvertedAmount).toHaveBeenCalledWith({
-        amount: "100",
-        from: "CNY",
-        to: "USD",
-        date: "2026-02-04",
-      });
+      expect(mockFetchConvertedAmount).toHaveBeenCalledWith(
+        {
+          amount: "100",
+          from: "CNY",
+          to: "USD",
+          date: "2026-02-04",
+        },
+        { signal: expect.any(AbortSignal) }
+      );
       expect(queryClient.getQueryCache().getAll()[0]?.queryKey).toEqual([
         "ledger",
         "convert",
@@ -126,12 +132,15 @@ describe("useConvertedAmount", () => {
     });
 
     await waitFor(() => expect(mockFetchConvertedAmount).toHaveBeenCalled());
-    expect(mockFetchConvertedAmount).toHaveBeenCalledWith({
-      amount: "100",
-      from: "CNY",
-      to: "USD",
-      date: expected,
-    });
+    expect(mockFetchConvertedAmount).toHaveBeenCalledWith(
+      {
+        amount: "100",
+        from: "CNY",
+        to: "USD",
+        date: expected,
+      },
+      { signal: expect.any(AbortSignal) }
+    );
   });
 
   it.each(["bad", "12oops", "Infinity"])("rejects invalid action result %s", async (converted) => {
@@ -155,12 +164,15 @@ describe("useConvertedAmount", () => {
     );
 
     await waitFor(() => expect(result.current.status).toBe("success"));
-    expect(mockFetchConvertedAmount).toHaveBeenCalledWith({
-      amount: "9007199254740993.12",
-      from: "CNY",
-      to: "USD",
-      date: "2026-02-04",
-    });
+    expect(mockFetchConvertedAmount).toHaveBeenCalledWith(
+      {
+        amount: "9007199254740993.12",
+        from: "CNY",
+        to: "USD",
+        date: "2026-02-04",
+      },
+      { signal: expect.any(AbortSignal) }
+    );
     expect(result.current.converted).toBe("9007199254740993.12");
   });
 

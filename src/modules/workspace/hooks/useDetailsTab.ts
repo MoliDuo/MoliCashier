@@ -13,6 +13,7 @@ import {
   getDateInTimezone,
   parseDateString,
 } from "@/lib/date-utils";
+import { ActionRefusedError, refusalCode } from "@/lib/errors";
 import { add as addDecimal } from "@/lib/money/decimal";
 import { useLedgerMutation } from "@/lib/mutations/use-ledger-mutation";
 import { queryKeys } from "@/lib/query-keys";
@@ -22,6 +23,7 @@ import type {
   CategoryAssignmentMode,
   CategoryAssignmentJob,
   Ledger,
+  StartCategoryAssignmentErrorCode,
 } from "@/modules/ledger/contracts";
 import { buildDetailsQueryDescriptor } from "@/modules/ledger/ledger-query-descriptor";
 import { fetchLedgerEntries, fetchLedgerSummary } from "@/modules/ledger/queries";
@@ -97,15 +99,15 @@ export function useDetailsTab({
   const summaryQuery = useQuery({
     queryKey: descriptor.summaryQueryKey,
     enabled: !frozen,
-    queryFn: () => fetchLedgerSummary(descriptor.summaryInput),
+    queryFn: ({ signal }) => fetchLedgerSummary(descriptor.summaryInput, { signal }),
     staleTime: QUERY.DEFAULT_STALE_TIME_MS,
     refetchOnWindowFocus: false,
   });
   const entriesQuery = useInfiniteQuery({
     queryKey: descriptor.entriesQueryKey,
     enabled: !frozen,
-    queryFn: ({ pageParam }) =>
-      fetchLedgerEntries(descriptor.getEntriesInput(pageParam as string | undefined)),
+    queryFn: ({ pageParam, signal }) =>
+      fetchLedgerEntries(descriptor.getEntriesInput(pageParam as string | undefined), { signal }),
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     initialPageParam: undefined as string | undefined,
     staleTime: QUERY.DEFAULT_STALE_TIME_MS,
@@ -191,7 +193,9 @@ export function useDetailsTab({
     [entryById]
   );
   const selection = useSelection({ allIds, queryFingerprint, maxSelected: null });
-  const { selectedIds, clearSelection, isSelectionMode } = selection;
+  // Selecting freezes the list, so a command that went through leaves selection
+  // mode and the list reads again; only failures stay selected.
+  const { selectedIds, exitSelectionMode, isSelectionMode } = selection;
   if (frozen !== isSelectionMode) setFrozen(isSelectionMode);
 
   // --- Batch update and delete ----------------------------------------------
@@ -209,7 +213,7 @@ export function useDetailsTab({
     onSuccess: (result) => {
       if (result.affectedCount > 0)
         toast.success(detailsTabCopy.batchUpdated({ count: result.affectedCount }));
-      clearSelection();
+      exitSelectionMode();
     },
   });
 
@@ -225,7 +229,7 @@ export function useDetailsTab({
       const unresolved = result.failed.map((item) => item.id);
       if (unresolved.length === 0) setDeleteDialogOpen(false);
       if (unresolved.length > 0) selection.retainSelection(unresolved);
-      else clearSelection();
+      else exitSelectionMode();
       if (result.succeeded.length > 0)
         toast.success(detailsTabCopy.batchDeleted({ count: result.succeeded.length }));
       if (unresolved.length > 0)
@@ -274,7 +278,7 @@ export function useDetailsTab({
     errorMessage: commonCopy.error,
     onSuccess: (result) => {
       toast.success(batchActionsCopy.datesUpdated({ count: result.impact.affectedEntryCount }));
-      clearSelection();
+      exitSelectionMode();
       setDateDialogVisibility(false);
     },
   });
@@ -320,21 +324,27 @@ export function useDetailsTab({
     { requestKey: string; mode: CategoryAssignmentMode; ledgerEntryIds: string[] }
   >({
     waitFor: false,
-    mutationFn: (input) => startCategoryAssignmentAction(input),
-    errorMessage: batchActionsCopy.aiCategoryFailed,
+    mutationFn: async (input) => {
+      const result = await startCategoryAssignmentAction(input);
+      if (!result.ok) throw new ActionRefusedError<StartCategoryAssignmentErrorCode>(result.code);
+      return result.job;
+    },
+    errorMessage: null,
     onSuccess: (job) => {
       // Hand the run to the page before it can finish: a run whose first answer
       // already reports it over still has to say so, once, to this reader.
       registerSubmittedJob(job);
       toast.success(batchActionsCopy.aiCategoryRunning);
-      clearSelection();
+      exitSelectionMode();
       categoryRequestKeyRef.current = null;
       setCategoryDialogVisibility(false);
     },
     onError: (error) => {
-      if (error instanceof Error && error.message.includes("CONFLICT")) {
-        toast.error(batchActionsCopy.aiCategoryBusy);
-      }
+      toast.error(
+        refusalCode<StartCategoryAssignmentErrorCode>(error) === "busy"
+          ? batchActionsCopy.aiCategoryBusy
+          : batchActionsCopy.aiCategoryFailed
+      );
     },
   });
 

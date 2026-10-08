@@ -120,17 +120,17 @@ export function useLedgerEntriesTab({
   const totalQuery = useQuery({
     queryKey: queryDescriptor.totalQueryKey,
     enabled: !frozen,
-    queryFn: () => fetchStreamTotal(queryDescriptor.totalInput),
+    queryFn: ({ signal }) => fetchStreamTotal(queryDescriptor.totalInput, { signal }),
   });
 
   const streamQuery = useInfiniteQuery({
     queryKey: streamPageKey,
     enabled: !frozen,
-    queryFn: async ({ pageParam }) => {
+    queryFn: async ({ pageParam, signal }) => {
       const pageInput = queryDescriptor.getPageInput(pageParam as string | undefined);
-      let page = await fetchStreamPage(pageInput);
+      let page = await fetchStreamPage(pageInput, { signal });
       if (pageParam == null && page.restartRequired) {
-        page = await fetchStreamPage(pageInput);
+        page = await fetchStreamPage(pageInput, { signal });
         if (page.restartRequired) {
           throw new Error("Stream restart did not produce a valid first page");
         }
@@ -223,8 +223,14 @@ export function useLedgerEntriesTab({
     [streamGroups]
   );
   const queryFingerprint = useMemo(
-    () => JSON.stringify({ tab: "stream", period: periodKey(period), filters: advancedFilters }),
-    [advancedFilters, period]
+    () =>
+      JSON.stringify({
+        tab: "stream",
+        period: periodKey(period),
+        filters: advancedFilters,
+        bookId,
+      }),
+    [advancedFilters, bookId, period]
   );
   const {
     isSelectionMode,
@@ -234,6 +240,7 @@ export function useLedgerEntriesTab({
     handleSelectMany,
     selectAll,
     clearSelection,
+    exitSelectionMode,
     retainSelection,
     isAllSelected,
     isSelectionLimitReached,
@@ -261,7 +268,10 @@ export function useLedgerEntriesTab({
   ) => {
     const unresolved = result.failed.map((item) => item.id);
     const retained = [...new Set([...preserveIds, ...unresolved])];
-    if (retained.length === 0) clearSelection();
+    // Selecting freezes the list, so a batch that went through leaves selection
+    // mode: the list reads again and the rows it removed or moved go away. Only
+    // the records that failed stay selected, to retry.
+    if (retained.length === 0) exitSelectionMode();
     else retainSelection(retained);
     if (result.succeeded.length > 0) toast.success(successLabel);
     if (unresolved.length > 0) {
@@ -286,9 +296,9 @@ export function useLedgerEntriesTab({
       }),
     onSuccess: (result) => {
       toast.success(batchActionsCopy.datesUpdated({ count: result.updatedCount }));
-      clearSelection();
+      exitSelectionMode();
     },
-    onError: () => toast.error(commonCopy.error),
+    errorMessage: commonCopy.error,
   });
 
   const batchDelete = useLedgerMutation<
@@ -301,7 +311,7 @@ export function useLedgerEntriesTab({
       if (result.failed.length === 0) onCommitted();
       settleBatchResult(result, batchActionsCopy.deleted({ count: result.succeeded.length }));
     },
-    onError: () => toast.error(commonCopy.deleteFailed),
+    errorMessage: commonCopy.deleteFailed,
   });
 
   const batchRetry = useLedgerMutation<PartialBatchCommandResult, string[]>({
@@ -309,7 +319,7 @@ export function useLedgerEntriesTab({
     mutationFn: (ids) => batchRetrySourceDocumentsAction(ids),
     onSuccess: (result) =>
       settleBatchResult(result, batchActionsCopy.retried({ count: result.succeeded.length })),
-    onError: () => toast.error(commonCopy.error),
+    errorMessage: commonCopy.error,
   });
 
   const isBatchPending =
@@ -419,7 +429,7 @@ export function useLedgerEntriesTab({
     errorMessage: commonCopy.deleteFailed,
     onSuccess: () => {
       setDeleteConfirm((prev) => ({ ...prev, open: false }));
-      clearSelection();
+      exitSelectionMode();
     },
   });
 

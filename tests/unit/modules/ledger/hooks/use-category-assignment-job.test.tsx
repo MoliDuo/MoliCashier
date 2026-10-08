@@ -237,7 +237,7 @@ describe("useCategoryAssignmentJob", () => {
     await flush();
     await act(async () => vi.advanceTimersByTimeAsync(50));
 
-    expect(getEntryStates).toHaveBeenCalledWith("job-1");
+    expect(getEntryStates).toHaveBeenCalledWith("job-1", { signal: expect.any(AbortSignal) });
     expect(result.current.entryStates).toEqual({
       jobId: "job-1",
       pendingIds: ["a", "b"],

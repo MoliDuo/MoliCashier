@@ -65,9 +65,12 @@ describe("useLedgerSync", () => {
 
     renderHook(() => useLedgerSync(), { wrapper });
     await flush();
-    expect(getStreamRefreshActionMock).toHaveBeenCalledWith({
-      afterVersion: "0",
-    });
+    expect(getStreamRefreshActionMock).toHaveBeenCalledWith(
+      {
+        afterVersion: "0",
+      },
+      { signal: expect.any(AbortSignal) }
+    );
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2_999);
@@ -77,9 +80,12 @@ describe("useLedgerSync", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1);
     });
-    expect(getStreamRefreshActionMock).toHaveBeenLastCalledWith({
-      afterVersion: "1",
-    });
+    expect(getStreamRefreshActionMock).toHaveBeenLastCalledWith(
+      {
+        afterVersion: "1",
+      },
+      { signal: expect.any(AbortSignal) }
+    );
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3_000);
@@ -127,9 +133,12 @@ describe("useLedgerSync", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1);
     });
-    expect(getStreamRefreshActionMock).toHaveBeenCalledWith({
-      afterVersion: "7",
-    });
+    expect(getStreamRefreshActionMock).toHaveBeenCalledWith(
+      {
+        afterVersion: "7",
+      },
+      { signal: expect.any(AbortSignal) }
+    );
   });
 
   it("retries after three seconds when the initial refresh fails", async () => {
@@ -153,9 +162,12 @@ describe("useLedgerSync", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1);
     });
-    expect(getStreamRefreshActionMock).toHaveBeenLastCalledWith({
-      afterVersion: "0",
-    });
+    expect(getStreamRefreshActionMock).toHaveBeenLastCalledWith(
+      {
+        afterVersion: "0",
+      },
+      { signal: expect.any(AbortSignal) }
+    );
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3_000);
@@ -259,8 +271,47 @@ describe("useLedgerSync", () => {
     });
     await flush();
 
-    expect(getStreamRefreshActionMock).toHaveBeenCalledWith({ afterVersion: "7" });
+    expect(getStreamRefreshActionMock).toHaveBeenCalledWith(
+      { afterVersion: "7" },
+      { signal: expect.any(AbortSignal) }
+    );
     for (const read of [stream, stats, settings]) expect(read).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the new version when a visible query fails to read again", async () => {
+    getStreamRefreshActionMock.mockResolvedValue({ ...unchanged, version: "8", changed: true });
+    const { queryClient, wrapper } = setup();
+    queryClient.setQueryData(queryKeys.ledgerSync(), { ...unchanged, version: "7" });
+    const stream = vi
+      .fn()
+      .mockResolvedValueOnce("stream")
+      .mockRejectedValue(new Error("stream is down"));
+
+    renderHook(
+      () => {
+        useLedgerSync();
+        useQuery({
+          queryKey: ["ledger", "source-documents", "stream", {}],
+          queryFn: stream,
+          staleTime: Infinity,
+        });
+      },
+      { wrapper }
+    );
+    await flush();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3_000);
+      focusManager.setFocused(false);
+      focusManager.setFocused(true);
+    });
+    await flush();
+
+    // The page shows its own failure; the driver moved on to the new version,
+    // so the next poll does not invalidate everything again.
+    expect(stream).toHaveBeenCalledTimes(2);
+    expect(queryClient.getQueryState(queryKeys.ledgerSync())?.status).toBe("success");
+    expect(queryClient.getQueryData(queryKeys.ledgerSync())).toMatchObject({ version: "8" });
   });
 
   it("leaves the ledger alone when nothing moved", async () => {

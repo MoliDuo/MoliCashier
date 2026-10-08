@@ -95,6 +95,8 @@ export const batchActionsCopy = {
   categoryJobPartial: "已完成部分分类，仍有失败或冲突",
   categoryJobFailed: "分类失败，已保存本次选择",
   categoryJobCancelled: "已停止；已完成结果保留",
+  categoryJobStopFailed: "未能停止分类任务，请重试。",
+  categoryJobRetryFailed: "未能重新开始分类，请重试。",
   categoryRetryFailed: "重试失败部分",
   categoryRetryLatest: "按最新内容重新分类",
   categoryStopDescription: "停止后，已完成的分类会保留。",

@@ -189,7 +189,7 @@ describe("useDetailsTab", () => {
       totals: [],
       trend: [],
     });
-    startCategoryAssignmentActionMock.mockResolvedValue(assignmentJob());
+    startCategoryAssignmentActionMock.mockResolvedValue({ ok: true, job: assignmentJob() });
   });
 
   it("groups entries by day in the order they were read, with decimal totals", async () => {
@@ -277,6 +277,41 @@ describe("useDetailsTab", () => {
       refreshGate.resolve();
       await mutation;
     });
+  });
+
+  it("leaves selection mode once a batch delete went through, so the list reads again", async () => {
+    const { result } = await renderDetailsTab([entry("entry-1"), entry("entry-2")]);
+    batchDeleteLedgerEntriesActionMock.mockResolvedValueOnce({
+      succeeded: [{ id: "entry-1", sourceDocumentId: "document-1" }],
+      failed: [],
+    });
+    act(() => result.current.setSelectionMode(true));
+    act(() => result.current.handleSelect("entry-1", true));
+    expect(result.current.isSelectionMode).toBe(true);
+
+    await act(async () => {
+      await result.current.remove.mutateAsync();
+    });
+
+    expect(result.current.isSelectionMode).toBe(false);
+    expect(result.current.selectedIds).toEqual([]);
+  });
+
+  it("keeps selection mode on the entries a batch delete could not remove", async () => {
+    const { result } = await renderDetailsTab([entry("entry-1"), entry("entry-2")]);
+    batchDeleteLedgerEntriesActionMock.mockResolvedValueOnce({
+      succeeded: [{ id: "entry-1", sourceDocumentId: "document-1" }],
+      failed: [{ id: "entry-2", sourceDocumentId: "document-2", code: "processing" }],
+    });
+    act(() => result.current.setSelectionMode(true));
+    act(() => result.current.handleSelectMany(["entry-1", "entry-2"], true));
+
+    await act(async () => {
+      await result.current.remove.mutateAsync();
+    });
+
+    expect(result.current.isSelectionMode).toBe(true);
+    expect(result.current.selectedIds).toEqual(["entry-2"]);
   });
 
   it("closes the date dialog and finishes before refresh settles", async () => {
@@ -439,6 +474,23 @@ describe("useDetailsTab", () => {
     expect(result.current.selectedIds).toEqual([]);
     expect(result.current.categoryDialogOpen).toBe(false);
     expect(toastSuccessMock).toHaveBeenCalledWith(batchActionsCopy.aiCategoryRunning);
+  });
+
+  it("says once that another run is busy when the server refuses the start", async () => {
+    startCategoryAssignmentActionMock.mockResolvedValueOnce({ ok: false, code: "busy" });
+    const { result } = await renderDetailsTab([entry("entry-1")]);
+    act(() => result.current.handleSelect("entry-1", true));
+    act(() => result.current.setCategoryDialogOpen(true));
+    act(() => {
+      result.current.toggleCategoryPick("category-1", true);
+      result.current.toggleCategoryPick("category-2", true);
+    });
+
+    await act(async () => result.current.confirmCategory());
+    await act(async () => Promise.resolve());
+
+    expect(toastErrorMock).toHaveBeenCalledExactlyOnceWith(batchActionsCopy.aiCategoryBusy);
+    expect(result.current.selectedIds).toEqual(["entry-1"]);
   });
 
   it("writes one picked category straight through instead of asking the model", async () => {

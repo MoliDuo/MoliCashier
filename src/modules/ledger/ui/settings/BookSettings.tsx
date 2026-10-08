@@ -35,6 +35,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ActionRefusedError, refusalCode } from "@/lib/errors";
 import { queryKeys } from "@/lib/query-keys";
 import { useBooks } from "@/modules/ledger/hooks/useBooks";
 import {
@@ -98,46 +99,60 @@ export function BookSettings({ initialBooks }: BookSettingsProps) {
    * and the switcher, the record pickers and 设置 all move together without
    * waiting for a refetch. The archived-inclusive list seeds both cache entries:
    * the switcher's live list is that list minus the retired rows, so the two
-   * views can never disagree about which books exist. A refusal is a toast, not
-   * a mutation success.
+   * views can never disagree about which books exist.
    */
-  const writeBooks = (result: BookMutationResult, successMessage?: string) => {
-    if (!result.ok) {
-      toast.error(settingsBooksCopy[BOOK_ERROR_KEYS[result.code]]);
-      throw new Error(result.code);
-    }
-    queryClient.setQueryData(queryKeys.booksIncludingArchived(), result.books);
+  const writeBooks = (books: BookDto[], successMessage?: string) => {
+    queryClient.setQueryData(queryKeys.booksIncludingArchived(), books);
     queryClient.setQueryData(
       queryKeys.books(),
-      result.books.filter((book) => book.archivedAt == null)
+      books.filter((book) => book.archivedAt == null)
     );
     if (successMessage != null) toast.success(successMessage);
   };
-  const createBook = useMutation({
-    mutationFn: (input: { name: string }) => createBookAction(input),
-    onSuccess: (result) => writeBooks(result),
+  /**
+   * A refusal and a failed request both end as a toast. An order the server
+   * refused was built from a list that is out of date, so the list reads again.
+   */
+  const reportFailure = (error: Error) => {
+    const code = refusalCode<BookMutationErrorCode>(error);
+    toast.error(settingsBooksCopy[BOOK_ERROR_KEYS[code ?? "unexpected"]]);
+    if (code === "invalid_order") {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.booksIncludingArchived() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.books() });
+    }
+  };
+  const bookMutation = <TInput,>(
+    action: (input: TInput) => Promise<BookMutationResult>,
+    successMessage?: string
+  ) => ({
+    mutationFn: async (input: TInput) => {
+      const result = await action(input);
+      if (!result.ok) throw new ActionRefusedError<BookMutationErrorCode>(result.code);
+      return result.books;
+    },
+    onSuccess: (result: BookDto[]) => writeBooks(result, successMessage),
+    onError: reportFailure,
   });
-  const updateBook = useMutation({
-    mutationFn: (input: { bookId: string; name: string }) =>
-      updateBookAction(input.bookId, { name: input.name }),
-    onSuccess: (result) => writeBooks(result),
-  });
-  const reorderBooks = useMutation({
-    mutationFn: (bookIds: string[]) => reorderBooksAction(bookIds),
-    onSuccess: (result) => writeBooks(result),
-  });
-  const archiveBook = useMutation({
-    mutationFn: (bookId: string) => archiveBookAction(bookId),
-    onSuccess: (result) => writeBooks(result, settingsBooksCopy.archived),
-  });
-  const restoreBook = useMutation({
-    mutationFn: (bookId: string) => restoreBookAction(bookId),
-    onSuccess: (result) => writeBooks(result, settingsBooksCopy.restored),
-  });
-  const deleteBook = useMutation({
-    mutationFn: (bookId: string) => deleteBookAction(bookId),
-    onSuccess: (result) => writeBooks(result, settingsBooksCopy.deleted),
-  });
+  const createBook = useMutation(
+    bookMutation((input: { name: string }) => createBookAction(input))
+  );
+  const updateBook = useMutation(
+    bookMutation((input: { bookId: string; name: string }) =>
+      updateBookAction(input.bookId, { name: input.name })
+    )
+  );
+  const reorderBooks = useMutation(
+    bookMutation((bookIds: string[]) => reorderBooksAction(bookIds))
+  );
+  const archiveBook = useMutation(
+    bookMutation((bookId: string) => archiveBookAction(bookId), settingsBooksCopy.archived)
+  );
+  const restoreBook = useMutation(
+    bookMutation((bookId: string) => restoreBookAction(bookId), settingsBooksCopy.restored)
+  );
+  const deleteBook = useMutation(
+    bookMutation((bookId: string) => deleteBookAction(bookId), settingsBooksCopy.deleted)
+  );
 
   const all = books ?? [];
   const list = all.filter((book) => book.archivedAt == null);

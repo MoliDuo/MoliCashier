@@ -13,6 +13,11 @@ export interface UseLedgerMutationOptions<TData, TVariables> {
    */
   waitFor?: QueryKey | false;
   successMessage?: string | null;
+  /**
+   * The toast a failure shows; "保存失败" unless the caller names another. A
+   * caller that reports the failure itself passes null, so nothing fails silently
+   * by omission.
+   */
   errorMessage?: string | null;
   onSuccess?: (data: TData, variables: TVariables) => void | Promise<void>;
   onError?: (error: Error, variables: TVariables) => void;
@@ -27,8 +32,15 @@ export function useLedgerMutation<TData = unknown, TVariables = void>(
   options: UseLedgerMutationOptions<TData, TVariables>
 ) {
   const queryClient = useQueryClient();
-  const { mutationFn, waitFor, successMessage, errorMessage, onSuccess, onError, onSettled } =
-    options;
+  const {
+    mutationFn,
+    waitFor,
+    successMessage,
+    errorMessage = commonCopy.saveFailed,
+    onSuccess,
+    onError,
+    onSettled,
+  } = options;
 
   return useMutation<TData, Error, TVariables>({
     mutationFn,

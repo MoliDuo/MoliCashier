@@ -25,7 +25,8 @@ interface UseBooksOptions {
 export function useBooks({ initialBooks, includeArchived }: UseBooksOptions) {
   const booksQuery = useQuery({
     queryKey: includeArchived ? queryKeys.booksIncludingArchived() : queryKeys.books(),
-    queryFn: () => (includeArchived ? fetchBooksIncludingArchived() : fetchBooks()),
+    queryFn: ({ signal }) =>
+      includeArchived ? fetchBooksIncludingArchived({ signal }) : fetchBooks({ signal }),
     staleTime: LEDGER.STALE_TIME_MS,
     ...(initialBooks !== undefined ? { initialData: [...initialBooks] } : {}),
   });

@@ -76,12 +76,15 @@ export function CategoryAssignmentResultDialog({
   };
   const results = useInfiniteQuery({
     queryKey: queryKeys.categoryAssignmentResults(job.id),
-    queryFn: ({ pageParam }) =>
-      fetchCategoryAssignmentResults({
-        jobId: job.id,
-        ...(pageParam == null ? {} : { cursor: pageParam }),
-        limit: 50,
-      }),
+    queryFn: ({ pageParam, signal }) =>
+      fetchCategoryAssignmentResults(
+        {
+          jobId: job.id,
+          ...(pageParam == null ? {} : { cursor: pageParam }),
+          limit: 50,
+        },
+        { signal }
+      ),
     initialPageParam: null as number | null,
     getNextPageParam: (page) => page.nextCursor,
     enabled: open,

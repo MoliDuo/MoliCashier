@@ -167,7 +167,10 @@ describe("useLedgerEntriesTab stream", () => {
     const { result } = renderTab();
 
     await waitFor(() => expect(result.current.stream.isLoading).toBe(false));
-    expect(mocks.fetchStreamPage).toHaveBeenCalledWith({ period: ALL_TIME, limit: 20 });
+    expect(mocks.fetchStreamPage).toHaveBeenCalledWith(
+      { period: ALL_TIME, limit: 20 },
+      { signal: expect.any(AbortSignal) }
+    );
     expect(renderedIds(result)).toEqual(["doc-1", "doc-2"]);
     expect(result.current.stream.hasNextPage).toBe(true);
     await waitFor(() => expect(result.current.stream.filteredTotal).toBe("12.00"));
@@ -175,11 +178,14 @@ describe("useLedgerEntriesTab stream", () => {
 
     act(() => void result.current.stream.fetchNextPage());
     await waitFor(() => expect(result.current.stream.hasNextPage).toBe(false));
-    expect(mocks.fetchStreamPage).toHaveBeenCalledWith({
-      period: ALL_TIME,
-      cursor: "next-page-cursor",
-      limit: 20,
-    });
+    expect(mocks.fetchStreamPage).toHaveBeenCalledWith(
+      {
+        period: ALL_TIME,
+        cursor: "next-page-cursor",
+        limit: 20,
+      },
+      { signal: expect.any(AbortSignal) }
+    );
     expect(renderedIds(result)).toEqual(["doc-1", "doc-2", "doc-3"]);
   });
 
@@ -225,9 +231,14 @@ describe("useLedgerEntriesTab stream", () => {
       statuses: ["failed", "processing"],
     };
     await waitFor(() =>
-      expect(mocks.fetchStreamPage).toHaveBeenCalledWith({ ...expected, limit: 20 })
+      expect(mocks.fetchStreamPage).toHaveBeenCalledWith(
+        { ...expected, limit: 20 },
+        { signal: expect.any(AbortSignal) }
+      )
     );
-    expect(mocks.fetchStreamTotal).toHaveBeenCalledWith(expected);
+    expect(mocks.fetchStreamTotal).toHaveBeenCalledWith(expected, {
+      signal: expect.any(AbortSignal),
+    });
   });
 
   it("renders the filtered page projection directly from the server page", async () => {
@@ -240,11 +251,14 @@ describe("useLedgerEntriesTab stream", () => {
     const { result } = renderTab({ advancedFilters: { search: "latte" } });
 
     await waitFor(() => expect(result.current.stream.isLoading).toBe(false));
-    expect(mocks.fetchStreamPage).toHaveBeenCalledWith({
-      period: ALL_TIME,
-      search: "latte",
-      limit: 20,
-    });
+    expect(mocks.fetchStreamPage).toHaveBeenCalledWith(
+      {
+        period: ALL_TIME,
+        search: "latte",
+        limit: 20,
+      },
+      { signal: expect.any(AbortSignal) }
+    );
     const rendered = result.current.stream.groups[0]?.items[0];
     expect(rendered?.sourceDocument.title).toBe("Server page title");
     expect(rendered?.ledgerEntries.map((entry) => entry.id)).toEqual(["entry-latte"]);

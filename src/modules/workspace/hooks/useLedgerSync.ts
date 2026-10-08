@@ -41,11 +41,19 @@ export function useLedgerSync() {
 
   return useQuery({
     queryKey,
-    queryFn: async (): Promise<LedgerRefreshResult> => {
+    queryFn: async ({ signal }): Promise<LedgerRefreshResult> => {
       try {
         const previous = queryClient.getQueryData<LedgerRefreshResult>(queryKey);
-        const result = await fetchStreamRefresh({ afterVersion: previous?.version ?? "0" });
-        if (previous != null && hasChanged(result)) await invalidateVisibleLedger(queryClient);
+        const result = await fetchStreamRefresh(
+          { afterVersion: previous?.version ?? "0" },
+          { signal }
+        );
+        // A page that fails to read shows its own error. The driver keeps the new
+        // version either way: failing here would leave the old one and invalidate
+        // every visible query again on each poll.
+        if (previous != null && hasChanged(result)) {
+          await invalidateVisibleLedger(queryClient).catch(() => undefined);
+        }
         consecutiveFailures.delete(queryClient);
         return result;
       } catch (error) {

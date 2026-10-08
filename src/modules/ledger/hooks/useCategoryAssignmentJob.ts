@@ -86,7 +86,7 @@ export function useCategoryAssignmentJob(): CategoryAssignmentJobState {
   const [notices, setNotices] = useState<CategoryAssignmentNotice[]>([]);
   const query = useQuery<CategoryAssignmentJob | null>({
     queryKey: queryKeys.categoryAssignment(),
-    queryFn: () => fetchCategoryAssignmentJob(),
+    queryFn: ({ signal }) => fetchCategoryAssignmentJob({ signal }),
     refetchInterval: (query) => {
       if (query.state.status === "error") {
         const attempt = Math.max(0, query.state.fetchFailureCount - 1);
@@ -144,7 +144,7 @@ export function useCategoryAssignmentJob(): CategoryAssignmentJobState {
       job?.id ?? "none",
       job == null ? "" : jobSignature(job)
     ),
-    queryFn: () => fetchCategoryAssignmentEntryStates(job!.id),
+    queryFn: ({ signal }) => fetchCategoryAssignmentEntryStates(job!.id, { signal }),
     enabled: hasEntryStates,
     placeholderData: keepPreviousData,
     retry: false,
