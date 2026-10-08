@@ -10,7 +10,13 @@ import { MAX_BATCH_SIZE } from "@/lib/batch-ids";
 import { CATEGORY_ASSIGNMENT_MAX_ENTRIES } from "@/config/tuning";
 import { isValidTimeZone } from "@/lib/date-utils";
 import { MAX_SEARCH_LENGTH, normalizeSearchTerm } from "@/lib/search";
-import { compare, DECIMAL_STRING_PATTERN, normalize } from "@/lib/money/decimal";
+import {
+  compare,
+  DECIMAL_STRING_PATTERN,
+  MAX_AMOUNT_INTEGER_DIGITS,
+  normalize,
+} from "@/lib/money/decimal";
+import { currencyCodeSchema as supportedCurrencyCodeSchema } from "@/modules/currency/contract-schemas";
 import {
   CALENDAR_RANGES,
   MAX_PERIOD_OFFSET,
@@ -28,23 +34,35 @@ const nonEmptyStrictObjectSchema = <TShape extends z.ZodRawShape>(shape: TShape)
       .strict()
       .refine((value) => Object.keys(value).length > 0, "At least one field is required")
   );
+/**
+ * Any ISO-shaped code. Filters and settings accept it, since rows and settings
+ * stored before a currency left the supported list still carry it; settings
+ * check the list themselves.
+ */
 const currencyCodeSchema = z.preprocess(
   (value) => (typeof value === "string" ? value.trim().toUpperCase() : value),
   z.string().regex(/^[A-Z]{3}$/, "Currency must be a 3-letter ISO 4217 code")
 );
 export const optionalCurrencyCodeSchema = currencyCodeSchema.optional();
-const nullableCurrencyCodeSchema = currencyCodeSchema.nullable().optional();
+/** A currency written onto an entry: it must be one the rates provider publishes. */
+const optionalSupportedCurrencyCodeSchema = supportedCurrencyCodeSchema.optional();
+const nullableSupportedCurrencyCodeSchema = supportedCurrencyCodeSchema.nullable().optional();
 const aiLanguageSchema = z.string().min(2).max(35);
+/** Only the digits before the point are bounded; rounding takes care of the rest. */
+const fitsAmountColumn = (value: string) =>
+  value.replace(/^-/, "").split(".")[0]!.length <= MAX_AMOUNT_INTEGER_DIGITS;
 const positiveDecimalSchema = z
   .string()
   .regex(DECIMAL_STRING_PATTERN, "Amount must be a plain decimal string")
   .transform(normalize)
-  .refine((value) => compare(value, "0") > 0, "Amount must be positive");
+  .refine((value) => compare(value, "0") > 0, "Amount must be positive")
+  .refine(fitsAmountColumn, "Amount is too large");
 const nonZeroDecimalSchema = z
   .string()
   .regex(DECIMAL_STRING_PATTERN, "Amount must be a plain decimal string")
   .transform(normalize)
-  .refine((value) => compare(value, "0") !== 0, "Amount must be non-zero");
+  .refine((value) => compare(value, "0") !== 0, "Amount must be non-zero")
+  .refine(fitsAmountColumn, "Amount is too large");
 const optionalQueryDecimalSchema = z.preprocess(
   (value) => (typeof value === "string" ? value.trim() : value),
   z
@@ -167,7 +185,7 @@ const serviceCredentialIdSchema = uuidSchema;
 
 const createLedgerEntryInputSchema = strictObjectSchema({
   amount: positiveDecimalSchema,
-  currency: optionalCurrencyCodeSchema,
+  currency: optionalSupportedCurrencyCodeSchema,
   itemName: z.string().trim().min(1).max(200),
   categoryId: uuidSchema.optional(),
   description: z.string().max(500).nullable().optional(),
@@ -176,7 +194,7 @@ const createLedgerEntryInputSchema = strictObjectSchema({
 
 const batchUpdateLedgerEntriesInputSchema = nonEmptyStrictObjectSchema({
   categoryId: uuidSchema.nullable().optional(),
-  currency: nullableCurrencyCodeSchema,
+  currency: nullableSupportedCurrencyCodeSchema,
   amount: nonZeroDecimalSchema.optional(),
   description: z.string().max(500).nullable().optional(),
   itemName: z.string().trim().min(1).max(200).optional(),

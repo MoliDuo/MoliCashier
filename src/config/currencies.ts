@@ -1,7 +1,11 @@
+/**
+ * The currencies a new entry or setting can use: the ones the exchange-rate
+ * provider (ECB via Frankfurter) publishes. BHD, JOD, KWD, OMR and TND were removed because the provider never publishes
+ * them; rows that already carry one keep it and display unconverted.
+ */
 export const SUPPORTED_CURRENCIES = [
   "USD",
   "AUD",
-  "BHD",
   "BRL",
   "CAD",
   "CHF",
@@ -17,21 +21,17 @@ export const SUPPORTED_CURRENCIES = [
   "INR",
   "ISK",
   "JPY",
-  "JOD",
-  "KWD",
   "KRW",
   "MXN",
   "MYR",
   "NOK",
   "NZD",
-  "OMR",
   "PHP",
   "PLN",
   "RON",
   "SEK",
   "SGD",
   "THB",
-  "TND",
   "TRY",
   "ZAR",
 ] as const;

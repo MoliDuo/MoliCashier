@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   ledgerStatsQuerySchema,
+  parseBatchUpdateLedgerEntriesInput,
+  parseCreateLedgerEntryInput,
   parseListLedgerEntriesInput,
 } from "@/modules/ledger/contract-schemas";
 
@@ -79,5 +81,45 @@ describe("search param validation", () => {
     expect(() => ledgerStatsQuerySchema.parse({ minAmount: "20", maxAmount: "10" })).toThrow();
     expect(ledgerStatsQuerySchema.parse({ minAmount: "-1" })).toMatchObject({ minAmount: "-1" });
     expect(() => ledgerStatsQuerySchema.parse({ mainCurrency: "USD" })).toThrow();
+  });
+});
+
+describe("entry write validation", () => {
+  const sourceDocumentId = "00000000-0000-4000-8000-000000000001";
+
+  it("only writes currencies the rates provider publishes", () => {
+    expect(
+      parseCreateLedgerEntryInput({
+        sourceDocumentId,
+        amount: "1",
+        currency: " jpy ",
+        itemName: "Tea",
+      })
+    ).toMatchObject({ currency: "JPY" });
+    expect(() =>
+      parseCreateLedgerEntryInput({
+        sourceDocumentId,
+        amount: "1",
+        currency: "BHD",
+        itemName: "Tea",
+      })
+    ).toThrow();
+    expect(() => parseBatchUpdateLedgerEntriesInput({ currency: "KWD" })).toThrow();
+    // A filter still finds rows written before a currency left the list.
+    expect(parseListLedgerEntriesInput({ currency: "BHD" }).currency).toBe("BHD");
+  });
+
+  it("refuses an amount with more integer digits than the column holds", () => {
+    const largest = "9".repeat(18);
+    expect(
+      parseCreateLedgerEntryInput({ sourceDocumentId, amount: `${largest}.99`, itemName: "Car" })
+    ).toMatchObject({ amount: `${largest}.99` });
+    expect(() =>
+      parseCreateLedgerEntryInput({ sourceDocumentId, amount: `1${largest}`, itemName: "Car" })
+    ).toThrow();
+    expect(() => parseBatchUpdateLedgerEntriesInput({ amount: `-1${largest}` })).toThrow();
+    expect(parseBatchUpdateLedgerEntriesInput({ amount: `-${largest}` })).toMatchObject({
+      amount: `-${largest}`,
+    });
   });
 });

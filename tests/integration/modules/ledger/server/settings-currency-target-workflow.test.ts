@@ -110,6 +110,26 @@ describe("target Settings currency workflow", () => {
     expect(ledger?.mainCurrency).toBe("CNY");
   });
 
+  it("keeps a stored currency that has left the supported list", async () => {
+    // A ledger set up while BHD was still offered.
+    await getTestDb()
+      .update(ledgers)
+      .set({ mainCurrency: "BHD", preferredCurrencies: ["BHD", "CNY"] });
+
+    await updateLedgerSettings({ settings: { collapseEntriesDefault: true } });
+    await updateLedgerSettings({ settings: { currencies: ["BHD", "CNY", "USD"] } });
+
+    const ledger = await getTestDb().query.ledgers.findFirst();
+    expect(ledger).toMatchObject({
+      mainCurrency: "BHD",
+      preferredCurrencies: ["BHD", "CNY", "USD"],
+    });
+    // It can be kept, never newly chosen.
+    await expect(
+      updateLedgerSettings({ settings: { currencies: ["BHD", "CNY", "USD", "KWD"] } })
+    ).rejects.toThrow("Currency not found: KWD");
+  });
+
   describe("historical rate gaps", () => {
     afterEach(() => {
       vi.restoreAllMocks();

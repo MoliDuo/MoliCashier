@@ -4,7 +4,7 @@ import type { LedgerProjectionEntryContract } from "@/modules/source-document/se
 import type { PartialBatchCommandResult } from "@/modules/source-document/contracts";
 import "server-only";
 import { db } from "@/lib/db";
-import { NotFoundError } from "@/lib/errors";
+import { NotFoundError, ValidationError } from "@/lib/errors";
 import { compare as compareDecimal } from "@/lib/money/decimal";
 import { roundToCurrency } from "@/lib/money/currency-precision";
 import { ledgerEntries, ledgers, sourceDocuments } from "@/persistence";
@@ -56,6 +56,19 @@ function changed(
     (input.itemName !== undefined && input.itemName !== entry.itemName) ||
     (input.description !== undefined && input.description !== entry.description)
   );
+}
+
+/**
+ * The stored amount under another currency. Changing only the currency never
+ * rounds the amount, which could not be undone: one with more decimals than
+ * the new currency has is refused instead.
+ */
+function amountInCurrency(amount: string, currency: string, nextCurrency: string): string {
+  if (nextCurrency === currency) return amount;
+  if (compareDecimal(roundToCurrency(amount, nextCurrency), amount) !== 0) {
+    throw new ValidationError(`Amount has more decimal places than ${nextCurrency} allows`);
+  }
+  return amount;
 }
 
 /**
@@ -120,8 +133,9 @@ async function prepareBatchUpdate(input: {
     assertExpenseAmountDirection(entry.amount, input.amount ?? entry.amount, effectiveCurrency);
     if (effectiveCurrency !== entry.mainCurrency) foreignDates.push(entry.documentDate);
   }
-  // A foreign amount is converted on write, so its day's rate has to be there,
-  // whether the edit changed the currency or only the amount.
+  // Amounts convert when they are read; fetch a foreign amount's day's rate
+  // now so that conversion has it, whether the edit changed the currency or
+  // only the amount.
   if (foreignDates.length > 0) await ensureExchangeRates(foreignDates);
 }
 
@@ -158,6 +172,11 @@ export async function addLedgerEntry(
     const entries = await listProjectionEntries(tx, document.id);
     const ledgerEntryId = crypto.randomUUID();
     const effectiveCurrency = input.currency ?? ledger.mainCurrency;
+    // Positive as typed is not enough: 0.004 CNY rounds to nothing.
+    const amount = roundToCurrency(input.amount, effectiveCurrency);
+    if (compareDecimal(amount, "0") <= 0) {
+      throw new ValidationError("Amount must be positive in the entry's currency");
+    }
     await replaceDocumentEntriesInTransaction(tx, {
       document,
       previousEntries: entries,
@@ -167,7 +186,7 @@ export async function addLedgerEntry(
         {
           id: ledgerEntryId,
           categoryId: input.categoryId ?? null,
-          amount: roundToCurrency(input.amount, effectiveCurrency),
+          amount,
           currency: effectiveCurrency,
           itemName: input.itemName,
           description: input.description ?? null,
@@ -254,12 +273,13 @@ export async function batchUpdateLedgerEntries(
       if (!changedIds.has(entry.id)) continue;
       const nextCurrency = input.currency !== undefined ? input.currency : entry.currency;
       const effectiveCurrency = nextCurrency ?? ledger.mainCurrency;
-      const nextAmount = input.amount ?? entry.amount;
-      const amountChanged = input.amount !== undefined || input.currency !== undefined;
       nextById.set(entry.id, {
         ...toProjectionEntry(entry),
         categoryId: input.categoryId !== undefined ? input.categoryId : entry.categoryId,
-        amount: amountChanged ? roundToCurrency(nextAmount, effectiveCurrency) : entry.amount,
+        amount:
+          input.amount !== undefined
+            ? roundToCurrency(input.amount, effectiveCurrency)
+            : amountInCurrency(entry.amount, entry.currency, effectiveCurrency),
         currency: input.currency !== undefined ? effectiveCurrency : entry.currency,
         itemName: input.itemName !== undefined ? input.itemName : entry.itemName,
         description: input.description !== undefined ? input.description : entry.description,
