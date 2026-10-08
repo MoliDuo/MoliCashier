@@ -42,6 +42,7 @@ import { resolveBatchCategoryPick } from "@/modules/ledger/ui/batch-action-toolb
 import { useCategoryAssignment } from "@/modules/ledger/ui/category-assignment-context";
 import type { LedgerAdvancedFilters } from "@/modules/ledger/ledger-query";
 import { useBatchDatePreview } from "./useBatchDatePreview";
+import { settleBatchResult } from "./settle-batch-result";
 import { uniquePagedItems } from "../paged-items";
 import { commonCopy } from "@/copy/common";
 import { batchActionsCopy, detailsTabCopy } from "@/copy/workspace";
@@ -228,14 +229,12 @@ export function useDetailsTab({
       batchDeleteLedgerEntriesAction(sourceDocumentIdsFor(selectedIds), selectedIds),
     errorMessage: commonCopy.deleteFailed,
     onSuccess: (result) => {
-      const unresolved = result.failed.map((item) => item.id);
-      if (unresolved.length === 0) setDeleteDialogOpen(false);
-      if (unresolved.length > 0) selection.retainSelection(unresolved);
-      else exitSelectionMode();
-      if (result.succeeded.length > 0)
-        toast.success(detailsTabCopy.batchDeleted({ count: result.succeeded.length }));
-      if (unresolved.length > 0)
-        toast.warning(detailsTabCopy.batchUnresolved({ count: unresolved.length }));
+      if (result.failed.length === 0) setDeleteDialogOpen(false);
+      settleBatchResult(result, {
+        successLabel: detailsTabCopy.batchDeleted({ count: result.succeeded.length }),
+        exitSelectionMode,
+        retainSelection: selection.retainSelection,
+      });
     },
   });
 

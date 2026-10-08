@@ -46,6 +46,7 @@ import { buildLedgerEntryFilters } from "@/modules/workspace/ledger-filter-state
 import { uniquePagedItems } from "@/modules/workspace/paged-items";
 import { buildStreamQueryDescriptor } from "@/modules/workspace/ledger-tab-query-descriptors";
 import { fetchSourceDocumentDateImpact } from "@/modules/workspace/queries";
+import { settleBatchResult } from "./settle-batch-result";
 import { commonCopy } from "@/copy/common";
 import { sourceDocumentActionCopy } from "@/copy/source-document";
 import { batchActionsCopy } from "@/copy/workspace";
@@ -261,29 +262,6 @@ export function useLedgerEntriesTab({
     ];
   }, [selectedIds, streamGroups]);
 
-  const settleBatchResult = (
-    result: PartialBatchCommandResult,
-    successLabel: string,
-    preserveIds: string[] = []
-  ) => {
-    const unresolved = result.failed.map((item) => item.id);
-    const retained = [...new Set([...preserveIds, ...unresolved])];
-    // Selecting freezes the list, so a batch that went through leaves selection
-    // mode: the list reads again and the rows it removed or moved go away. Only
-    // the records that failed stay selected, to retry.
-    if (retained.length === 0) exitSelectionMode();
-    else retainSelection(retained);
-    if (result.succeeded.length > 0) toast.success(successLabel);
-    if (unresolved.length > 0) {
-      toast.warning(
-        batchActionsCopy.partialResult({
-          succeeded: result.succeeded.length,
-          failed: result.failed.length,
-        })
-      );
-    }
-  };
-
   const batchUpdateDates = useLedgerMutation<
     BatchUpdateSourceDocumentsResultDto,
     { ids: string[]; entryDate: string }
@@ -309,7 +287,11 @@ export function useLedgerEntriesTab({
     mutationFn: ({ ids }) => batchDeleteSourceDocumentsAction(ids),
     onSuccess: (result, { onCommitted }) => {
       if (result.failed.length === 0) onCommitted();
-      settleBatchResult(result, batchActionsCopy.deleted({ count: result.succeeded.length }));
+      settleBatchResult(result, {
+        successLabel: batchActionsCopy.deleted({ count: result.succeeded.length }),
+        exitSelectionMode,
+        retainSelection,
+      });
     },
     errorMessage: commonCopy.deleteFailed,
   });
@@ -318,7 +300,11 @@ export function useLedgerEntriesTab({
     waitFor: false,
     mutationFn: (ids) => batchRetrySourceDocumentsAction(ids),
     onSuccess: (result) =>
-      settleBatchResult(result, batchActionsCopy.retried({ count: result.succeeded.length })),
+      settleBatchResult(result, {
+        successLabel: batchActionsCopy.retried({ count: result.succeeded.length }),
+        exitSelectionMode,
+        retainSelection,
+      }),
     errorMessage: commonCopy.error,
   });
 
