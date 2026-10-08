@@ -1,6 +1,6 @@
 {
-  "id": "af528961-2292-4258-9240-5c9868c0f312",
-  "prevId": "ceacb4f2-8012-4f8e-b21e-e78ad823cb9d",
+  "id": "6d5b8182-fcf5-4a6b-b8f6-6f407d648941",
+  "prevId": "af528961-2292-4258-9240-5c9868c0f312",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1093,6 +1093,27 @@
               "asc": false,
               "nulls": "last"
             },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_source_documents_created": {
+          "name": "idx_source_documents_created",
+          "columns": [
             {
               "expression": "created_at",
               "isExpression": false,

@@ -47,16 +47,17 @@ function categoryKey(categoryId: string | null): string {
 }
 
 /**
- * Decimal growth keeping the product semantics of `calculateGrowth`:
- * previous zero + current zero -> 0%; previous zero + current non-zero -> 100%.
+ * Decimal growth: the change, and the change as a share of the previous
+ * total. Growth from nothing has no share — any amount would be an infinite
+ * percentage — so it is null, and only the amount speaks.
  */
 function calculateDecimalGrowth(
   current: Decimal,
   previous: Decimal
-): { percent: number; amount: string } {
+): { percent: number | null; amount: string } {
   const delta = current.minus(previous);
   if (previous.isZero()) {
-    return { amount: delta.toFixed(), percent: current.isZero() ? 0 : 100 };
+    return { amount: delta.toFixed(), percent: null };
   }
   return { amount: delta.toFixed(), percent: delta.dividedBy(previous).times(100).toNumber() };
 }
@@ -144,6 +145,17 @@ export function buildEnhancedStatsDto({
       };
     });
 
+  // A category that went from something to nothing has moved as much as one that grew by as much.
+  const previousOnlyCategories = [...previous.categories.entries()]
+    .filter(([key, category]) => !current.categories.has(key) && !category.total.isZero())
+    .toSorted(([, left], [, right]) => right.total.abs().cmp(left.total.abs()))
+    .map(([, category]) => ({
+      id: category.id,
+      name: category.name,
+      icon: category.icon,
+      previousTotal: category.total.toFixed(),
+    }));
+
   const sortedDaysOf = (bucket: EnhancedStatsBucket) =>
     [...bucket.days.entries()].toSorted(([left], [right]) => left.localeCompare(right));
   const dailyTotals = (days: [string, EnhancedStatsBucketDay][]) =>
@@ -179,6 +191,7 @@ export function buildEnhancedStatsDto({
       },
     },
     categories,
+    previousOnlyCategories,
     chart,
     previousChart,
     largestEntries,

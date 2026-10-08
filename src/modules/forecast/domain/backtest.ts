@@ -75,6 +75,18 @@ function tallyOutcome(tally: Tally, totals: Float64Array, actual: number): void 
 }
 
 /**
+ * The share of paths the network earns: none unless its loss beat the
+ * statistical model's, and otherwise in proportion to how much it did. A loss
+ * that is not a number — a network whose outcomes went to NaN — passes every
+ * comparison false, so it is caught here and earns none.
+ */
+export function networkShareOf(statisticalLoss: number, networkLoss: number | null): number {
+  if (networkLoss == null || !(networkLoss < statisticalLoss)) return 0;
+  const share = statisticalLoss / (statisticalLoss + networkLoss);
+  return Number.isFinite(share) ? share : 0;
+}
+
+/**
  * The contest the forecast is chosen by. It stands on past days, every
  * `spacing` days back from yesterday, pretends nothing after each was known,
  * forecasts the next `horizon` days, and scores the forecast against what was
@@ -168,10 +180,7 @@ export function* runBacktest(
     }
   }
 
-  const networkShare =
-    networkTally == null || networkTally.loss >= chosen.tally.loss
-      ? 0
-      : chosen.tally.loss / (chosen.tally.loss + networkTally.loss);
+  const networkShare = networkShareOf(chosen.tally.loss, networkTally?.loss ?? null);
   const ensemble = { miss: 0, loss: 0 };
   for (const [index, origin] of origins.entries()) {
     const statistical = chosen.totals[index]!;

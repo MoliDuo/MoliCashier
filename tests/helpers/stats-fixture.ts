@@ -30,6 +30,7 @@ export function buildEnhancedStatsFixture(
       },
     },
     categories: [],
+    previousOnlyCategories: [],
     chart: [],
     previousChart: [],
     largestEntries: [],

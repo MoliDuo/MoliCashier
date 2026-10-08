@@ -91,14 +91,14 @@ describe("convertToParsedEntries", () => {
   });
   it("isolates categories by receipt and preserves each row's own currency precision", () => {
     const result = convertToParsedEntries({
-      ledgerEntries: [item(1, 0, "JPY"), item(2, 1, "KWD")],
-      orderAdjustments: [adjustment("-1", 0, 0, "JPY"), adjustment("-0.123", 0, 1, "KWD")],
+      ledgerEntries: [item(1, 0, "JPY"), item(2, 1, "USD")],
+      orderAdjustments: [adjustment("-1", 0, 0, "JPY"), adjustment("-0.12", 0, 1, "USD")],
     });
     expect(result.map((e) => [e.amount, e.currency, e.categoryIndex])).toEqual([
       ["30", "JPY", 1],
-      ["30.000", "KWD", 2],
+      ["30.00", "USD", 2],
       ["-1", "JPY", 1],
-      ["-0.123", "KWD", 2],
+      ["-0.12", "USD", 2],
     ]);
   });
   it("does not discard unmatched charges, invent categories, or retain zero adjustments", () => {

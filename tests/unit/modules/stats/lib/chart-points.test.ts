@@ -94,15 +94,25 @@ describe("buildChartPoints", () => {
     ).toEqual([]);
   });
 
-  it("refuses to build more than 120 chart points", () => {
-    expect(
-      buildChartPoints({
-        data: [],
-        rangeType: "year",
-        startDate: "2015-01-01",
-        endDate: "2025-01-31",
-      })
-    ).toEqual([]);
+  it("charts a span of more than 120 months a year at a time", () => {
+    const points = buildChartPoints({
+      data: [
+        { date: "2015-03-02", total: "10" },
+        { date: "2015-11-30", total: "5.5" },
+        { date: "2025-01-31", total: "7" },
+      ],
+      rangeType: "year",
+      startDate: "2015-01-01",
+      endDate: "2025-01-31",
+    });
+
+    expect(points).toHaveLength(11);
+    expect(points[0]).toEqual({ label: "2015", value: 15.5, total: "15.5", fullDate: "2015" });
+    expect(points[5]).toMatchObject({ fullDate: "2020", total: "0" });
+    expect(points.at(-1)).toMatchObject({ fullDate: "2025", total: "7" });
+  });
+
+  it("refuses to build more than 120 daily chart points", () => {
     expect(
       buildChartPoints({
         data: [],

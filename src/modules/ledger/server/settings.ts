@@ -81,15 +81,21 @@ async function updateSettingsRow(
       .for("update")
       .then((rows) => rows[0]);
     if (ledger == null) return null;
-    const settings = { ...mapLedgerSettings(ledger), ...changes };
+    const stored = mapLedgerSettings(ledger);
+    const settings = { ...stored, ...changes };
     const previousMainCurrency = ledger.mainCurrency;
     const nextMainCurrency = settings.mainCurrency.trim().toUpperCase();
     const nextCurrencies = settings.currencies.map((currency) => currency.trim().toUpperCase());
-    if (!SUPPORTED_CURRENCIES.includes(nextMainCurrency as (typeof SUPPORTED_CURRENCIES)[number])) {
-      throw new AppError(`Currency not found: ${nextMainCurrency}`, "CURRENCY_NOT_FOUND", 400);
-    }
-    for (const currency of nextCurrencies) {
-      if (!SUPPORTED_CURRENCIES.includes(currency as (typeof SUPPORTED_CURRENCIES)[number])) {
+    // A currency the ledger already holds stays valid after it leaves the
+    // supported list, so saving another setting never fails on it; only a
+    // newly chosen one has to be supported.
+    const allowed = new Set<string>([
+      ...SUPPORTED_CURRENCIES,
+      stored.mainCurrency,
+      ...stored.currencies,
+    ]);
+    for (const currency of [nextMainCurrency, ...nextCurrencies]) {
+      if (!allowed.has(currency)) {
         throw new AppError(`Currency not found: ${currency}`, "CURRENCY_NOT_FOUND", 400);
       }
     }

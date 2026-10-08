@@ -1,37 +1,45 @@
-import { and, eq, lt, or, sql, type SQL } from "drizzle-orm";
+import { or, sql, type SQL } from "drizzle-orm";
 import { sourceDocuments } from "@/persistence";
+import { cursorTimestampSql } from "@/lib/db/cursor-timestamp";
 import {
   decodeSourceDocumentPageCursor,
   encodeSourceDocumentPageCursor,
 } from "../../stream-cursor";
 
-import type { SourceDocumentListRow } from "./mappers";
+/**
+ * The cursor's creation time, selected next to each list row. It is formatted
+ * in SQL with microseconds so the next page starts exactly after the row.
+ */
+export const cursorCreatedAtSql = () => cursorTimestampSql(sourceDocuments.createdAt);
 
 export function cursorCondition(cursor: string | null | undefined): SQL<unknown> | null {
   if (cursor == null || cursor === "") return null;
   const decoded = decodeSourceDocumentPageCursor(cursor);
   if (decoded == null) return null;
-  const createdAt = new Date(decoded.createdAt);
+  // Compared as timestamptz in SQL, not through a JavaScript Date, which would
+  // drop the microseconds. Older cursors carry milliseconds and still parse.
+  const documentDate = sql`${decoded.documentDate}::date`;
+  const createdAt = sql`${decoded.createdAt}::timestamptz`;
   return (
     or(
-      sql`${sourceDocuments.documentDate} < ${decoded.documentDate}::date`,
-      and(
-        sql`${sourceDocuments.documentDate} = ${decoded.documentDate}::date`,
-        lt(sourceDocuments.createdAt, createdAt)
-      ),
-      and(
-        sql`${sourceDocuments.documentDate} = ${decoded.documentDate}::date`,
-        eq(sourceDocuments.createdAt, createdAt),
-        sql`${sourceDocuments.id} < ${decoded.id}`
-      )
+      sql`${sourceDocuments.documentDate} < ${documentDate}`,
+      sql`(${sourceDocuments.documentDate} = ${documentDate}
+        AND ${sourceDocuments.createdAt} < ${createdAt})`,
+      sql`(${sourceDocuments.documentDate} = ${documentDate}
+        AND ${sourceDocuments.createdAt} = ${createdAt}
+        AND ${sourceDocuments.id} < ${decoded.id})`
     ) ?? null
   );
 }
 
-export function encodeCursor(row: SourceDocumentListRow): string {
+export function encodeCursor(row: {
+  documentDate: string;
+  cursorCreatedAt: string;
+  id: string;
+}): string {
   return encodeSourceDocumentPageCursor({
     documentDate: row.documentDate,
-    createdAt: row.createdAt.toISOString(),
+    createdAt: row.cursorCreatedAt,
     id: row.id,
   });
 }

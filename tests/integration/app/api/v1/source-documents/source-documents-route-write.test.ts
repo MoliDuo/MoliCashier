@@ -375,4 +375,31 @@ describe("API v1 source-documents route", () => {
     expect(otherKey.status).toBe(201);
     expect(await getTestDb().select().from(sourceDocuments)).toHaveLength(2);
   });
+
+  it("replays a repeated key with the record's status as it is now", async () => {
+    const image = await validJpegBase64();
+    const submit = () =>
+      POST(
+        new NextRequest("http://localhost/api/v1/source-documents", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${credentialKey}`, "Idempotency-Key": "finished" },
+          body: JSON.stringify({ images: [{ data: image, mimeType: "image/jpeg" }] }),
+        })
+      );
+    const first = await submit().then((response) => response.json());
+    await getTestDb()
+      .update(extractionAttempts)
+      .set({ status: "completed", finishedAt: new Date() })
+      .where(eq(extractionAttempts.id, first.revisionId));
+
+    const replay = await submit();
+
+    expect(replay.status).toBe(201);
+    expect(await replay.json()).toEqual({
+      sourceDocumentId: first.sourceDocumentId,
+      revisionId: first.revisionId,
+      revisionState: "completed",
+      status: "completed",
+    });
+  });
 });

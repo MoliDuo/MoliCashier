@@ -68,6 +68,24 @@ describe("ensureExchangeRates", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it("fetches a day that is already today in a zone ahead of UTC", async () => {
+    // 07:00 on 2 March in Shanghai is still 1 March in UTC.
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-03-01T23:00:00.000Z") });
+    try {
+      vi.spyOn(global, "fetch").mockResolvedValue(providerResponse({ "2026-02-27": { USD: 1.1 } }));
+
+      await ensureExchangeRates(["2026-03-02"]);
+
+      expect(await storedDay("2026-03-02")).toContainEqual({
+        currency: "USD",
+        perEur: "1.1",
+        sourceDate: "2026-02-27",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it.each([
     ["an unavailable provider", () => Promise.reject(new TypeError("fetch failed"))],
     [

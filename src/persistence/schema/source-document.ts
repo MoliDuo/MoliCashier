@@ -79,6 +79,8 @@ export const sourceDocuments = pgTable(
       table.createdAt.desc(),
       table.id.desc()
     ),
+    // The parse's recent-entries lookup walks documents by creation time.
+    index("idx_source_documents_created").on(table.createdAt.desc(), table.id.desc()),
     uniqueIndex("uq_source_documents_idempotency").on(
       table.idempotencySource,
       table.idempotencyKey

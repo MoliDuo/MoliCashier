@@ -69,6 +69,11 @@ describe("source-document retry action", () => {
         ],
       })
     );
+    // The owner moved the record to another day after it was parsed.
+    await db
+      .update(sourceDocuments)
+      .set({ documentDate: "2026-07-01" })
+      .where(eq(sourceDocuments.id, created.sourceDocumentId));
     const retried = await editRetrySourceDocumentAction(created.sourceDocumentId, {
       text: "晚餐 50元",
       storedFileIds: [],
@@ -94,6 +99,8 @@ describe("source-document retry action", () => {
     });
     expect(after?.latestAttemptId).toBe(attempts[1]?.id);
     expect(after?.inputText).toBe("晚餐 50元");
+    // A retry sent without a day keeps the one the record has.
+    expect(after?.documentDate).toBe("2026-07-01");
     expect(attempts).toHaveLength(2);
     expect(attempts[0]?.status).toBe("completed");
     expect(attempts[1]?.status).toBe("completed");

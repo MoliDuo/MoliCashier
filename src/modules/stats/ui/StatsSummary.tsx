@@ -42,7 +42,8 @@ export function StatsSummary({
   const comparisonValues = {
     period: periodLabel,
     amount: formatCurrencyAmount(abs(delta), currencySymbol, locale),
-    percent: Math.abs(comparison?.percent ?? 0).toFixed(1),
+    // Growth from nothing has no percentage; the amount alone says it.
+    percent: comparison?.percent == null ? null : Math.abs(comparison.percent).toFixed(1),
   };
   const comparisonText =
     comparison == null

@@ -168,19 +168,24 @@ export function buildLedgerEntryCursorCondition(
     throw new ValidationError("Ledger entry cursor does not match the query");
   }
 
+  // Compare in PostgreSQL rather than through a JavaScript Date: created_at
+  // has microsecond precision and a Date would truncate it to milliseconds,
+  // skipping or repeating rows at a page boundary. Older cursors carry
+  // millisecond strings and still parse.
+  const createdAt = sql`${value.documentCreatedAt}::timestamptz`;
   return sql`(
     ${columns.documentDate} < ${value.documentDate}
     OR (${columns.documentDate} = ${value.documentDate}
-      AND ${columns.documentCreatedAt} < ${new Date(value.documentCreatedAt)})
+      AND ${columns.documentCreatedAt} < ${createdAt})
     OR (${columns.documentDate} = ${value.documentDate}
-      AND ${columns.documentCreatedAt} = ${new Date(value.documentCreatedAt)}
+      AND ${columns.documentCreatedAt} = ${createdAt}
       AND ${columns.documentId} < ${value.documentId})
     OR (${columns.documentDate} = ${value.documentDate}
-      AND ${columns.documentCreatedAt} = ${new Date(value.documentCreatedAt)}
+      AND ${columns.documentCreatedAt} = ${createdAt}
       AND ${columns.documentId} = ${value.documentId}
       AND ${columns.position} > ${value.position})
     OR (${columns.documentDate} = ${value.documentDate}
-      AND ${columns.documentCreatedAt} = ${new Date(value.documentCreatedAt)}
+      AND ${columns.documentCreatedAt} = ${createdAt}
       AND ${columns.documentId} = ${value.documentId}
       AND ${columns.position} = ${value.position}
       AND ${columns.entryId} > ${value.entryId})

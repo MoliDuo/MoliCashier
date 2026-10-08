@@ -1,7 +1,7 @@
 import { add, compare } from "@/lib/money/decimal";
 import { addCivilDays, civilDaysBetween } from "@/modules/ledger/domain/period";
 import { findAnomalies, type Anomaly } from "./anomalies";
-import { dayWeights, prepareHistory } from "./history";
+import { dayWeights, prepareHistory, type PreparedHistory } from "./history";
 import type { NetworkModel } from "./nn/network";
 import { simulateOutlook } from "./outlook";
 import { seededRandom } from "./random";
@@ -99,11 +99,16 @@ export function forecastPeriod(input: {
   period: { from: string; end: string };
   previous: { from: string; to: string } | null;
   options: ForecastOptions;
+  /** `rows` already prepared as of `today` with `options.minHistoryDays`, when the caller has it. */
+  prepared?: PreparedHistory | null;
 }): PeriodForecast | null {
   const { rows, today, period, previous, options } = input;
   const remaining = civilDaysBetween(today, period.end);
   if (remaining <= 0) return null;
-  const history = prepareHistory(rows, today, options.minHistoryDays);
+  const history =
+    input.prepared === undefined
+      ? prepareHistory(rows, today, options.minHistoryDays)
+      : input.prepared;
   if (history == null) return null;
 
   const simulation = simulateOutlook(history, {

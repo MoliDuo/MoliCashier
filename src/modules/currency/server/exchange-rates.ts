@@ -53,6 +53,17 @@ function addDays(date: string, days: number): string {
   return next.toISOString().slice(0, 10);
 }
 
+/**
+ * The last day rates are fetched for. Ledger days are named in the ledger's
+ * zone, which can be a day ahead of UTC, so a UTC bound would skip a record
+ * dated today in, say, Shanghai before 08:00. No zone is more than a day
+ * ahead of UTC; a day the provider has not published yet is stored as
+ * provisional and replaced later.
+ */
+function latestRateDay(now: Date): string {
+  return addDays(formatExchangeRateDate(now), 1);
+}
+
 function isRetryableHttpStatus(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
 }
@@ -203,12 +214,12 @@ async function fetchAndStoreDays(
  * Makes a best effort to have rates for the given days before an entry is
  * written on them: one provider request, about three seconds, never throwing.
  * A day that still has no rates converts to null until maintenance fills it.
- * Days after today are skipped; they have no rates yet.
+ * Days after today (in any zone) are skipped; they have no rates yet.
  */
 export async function ensureExchangeRates(dates: readonly (string | null)[]): Promise<void> {
-  const today = formatExchangeRateDate(new Date());
+  const latest = latestRateDay(new Date());
   const candidates = [
-    ...new Set(dates.filter((date): date is string => date != null && date <= today)),
+    ...new Set(dates.filter((date): date is string => date != null && date <= latest)),
   ];
   if (candidates.length === 0) return;
   try {
@@ -234,11 +245,11 @@ export async function ensureExchangeRates(dates: readonly (string | null)[]): Pr
  * days. Runs from the daily cron; a second run finds nothing left to fetch.
  */
 export async function refreshExchangeRates(now = new Date()): Promise<void> {
-  const today = formatExchangeRateDate(now);
+  const latest = latestRateDay(now);
   const wanted = await db.execute<{ rate_date: string }>(sql`
     SELECT DISTINCT documents.document_date::text AS rate_date
     FROM source_documents documents
-    WHERE documents.document_date <= ${today}::date
+    WHERE documents.document_date <= ${latest}::date
       AND NOT EXISTS (
         SELECT 1 FROM exchange_rates rates
         WHERE rates.rate_date = documents.document_date AND rates.currency = 'EUR'

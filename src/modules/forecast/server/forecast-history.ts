@@ -69,3 +69,18 @@ export async function readForecastHistory(
     ),
   };
 }
+
+/**
+ * A mark that moves whenever anything the forecast reads changes: the
+ * ledger's change watermark and when it last moved. Entries, documents,
+ * categories, settings and exchange rates all move it. The time is in it too,
+ * so a change log that starts again from nothing — a database restored or
+ * emptied — cannot repeat an earlier mark.
+ */
+export async function readHistoryMark(): Promise<string> {
+  const result = await db.execute<{ mark: string }>(sql`
+    SELECT version::text || ':' || extract(epoch FROM updated_at)::text AS mark
+    FROM ledger_sync_state
+  `);
+  return result.rows[0]?.mark ?? "none";
+}

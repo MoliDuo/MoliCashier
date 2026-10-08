@@ -4,6 +4,7 @@ import {
   billKey,
   detectRecurringBills,
   upcomingDates,
+  withRecordedOn,
   type RecurringBill,
 } from "@/modules/forecast/domain/recurring";
 import type { HistoryRow } from "@/modules/forecast/domain/series";
@@ -125,5 +126,30 @@ describe("upcomingDates", () => {
     expect(model.chance(5)).toBe(1);
     expect(model.chance(4)).toBe(0);
     expect(model.amount(5, 0.3)).toBe(3000);
+  });
+});
+
+describe("withRecordedOn", () => {
+  const rent = detectRecurringBills(RENT, "2026-10-04");
+
+  it("moves a bill on to a day it was recorded, so it is not expected again the day after", () => {
+    const today = "2026-10-05";
+    const [moved] = withRecordedOn(rent, [...RENT, bill(today, "10月房租", "3000")], today);
+
+    expect(moved).toMatchObject({ lastDate: today, amount: 3000, streak: 5 });
+    expect(upcomingDates(moved!, today, "2026-10-31")).toEqual([]);
+    // Without today's, the rent that is due is expected tomorrow.
+    expect(upcomingDates(rent[0]!, today, "2026-10-31")).toEqual(["2026-10-06"]);
+  });
+
+  it("leaves a bill alone for a document of another name, another category or a refund", () => {
+    const today = "2026-10-05";
+    const others = [
+      bill(today, "水电费", "200"),
+      bill(today, "10月房租", "3000", { categoryId: "fun", documentId: "elsewhere" }),
+      bill(today, "10月房租", "-3000", { documentId: "refund" }),
+    ];
+
+    expect(withRecordedOn(rent, [...RENT, ...others], today)).toEqual(rent);
   });
 });

@@ -2,7 +2,12 @@ import { addCivilDays, civilDaysBetween } from "@/modules/ledger/domain/period";
 import { fitBaselineModel } from "./baseline";
 import type { DayModel } from "./day-model";
 import { dailySignals, detectLifeChange, type DailySignals, type LifeChange } from "./life-change";
-import { billDayModel, detectRecurringBills, type RecurringBill } from "./recurring";
+import {
+  billDayModel,
+  detectRecurringBills,
+  withRecordedOn,
+  type RecurringBill,
+} from "./recurring";
 import {
   buildDailySeries,
   categoryKeyOf,
@@ -57,14 +62,21 @@ function largePurchaseThreshold(rows: readonly HistoryRow[], today: string): num
   return usual * LARGE_PURCHASE_MULTIPLE;
 }
 
-/** The purchases — whole documents — that cost at least `threshold`. */
+/**
+ * The purchases — whole documents — that cost at least `threshold`, and the
+ * refunds that give back as much: a deposit returned or a flight refunded is
+ * as much a one-off as the purchase was, and drawn as an everyday day it would
+ * pull every path ahead down by its amount.
+ */
 function largePurchases(rows: readonly HistoryRow[], threshold: number): Set<string> {
   const totals = new Map<string, number>();
   for (const row of rows) {
     const key = purchaseOf(row);
     totals.set(key, (totals.get(key) ?? 0) + Number(row.amount));
   }
-  return new Set([...totals].filter(([, total]) => total >= threshold).map(([key]) => key));
+  return new Set(
+    [...totals].filter(([, total]) => Math.abs(total) >= threshold).map(([key]) => key)
+  );
 }
 
 /** The purchase a row belongs to: its document, or its day and category when it has none. */
@@ -93,7 +105,8 @@ export function prepareHistory(
   if (earliest == null || civilDaysBetween(earliest, today) < minHistoryDays) return null;
 
   const before = rows.filter((row) => row.date < today);
-  const bills = detectRecurringBills(before, addCivilDays(today, -1));
+  // A bill already recorded today counts as spent, and is not expected again tomorrow.
+  const bills = withRecordedOn(detectRecurringBills(before, addCivilDays(today, -1)), rows, today);
   const billDocuments = new Set(bills.flatMap((bill) => [...bill.documentIds]));
   const regular =
     billDocuments.size === 0

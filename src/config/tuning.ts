@@ -128,6 +128,12 @@ export const FORECAST_AI_MAX_AGE_DAYS = 2;
 export const FORECAST_AI_BACKFILL_WEEKS = 12;
 /** How far ahead a past judgment is scored against what was then spent. */
 export const FORECAST_AI_ACCURACY_HORIZON_DAYS = 14;
+/**
+ * The most a category's judged everyday day may cost, as a multiple of the 99th percentile of its past days
+ * with spending; something the AI expects is held to the same multiple of the category's largest past day.
+ * A misread answer — a month's spending given as a day's — then cannot multiply the forecast.
+ */
+export const FORECAST_AI_AMOUNT_CAP_MULTIPLE = 1.5;
 /** How long judgments are kept for scoring. */
 export const FORECAST_AI_RETENTION_DAYS = 400;
 /**

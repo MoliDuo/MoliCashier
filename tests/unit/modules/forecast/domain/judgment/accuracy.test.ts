@@ -4,6 +4,7 @@ import {
   scoreJudgment,
   summarizeScores,
 } from "@/modules/forecast/domain/judgment/accuracy";
+import { historyFingerprint } from "@/modules/forecast/domain/judgment/fingerprint";
 import type { Judgment } from "@/modules/forecast/domain/judgment/schema";
 import type { HistoryRow } from "@/modules/forecast/domain/series";
 import { addCivilDays } from "@/modules/ledger/domain/period";
@@ -71,10 +72,22 @@ describe("scorableJudgments", () => {
   it("keeps the judgments whose days ahead are over, newest first", () => {
     const judgments = ["2026-09-01", "2026-09-26", "2026-09-25", "2026-10-09"].map((asOf) => ({
       asOf,
+      inputFingerprint: historyFingerprint([], asOf),
     }));
 
     expect(scorableJudgments(judgments, "2026-10-10", 14).map((item) => item.asOf)).toEqual([
       "2026-09-25",
+      "2026-09-01",
+    ]);
+  });
+
+  it("leaves out the judgments made under an older prompt", () => {
+    const judgments = [
+      { asOf: "2026-09-01", inputFingerprint: historyFingerprint([], "2026-09-01") },
+      { asOf: "2026-09-08", inputFingerprint: "v0:0123456789abcdef" },
+    ];
+
+    expect(scorableJudgments(judgments, "2026-10-10", 14).map((item) => item.asOf)).toEqual([
       "2026-09-01",
     ]);
   });

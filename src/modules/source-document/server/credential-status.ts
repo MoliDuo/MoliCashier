@@ -2,12 +2,21 @@ import { and, eq, sql } from "drizzle-orm";
 import "server-only";
 import { db } from "@/lib/db";
 import { ledgers, extractionAttempts, sourceDocuments } from "@/persistence";
-import { toStableFailureCode } from "@/modules/source-document/lifecycle";
+import {
+  toCredentialDocumentStatus,
+  toStableFailureCode,
+} from "@/modules/source-document/lifecycle";
+import { roundToCurrency } from "@/lib/money/currency-precision";
 import { accountingTotal } from "@/lib/money/accounting-total";
 import type { CredentialSourceDocumentStatusResult } from "@/modules/source-document/contracts";
 
+/**
+ * The record as API v1 reports it, or null when it does not exist or is filed
+ * under another book than the credential's.
+ */
 export async function getCredentialSourceDocumentStatus(
-  sourceDocumentId: string
+  sourceDocumentId: string,
+  bookId: string
 ): Promise<CredentialSourceDocumentStatusResult | null> {
   // Load the document, its latest attempt, its entries and the ledger's main
   // currency in a single query so status polling does not fan out into
@@ -64,27 +73,24 @@ export async function getCredentialSourceDocumentStatus(
       )
     )
     .crossJoin(ledgers)
-    .where(eq(sourceDocuments.id, sourceDocumentId))
+    .where(and(eq(sourceDocuments.id, sourceDocumentId), eq(sourceDocuments.bookId, bookId)))
     .limit(1);
   const row = rows[0];
   if (row == null) return null;
   const { document, attempt } = row;
-  const status =
-    attempt == null
-      ? "completed"
-      : attempt.failureKind === "invalid_input"
-        ? "invalid"
-        : (attempt.status as CredentialSourceDocumentStatusResult["status"]);
+  const status = toCredentialDocumentStatus(attempt);
   let result: CredentialSourceDocumentStatusResult["result"] = null;
   if (status === "completed") {
     result = {
       title: document.title,
       total: accountingTotal(row.entries, row.mainCurrency),
       totalCurrency: row.mainCurrency,
+      // Amounts are stored with three decimals; report each with its
+      // currency's own precision ("1000" yen, not "1000.000").
       entries: row.entries.map(({ name, description, amount, currency, category }) => ({
         name,
         description,
-        amount,
+        amount: currency == null ? amount : roundToCurrency(amount, currency),
         currency,
         category,
       })),

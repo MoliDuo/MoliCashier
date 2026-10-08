@@ -173,6 +173,22 @@ describe("deriveStatsInsights", () => {
     expect(deriveStatsInsights(stats).topMover).toBeNull();
   });
 
+  it("counts a category that went to nothing as the biggest move", () => {
+    const base = buildEnhancedStatsFixture();
+    const stats = buildEnhancedStatsFixture({
+      summary: { ...base.summary, total: "1000" },
+      categories: [category({ id: "food", name: "Food", trend: { percent: 10, amount: "90" } })],
+      previousOnlyCategories: [{ id: "rent", name: "Rent", icon: null, previousTotal: "3000" }],
+    });
+
+    expect(deriveStatsInsights(stats).topMover).toEqual({
+      id: "rent",
+      name: "Rent",
+      amountDelta: "3000",
+      direction: "down",
+    });
+  });
+
   it("reads a drop as a drop", () => {
     const base = buildEnhancedStatsFixture();
     const stats = buildEnhancedStatsFixture({

@@ -19,7 +19,7 @@ export async function getSourceDocumentInput(
         .select({
           id: sourceDocuments.id,
           processingStatus: extractionAttempts.status,
-          documentDate: extractionAttempts.requestedDate,
+          documentDate: sourceDocuments.documentDate,
           createdAt: sourceDocuments.createdAt,
           text: sourceDocuments.inputText,
         })

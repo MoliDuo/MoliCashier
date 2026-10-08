@@ -1,5 +1,6 @@
 import { inArray, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { cursorTimestampSql } from "@/lib/db/cursor-timestamp";
 import { AppError } from "@/lib/errors";
 import { mapLedgerEntryDto } from "./mappers";
 import {
@@ -25,7 +26,7 @@ interface VisibleEntryRow {
   id: string;
   position: number;
   documentDate: string;
-  // Drizzle raw executes return timestamptz as strings.
+  // Microsecond-precision ISO string formatted in SQL for the cursor.
   documentCreatedAt: string;
   documentId: string;
 }
@@ -73,7 +74,8 @@ export async function listLedgerEntryPage({
       ${whereConditions.length === 0 ? sql`` : sql`WHERE ${sql.join(whereConditions, sql` AND `)}`}
     )
     SELECT id, position, document_date::text AS "documentDate",
-      document_created_at AS "documentCreatedAt", document_id AS "documentId"
+      ${cursorTimestampSql(sql`document_created_at`)} AS "documentCreatedAt",
+      document_id AS "documentId"
     FROM visible_entries
     ORDER BY document_date DESC, document_created_at DESC, document_id DESC,
       position ASC, id ASC
@@ -92,7 +94,7 @@ export async function listLedgerEntryPage({
         nextCursor = encodeLedgerEntryCursor(
           {
             documentDate: lastItem.documentDate,
-            documentCreatedAt: new Date(lastItem.documentCreatedAt).toISOString(),
+            documentCreatedAt: lastItem.documentCreatedAt,
             documentId: lastItem.documentId,
             position: lastItem.position,
             entryId: lastItem.id,

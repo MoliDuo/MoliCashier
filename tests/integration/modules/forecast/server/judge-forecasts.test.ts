@@ -14,6 +14,7 @@ import {
   sourceDocuments,
 } from "@/persistence";
 import { getPeriodForecast } from "@/modules/forecast/server/get-forecast";
+import { judgeForecasts } from "@/modules/forecast/server/judge-ledger";
 import { addCivilDays } from "@/modules/ledger/domain/period";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
@@ -268,5 +269,63 @@ describe("the AI analyst's nightly judgment", () => {
     expect(forecast.judgment).toBeNull();
     expect(forecast.categories[0]!.trend).toBeNull();
     expect(Number(forecast.total.p50)).toBeGreaterThan(270);
+  });
+
+  it("judges again the past Mondays whose judgment was made under an older prompt", async () => {
+    await runDailyMaintenance({ now: new Date() });
+    const calls = transport.complete.mock.calls.length;
+    await getTestDb()
+      .update(forecastJudgments)
+      .set({ inputFingerprint: "v0:0123456789abcdef" })
+      .where(eq(forecastJudgments.asOf, "2026-09-14"));
+
+    await runDailyMaintenance({ now: new Date() });
+
+    expect(transport.complete.mock.calls.length).toBe(calls + 1);
+    expect(digestOf(transport.complete.mock.calls.at(-1)![0])).toMatch(/^Today: 2026-09-14\./);
+  });
+
+  it("still backfills when a read is judging today as the night begins", async () => {
+    // The read's judgment of today is held at the provider until the night has started.
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    setAiTransportForTests(
+      fakeAiTransport(async (request) => {
+        if (/^Today: 2026-10-10\./.test(digestOf(request))) await held;
+        return analyst(request);
+      })
+    );
+    await getPeriodForecast({ period: THIS_MONTH }, "Asia/Shanghai");
+
+    const night = judgeForecasts();
+    setTimeout(() => release(), 250);
+    await night;
+
+    const rows = await getTestDb().select().from(forecastJudgments);
+    expect(rows).toHaveLength(13);
+  });
+
+  it("answers from the statistical model when the analyst's scored record is worse", async () => {
+    // An analyst that keeps expecting ¥44 a day of food that runs at ¥30.
+    setAiTransportForTests(
+      fakeAiTransport((request) => {
+        const answer = JSON.parse(analyst(request)) as {
+          categories: { low: number; mid: number; high: number }[];
+        };
+        answer.categories = answer.categories.map((category) => ({
+          ...category,
+          low: 40,
+          mid: 44,
+          high: 44,
+        }));
+        return JSON.stringify(answer);
+      })
+    );
+    await runDailyMaintenance({ now: new Date() });
+
+    const forecast = (await getPeriodForecast({ period: THIS_MONTH }, "Asia/Shanghai"))!;
+
+    expect(forecast.judgment).toBeNull();
+    expect(forecast.categories[0]!.trend).toBeNull();
   });
 });

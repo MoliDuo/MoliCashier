@@ -247,9 +247,12 @@ export function parsePeriod(fields: {
   const range = fields.range ?? "month";
   if (range === "all") return { range: "all" };
   if (range === "custom") {
-    return isCivilDate(fields.from) && isCivilDate(fields.to) && fields.from <= fields.to
-      ? { range: "custom", from: fields.from, to: fields.to }
-      : DEFAULT_PERIOD;
+    if (!isCivilDate(fields.from) || !isCivilDate(fields.to) || fields.from > fields.to) {
+      return DEFAULT_PERIOD;
+    }
+    // A span longer than one read may cover keeps its last days.
+    const floor = addCivilDays(fields.to, -(MAX_PERIOD_DAYS - 1));
+    return { range: "custom", from: fields.from < floor ? floor : fields.from, to: fields.to };
   }
   if (!(CALENDAR_RANGES as readonly string[]).includes(range)) return DEFAULT_PERIOD;
   const calendar = range as CalendarRange;

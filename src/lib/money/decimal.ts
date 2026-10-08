@@ -11,6 +11,8 @@ import Decimal from "decimal.js";
 
 const MoneyDecimal = Decimal.clone({ precision: 40, rounding: Decimal.ROUND_HALF_UP });
 export const DECIMAL_STRING_PATTERN = /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/;
+/** Amounts are stored as numeric(21,3), which leaves 18 digits before the point. */
+export const MAX_AMOUNT_INTEGER_DIGITS = 18;
 
 function toCanonical(value: Decimal): string {
   return value.isZero() ? "0" : value.toFixed();

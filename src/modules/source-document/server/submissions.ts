@@ -9,6 +9,10 @@ import {
   type SourceDocumentAttemptContract,
 } from "@/modules/source-document/server/extraction-attempts";
 import type { ProcessingJobContract } from "@/server/processing/types";
+import {
+  toCredentialDocumentStatus,
+  type CredentialDocumentStatus,
+} from "@/modules/source-document/lifecycle";
 import { lockLedgerForUpdate, type PostgresTransaction } from "@/lib/db/transaction-locks";
 
 async function submitInTransaction(
@@ -17,11 +21,14 @@ async function submitInTransaction(
   idempotency?: SourceDocumentIdempotencyInput
 ): Promise<SourceDocumentSubmissionResult> {
   let attemptInput = input.input;
+  // Lock order: ledger → source document, as every other writer takes them.
+  await lockLedgerForUpdate(tx);
 
   if (input.sourceDocumentId != null) {
     const document = await tx
       .select({
         inputText: sourceDocuments.inputText,
+        documentDate: sourceDocuments.documentDate,
         latestAttemptId: sourceDocuments.latestAttemptId,
       })
       .from(sourceDocuments)
@@ -34,13 +41,12 @@ async function submitInTransaction(
     if (input.inheritInput === true) {
       if (inputAttemptId == null)
         throw new ConflictError("Source document has no submission input");
-      // The text and files are the document's current input; the dates the
-      // parse read them with stay on the submission they came with.
+      // The text and files are the document's current input. The day is the
+      // record's own, so a date the owner set by hand since the last parse
+      // survives the retry; the reference date the parse read the input with
+      // stays on the submission it came with.
       const previousInput = await tx
-        .select({
-          documentDate: extractionAttempts.requestedDate,
-          dateReference: extractionAttempts.referenceDate,
-        })
+        .select({ dateReference: extractionAttempts.referenceDate })
         .from(extractionAttempts)
         .where(
           and(
@@ -57,7 +63,12 @@ async function submitInTransaction(
           .where(eq(sourceDocumentFiles.sourceDocumentId, input.sourceDocumentId))
           .orderBy(asc(sourceDocumentFiles.position))
       ).map((file) => file.id);
-      attemptInput = { ...previousInput, text: document.inputText, storedFileIds };
+      attemptInput = {
+        ...previousInput,
+        documentDate: document.documentDate,
+        text: document.inputText,
+        storedFileIds,
+      };
     }
 
     if (input.supersedeProcessing === true && document?.latestAttemptId != null) {
@@ -131,10 +142,21 @@ export async function findIdempotentSubmission(
   const document = await executor
     .select({
       id: sourceDocuments.id,
-      attemptId: sourceDocuments.latestAttemptId,
       fingerprint: sourceDocuments.idempotencyFingerprint,
+      attempt: {
+        id: extractionAttempts.id,
+        status: extractionAttempts.status,
+        failureKind: extractionAttempts.failureKind,
+      },
     })
     .from(sourceDocuments)
+    .leftJoin(
+      extractionAttempts,
+      and(
+        eq(extractionAttempts.id, sourceDocuments.latestAttemptId),
+        eq(extractionAttempts.sourceDocumentId, sourceDocuments.id)
+      )
+    )
     .where(
       and(
         eq(sourceDocuments.idempotencySource, idempotencySource(idempotency)),
@@ -146,11 +168,12 @@ export async function findIdempotentSubmission(
   if (document.fingerprint !== idempotency.contentFingerprint) {
     throw new ConflictError("Idempotency key was already used with different content");
   }
-  // Creating a document sets its latest submission in the same transaction.
+  // The replay reports the record as it is now: its parse may have finished,
+  // failed or been retried since the first request.
   return {
     sourceDocumentId: document.id,
-    attemptId: document.attemptId!,
-    processingStatus: "processing",
+    attemptId: document.attempt?.id ?? null,
+    processingStatus: toCredentialDocumentStatus(document.attempt),
   };
 }
 
@@ -183,8 +206,9 @@ export async function submitSourceDocumentIdempotently(
 
 export interface SourceDocumentSubmissionContract {
   sourceDocumentId: string;
-  attemptId: string;
-  processingStatus: "processing";
+  /** Null only for a replayed record that no longer has a parse. */
+  attemptId: string | null;
+  processingStatus: CredentialDocumentStatus;
 }
 
 export interface SourceDocumentSubmissionResult {
