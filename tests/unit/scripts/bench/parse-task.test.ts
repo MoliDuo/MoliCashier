@@ -94,7 +94,8 @@ describe("parse task", () => {
     expect(transport.complete).toHaveBeenCalledTimes(1);
     const request = transport.complete.mock.calls[0]?.[0];
     expect(request?.system).toContain("1. Food — Meals and drinks");
-    expect(request?.system).toContain("lunch 45, coupon 5");
+    // The document's own text travels in the user message, fenced off as data.
+    expect(JSON.stringify(request?.messages)).toContain("lunch 45, coupon 5");
   });
 
   it("sends the document's images as image parts, and none for a text document", async () => {

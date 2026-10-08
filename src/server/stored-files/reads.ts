@@ -30,11 +30,12 @@ async function findAuthorizedFile(fileId: string) {
 }
 
 export async function readAuthorizedFile(
-  fileId: string
+  fileId: string,
+  options: { signal?: AbortSignal } = {}
 ): Promise<AuthorizedFileReadContract | null> {
   const row = await findAuthorizedFile(fileId);
   if (row == null) return null;
-  const body = await getS3Storage().download(row.storageKey);
+  const body = await getS3Storage().download(row.storageKey, options);
   return { file: mapStoredFile(row), body: new Uint8Array(body) };
 }
 

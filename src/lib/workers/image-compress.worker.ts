@@ -3,22 +3,29 @@
  * Uses OffscreenCanvas to avoid blocking the main thread
  */
 import { fitImageDimensions } from "../image-dimensions";
+import { encodeWithinBudget, type ImageSizeLimits } from "../image-encoding";
 
 self.onmessage = async (
   e: MessageEvent<{
     imageData: ArrayBuffer;
-    maxWidth: number;
-    maxHeight: number;
+    limits: ImageSizeLimits;
     quality: number;
+    maxBytes: number;
   }>
 ) => {
-  const { imageData, maxWidth, maxHeight, quality } = e.data;
+  const { imageData, limits, quality, maxBytes } = e.data;
 
   let bitmap: ImageBitmap | null = null;
   try {
     const blob = new Blob([imageData]);
     bitmap = await createImageBitmap(blob);
-    const { width, height } = fitImageDimensions(bitmap.width, bitmap.height, maxWidth, maxHeight);
+    const { width, height } = fitImageDimensions(
+      bitmap.width,
+      bitmap.height,
+      limits.maxWidth,
+      limits.maxHeight,
+      limits.maxPixels
+    );
 
     const canvas = new OffscreenCanvas(width, height);
     const ctx = canvas.getContext("2d");
@@ -26,10 +33,11 @@ self.onmessage = async (
 
     ctx.drawImage(bitmap, 0, 0, width, height);
 
-    const resultBlob = await canvas.convertToBlob({
-      type: "image/jpeg",
+    const resultBlob = await encodeWithinBudget(
+      (at) => canvas.convertToBlob({ type: "image/jpeg", quality: at }),
       quality,
-    });
+      maxBytes
+    );
 
     const arrayBuffer = await resultBlob.arrayBuffer();
 

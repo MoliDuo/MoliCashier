@@ -8,7 +8,7 @@ import { createTestLedger } from "tests/helpers/schema-setup";
 import { storeProcessedImages, storeUploadedImage } from "@/server/stored-files/uploads";
 import { MemoryObjectStore } from "tests/helpers/memory-object-store";
 import {
-  MAX_NORMALIZED_BYTES_PER_ATTEMPT,
+  MAX_NORMALIZED_BYTES_PER_FILE,
   MAX_ORIGINAL_BYTES_PER_FILE,
 } from "@/lib/storage/upload-policy";
 import { storedFiles } from "@/persistence";
@@ -103,11 +103,11 @@ describe("stored-file uploads and reads", () => {
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
   });
 
-  it("refuses an image whose normalized form is over the attempt limit", async () => {
+  it("refuses an image whose normalized form is over the per-file limit", async () => {
     const storage = await setup();
-    // About 3.2 MB once encoded: under the per-file limit, over the attempt's.
-    const bytes = await noisePng(1040);
-    expect(bytes.length).toBeGreaterThan(MAX_NORMALIZED_BYTES_PER_ATTEMPT);
+    // About 5 MB once encoded, and a PNG cannot be re-encoded smaller at a lower quality.
+    const bytes = await noisePng(1300);
+    expect(bytes.length).toBeGreaterThan(MAX_NORMALIZED_BYTES_PER_FILE);
 
     await expect(
       storeUploadedImage({ bytes, contentType: "image/png", originalFilename: null })

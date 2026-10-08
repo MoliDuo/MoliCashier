@@ -75,8 +75,7 @@ describe("client image compression workers", () => {
     const controller = new AbortController();
     const result = compressImage(
       new File(["image"], "image.png", { type: "image/png" }),
-      1080,
-      1080,
+      undefined,
       0.8,
       controller.signal
     );

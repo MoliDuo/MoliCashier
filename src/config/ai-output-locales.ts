@@ -6,6 +6,10 @@ interface AiOutputCopy {
   reconciliationNote: string;
   untitledDocument: string;
   invalidContent: string;
+  /** The name of an entry the model left unnamed. */
+  unnamedItem: string;
+  /** Why a document in a currency the ledger cannot record was turned away; `{currencies}` names them. */
+  unsupportedCurrency: string;
 }
 
 const ENGLISH_COPY: AiOutputCopy = {
@@ -14,6 +18,8 @@ const ENGLISH_COPY: AiOutputCopy = {
   reconciliationNote: "Created automatically to reconcile the receipt total.",
   untitledDocument: "Untitled document",
   invalidContent: "Invalid content",
+  unnamedItem: "Unnamed item",
+  unsupportedCurrency: "This document is in {currencies}, a currency the ledger cannot record yet.",
 };
 
 export const AI_OUTPUT_COPY = {
@@ -23,6 +29,8 @@ export const AI_OUTPUT_COPY = {
     reconciliationNote: "根据账单总额自动补齐的差额项目。",
     untitledDocument: "未命名单据",
     invalidContent: "无效内容",
+    unnamedItem: "未命名项目",
+    unsupportedCurrency: "这张单据使用的币种（{currencies}）暂不支持记账。",
   },
   "en-US": ENGLISH_COPY,
 } satisfies Record<AiLanguage, AiOutputCopy>;

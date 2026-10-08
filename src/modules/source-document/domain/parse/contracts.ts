@@ -1,4 +1,5 @@
 import type { CategoryInfo, ParsedLedgerEntry } from "@/lib/ai/types";
+import type { EvidenceImage } from "@/lib/ai/evidence-images";
 
 /** One already-recorded entry the parse compares the evidence against. */
 export interface RecentEntryForParse {
@@ -22,7 +23,7 @@ export interface ParseSourceDocumentInput {
 }
 
 interface ParseEvidence {
-  images: readonly { dataUrl: string }[];
+  images: readonly EvidenceImage[];
 }
 
 export type ProcessingFailureCode =
@@ -50,7 +51,7 @@ export class ProcessingFailure extends Error {
  * The ledger owner instead reads the AI-written natural-language reason.
  */
 export type InvalidDiagnostic =
-  "ai_declared_invalid" | "non_positive_entry" | "entry_validation_failed";
+  "ai_declared_invalid" | "non_positive_entry" | "unsupported_currency" | "entry_validation_failed";
 
 export type ParseSourceDocumentOutput =
   | {

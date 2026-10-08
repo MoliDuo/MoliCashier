@@ -12,7 +12,10 @@ import {
   getEntryFallbackDate,
   validateEntries,
 } from "@/modules/source-document/domain/parse/entry-builder";
-import { runParsePipeline } from "@/modules/source-document/domain/parse/pipeline";
+import {
+  executeParsePipeline,
+  withParseDeadline,
+} from "@/modules/source-document/domain/parse/pipeline";
 import { toParseSourceDocumentOutput } from "@/modules/source-document/domain/parse/result-mapper";
 import {
   ProcessingCancelledError,
@@ -76,47 +79,52 @@ export async function processAttempt(
   }
   throwIfProcessingCancelled(signal);
 
-  const loadedEvidence = await loadStoredFilesForAI(storedFileIds);
-  throwIfProcessingCancelled(signal);
-  const failedEvidence = loadedEvidence.filter(isFailedLoadImageResult);
-  if (failedEvidence.length > 0) {
-    throw new ProcessingFailure(
-      "storage_failure",
-      `Failed to load ${failedEvidence.length} source document evidence file(s)`,
-      { cause: failedEvidence[0]?.error }
-    );
-  }
-  const evidence = loadedEvidence.filter(isSuccessfulLoadImageResult);
-  const recent = await loadRecentEntriesForParse(request.sourceDocumentId);
-  throwIfProcessingCancelled(signal);
-  const pipeline = await runParsePipeline(
-    {
-      ...(attempt.inputText == null ? {} : { text: attempt.inputText }),
-      ...(evidence.length === 0
-        ? {}
-        : { evidence: { images: evidence.map((item) => ({ dataUrl: item.dataUrl })) } }),
-      categories,
-      ...(recent.entries.length === 0 ? {} : { recentEntries: recent.entries }),
-      settings: {
-        ...(ledgerSettings?.aiCustomPrompt === undefined
-          ? {}
-          : { aiCustomPrompt: ledgerSettings.aiCustomPrompt }),
-        ...(ledgerSettings?.aiLearnedPreferences === undefined
-          ? {}
-          : { aiLearnedPreferences: ledgerSettings.aiLearnedPreferences }),
-      },
-      ...(ledgerSettings?.aiLanguage !== undefined
-        ? { aiLanguage: ledgerSettings.aiLanguage }
-        : {}),
-      ...(ledgerSettings?.currencies !== undefined
-        ? { preferredCurrencies: ledgerSettings.currencies }
-        : {}),
-    },
-    {
-      signal,
-      generate: options.generate ?? generateStructured,
+  const inputText = attempt.inputText;
+  // Loading the evidence counts against the parse's deadline: an object store that stops
+  // answering fails the attempt as a timeout instead of holding it forever.
+  const { pipeline, recent } = await withParseDeadline(signal, async (parseSignal) => {
+    const loadedEvidence = await loadStoredFilesForAI(storedFileIds, { signal: parseSignal });
+    throwIfProcessingCancelled(parseSignal);
+    const failedEvidence = loadedEvidence.filter(isFailedLoadImageResult);
+    if (failedEvidence.length > 0) {
+      // The cause keeps the object store's error, so an outage is retried like one.
+      throw new ProcessingFailure(
+        "storage_failure",
+        `Failed to load ${failedEvidence.length} source document evidence file(s)`,
+        { cause: failedEvidence[0]?.error }
+      );
     }
-  );
+    const images = loadedEvidence.filter(isSuccessfulLoadImageResult).map((item) => item.image);
+    const recent = await loadRecentEntriesForParse(request.sourceDocumentId);
+    throwIfProcessingCancelled(parseSignal);
+    const pipeline = await executeParsePipeline(
+      {
+        ...(inputText == null ? {} : { text: inputText }),
+        ...(images.length === 0 ? {} : { evidence: { images } }),
+        categories,
+        ...(recent.entries.length === 0 ? {} : { recentEntries: recent.entries }),
+        settings: {
+          ...(ledgerSettings?.aiCustomPrompt === undefined
+            ? {}
+            : { aiCustomPrompt: ledgerSettings.aiCustomPrompt }),
+          ...(ledgerSettings?.aiLearnedPreferences === undefined
+            ? {}
+            : { aiLearnedPreferences: ledgerSettings.aiLearnedPreferences }),
+        },
+        ...(ledgerSettings?.aiLanguage !== undefined
+          ? { aiLanguage: ledgerSettings.aiLanguage }
+          : {}),
+        ...(ledgerSettings?.currencies !== undefined
+          ? { preferredCurrencies: ledgerSettings.currencies }
+          : {}),
+      },
+      {
+        signal: parseSignal,
+        generate: options.generate ?? generateStructured,
+      }
+    );
+    return { pipeline, recent };
+  });
   throwIfProcessingCancelled(signal);
   const output = toParseSourceDocumentOutput(pipeline);
   if (output.verificationStatus !== "passed") {
@@ -170,6 +178,7 @@ export async function processAttempt(
     categories,
     sourceDocumentId: request.sourceDocumentId,
     fallbackDate,
+    ...(ledgerSettings?.aiLanguage === undefined ? {} : { aiLanguage: ledgerSettings.aiLanguage }),
   });
   const entryInputs = entries.map((entry) => ({
     id: entry.id,

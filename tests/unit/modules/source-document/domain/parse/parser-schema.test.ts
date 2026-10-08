@@ -78,7 +78,29 @@ describe("parser-schema", () => {
     expect(parsed.title).toBe("未命名单据");
   });
 
-  it("normalizeResult returns invalid when a ledger_entry has a non-positive amount", () => {
+  it("drops a zero-amount row and keeps the rest of the receipt", () => {
+    const result = normalizeResult(
+      parserOutputSchema.parse({
+        ...simpleSuccess,
+        ledger_entries: [
+          simpleSuccess.ledger_entries[0]!,
+          { ...simpleSuccess.ledger_entries[0]!, item_name: "Free gift", amount: "0.00" },
+          // Nothing once rounded to the currency's cents.
+          { ...simpleSuccess.ledger_entries[0]!, item_name: "Rounding", amount: "0.001" },
+        ],
+        order_adjustments: [
+          { receipt_index: 0, item_name: "Discount", amount: "0", currency: "USD" },
+          { receipt_index: 0, item_name: "Tip", amount: "1.00", currency: "USD" },
+        ],
+      })
+    );
+
+    expect(result.outcome).toBe("success");
+    expect(result.ledger_entries.map((entry) => entry.item_name)).toEqual(["Coffee"]);
+    expect(result.order_adjustments.map((adjustment) => adjustment.item_name)).toEqual(["Tip"]);
+  });
+
+  it("turns a receipt whose every row is zero into an invalid result", () => {
     const withZeroEntry = parserOutputSchema.parse({
       ...simpleSuccess,
       ledger_entries: [{ ...simpleSuccess.ledger_entries[0]!, amount: "0" }],
@@ -88,6 +110,57 @@ describe("parser-schema", () => {
     expect(result.internal_diagnostic).toBe("non_positive_entry");
     // The AI-facing reason stays untouched: the internal label is not user copy.
     expect(result.invalid_reason).toBeUndefined();
+  });
+
+  it("keeps the model's reason for an invalid result whose rows are negative", () => {
+    const result = normalizeResult(
+      parserOutputSchema.parse({
+        ...simpleSuccess,
+        outcome: "invalid",
+        invalid_reason: "This is a refund, not an expense.",
+        ledger_entries: [{ ...simpleSuccess.ledger_entries[0]!, amount: "-12.50" }],
+      })
+    );
+
+    expect(result.outcome).toBe("invalid");
+    expect(result.invalid_reason).toBe("This is a refund, not an expense.");
+    expect(result.internal_diagnostic).toBeUndefined();
+  });
+
+  it("accepts any ISO currency code and refuses one the ledger does not support, saying which", () => {
+    const parsed = parserOutputSchema.parse({
+      ...simpleSuccess,
+      ledger_entries: [{ ...simpleSuccess.ledger_entries[0]!, currency: " vnd " }],
+    });
+    expect(parsed.ledger_entries[0]?.currency).toBe("VND");
+
+    const result = normalizeResult(parsed, "zh-CN");
+    expect(result.outcome).toBe("invalid");
+    expect(result.internal_diagnostic).toBe("unsupported_currency");
+    expect(result.invalid_reason).toBe("这张单据使用的币种（VND）暂不支持记账。");
+    expect(result.ledger_entries).toEqual([]);
+    // The model's title for the document stays.
+    expect(result.title).toBe("Coffee");
+  });
+
+  it("refuses an unsupported currency on an adjustment too", () => {
+    const result = normalizeResult(
+      parserOutputSchema.parse({
+        ...simpleSuccess,
+        order_adjustments: [{ receipt_index: 0, item_name: "Fee", amount: "1", currency: "XYZ" }],
+      }),
+      "en-US"
+    );
+    expect(result.internal_diagnostic).toBe("unsupported_currency");
+    expect(result.invalid_reason).toContain("XYZ");
+  });
+
+  it("still rejects a currency that is not a three-letter code", () => {
+    const result = parserOutputSchema.safeParse({
+      ...simpleSuccess,
+      ledger_entries: [{ ...simpleSuccess.ledger_entries[0]!, currency: "RM" }],
+    });
+    expect(result.success).toBe(false);
   });
 
   it("normalizes a negative ledger entry and receipt total used as debit-display notation", () => {

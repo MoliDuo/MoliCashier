@@ -1,4 +1,5 @@
 import { ValidationError } from "@/lib/errors";
+import { fitImageDimensions } from "@/lib/image-dimensions";
 
 /**
  * Shared Web Upload Policy
@@ -28,8 +29,35 @@ export const MAX_ORIGINAL_BYTES_PER_FILE = 20 * 1024 * 1024; // 20 MiB
 /** Maximum normalized (post-processing) bytes per individual file. */
 export const MAX_NORMALIZED_BYTES_PER_FILE = 4 * 1024 * 1024; // 4 MB
 
-/** Maximum total normalized bytes across all files in a single attempt. */
-export const MAX_NORMALIZED_BYTES_PER_ATTEMPT = 3 * 1024 * 1024; // 3 MB
+/**
+ * Maximum total normalized bytes across all files in a single attempt. It bounds what one parse
+ * sends the AI; a long screenshot kept legible takes one to two megabytes on its own.
+ */
+export const MAX_NORMALIZED_BYTES_PER_ATTEMPT = 6 * 1024 * 1024; // 6 MiB
+
+/**
+ * The size a stored image is normalized to, in the browser and again on the server. Receipts and
+ * screenshots are read by their width, so the width is what is capped; a long screenshot keeps its
+ * height up to WebP's limit, and the area stays under the canvas limit of iOS Safari (16,777,216
+ * pixels), past which the browser cannot draw it at all.
+ */
+export const NORMALIZED_IMAGE_MAX_WIDTH = 1440;
+export const NORMALIZED_IMAGE_MAX_HEIGHT = 16_383;
+export const NORMALIZED_IMAGE_MAX_PIXELS = 16_000_000;
+
+/** The size an image of the given dimensions is normalized to; never larger than it was. */
+export function fitNormalizedImage(
+  width: number,
+  height: number
+): { width: number; height: number } {
+  return fitImageDimensions(
+    width,
+    height,
+    NORMALIZED_IMAGE_MAX_WIDTH,
+    NORMALIZED_IMAGE_MAX_HEIGHT,
+    NORMALIZED_IMAGE_MAX_PIXELS
+  );
+}
 
 /** Maximum megapixels per image file (width * height / 1_000_000). */
 export const MAX_MEGAPIXELS_PER_FILE = 48;

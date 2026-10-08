@@ -219,23 +219,31 @@ src/copy/                 全部界面文案，按界面区域分文件
 - **一个进程内的 worker，没有外部队列。** 队列就是数据库行（`extraction_attempts`、
   `category_assignment_jobs`）。进程启动时（`src/instrumentation.ts`，只在 Node 运行时）启动
   `src/server/background/` 里的 worker 和调度器；测试环境不启动，测试直接调用 `drainBackground()`。
-- **Worker 有提取和分类两条独立的 lane。** 提取 lane 每次醒来取出到期的尝试，跳过本进程已在运行的，其余各自
-  启动、并发运行，不设上限，也不等前面的跑完才看新的；分类 lane 认领一个 job、跑到完成、再认领下一个。认领不到
-  就等待。提交事务写完持久记录后调用 `requestBackgroundWork()` 唤醒它（进程内信号，挂在 `globalThis` 上）；
+- **Worker 有提取和分类两条独立的 lane。** 提取 lane 每次醒来取出到期的尝试，跳过本进程已在运行的，先认领再启动，
+  并发运行，同时最多 `PROCESSING_CONCURRENCY`（3）个，不等前面的跑完才看新的；满了就等任意一个跑完、被唤醒或轮询到点。
+  只有认领成功的才算这一轮跑了工作，被另一个进程抢先认领的不会让 lane 空转。`runOnce`/`drain` 守同一个上限。
+  分类 lane 认领一个 job、跑到完成、再认领下一个。认领不到就等待。提交事务写完持久记录后调用 `requestBackgroundWork()` 唤醒它（进程内信号，挂在 `globalThis` 上）；
   另有 5 秒的轮询兜底，用来接住重试退避到期的工作、崩溃后租约过期的工作，以及另一个实例写入的工作。
   不再有 `after()`，也不再靠客户端轮询来恢复中断的任务。
 - **租约。** 只有提取和分类两个流程需要租约，共用 `src/lib/db/lease.ts`，只认数据库时钟：
   `expires_at > clock_timestamp()` 即持有。租约 30 秒，每 10 秒续一次，进程崩溃后半分钟内就能重新认领。
   租约和 fencing 仍然保留：容器重启时新旧进程会短暂重叠，将来也可以起第二个实例，它们靠
-  `SKIP LOCKED` 加租约比较交换互斥。
+  `SKIP LOCKED` 加租约比较交换互斥。续租发现租约已经不在，立刻中止工作；续租本身出错（比如数据库正在重启）
+  则在下一次心跳重试，直到按最后一次成功续租算、租约到期前 5 秒仍没续上才中止，续租卡住不返回也一样。
 - **优雅停机。** 收到 SIGTERM 时（Dockerfile 设了 `NEXT_MANUAL_SIG_HANDLE=true`，否则 `next start` 会
-  直接退出），worker 停止认领，给手上的工作 20 秒完成；超时的工作用 fenced release 交还，不计尝试，
-  下一个进程立刻接手，不必等租约过期。容器的 `stop_grace_period` 为 30 秒。
-- **重试。** 错误只在 `src/lib/background/retry.ts` 分类一次：暂时性失败（限流、宕机、超时）按退避重新
-  排队，直到第三次尝试；永久性和配置问题立即失败。认领时计数，超过上限的认领在租约下直接失败。
-  失败码 `request_bound_retry_exhausted` 是已经落库的值，所以保留取值，只有文案改了。
-- **超时。** 单次 AI 请求 60 秒，整个解析 5 分钟，都是真实的外部等待；没有总预算，分类 run 也不再在预算用完
-  时让出，而是一直处理到 job 完成。
+  直接退出），worker 停止认领（连已经查出、还没认领的也不再认领），给手上的工作 20 秒完成；超时的工作用 fenced
+  release 交还，不计尝试，下一个进程立刻接手，不必等租约过期。每日维护同时收到停止信号，做完当前一步就不再往下做，
+  最多也只等 20 秒。容器的 `stop_grace_period` 为 30 秒。
+- **重试。** 错误只在 `src/lib/background/retry.ts` 分类一次，沿 `cause` 链找：暂时性失败（AI 限流、宕机、超时、
+  输出被截断；对象存储 5xx、超时或连不上；PostgreSQL 连接类 08xxx、57P01、53300、40001、40P01 和连接池等不到连接；
+  整个解析超时）按退避重新排队，直到第三次尝试；永久性和配置问题立即失败。退避是 full jitter（0 到 2s/8s/32s/1 分钟
+  之间随机），服务商的 Retry-After 最多认 15 分钟。包装错误时保留 `cause`，分类才看得到底下的原因。分类 lane 另外把
+  `ai_schema_invalid` 当作可重试：同样的请求再问一次，模型通常就答对了。认领时计数，超过上限的认领在租约下直接失败。
+  失败码 `request_bound_retry_exhausted` 是已经落库的值，所以保留取值，只有文案改了。处理错误存进
+  `failure_message` 的是按失败码固定的一句话，原始错误信息可能带数据库或存储的内部细节，只进日志。
+- **超时。** 单次 AI 请求 60 秒，整个解析 5 分钟（从读取证据图片开始算，对象存储不回应也会在这里超时），都是
+  真实的外部等待；对象存储连接 5 秒、单次请求 30 秒。没有总预算，分类 run 也不再在预算用完时让出，而是一直处理到
+  job 完成。
 
 ### 票据提取
 
@@ -246,10 +254,12 @@ src/copy/                 全部界面文案，按界面区域分文件
 - 重试创建请求要复用同一个 `Idempotency-Key`。key 存在它创建的票据上，按账本和发送方限定，永久有效：
   重复请求直接返回那张票据，内容不同返回 `409`，并发的重复请求在账本锁上等第一个提交。
 - AI 的文本、图片和 JSON 修复请求都用配置的单一模型。AI 调用分两层，都在 `src/lib/ai/`，别处不直接依赖
-  `openai`：传输层（`client.ts`，`AiTransport.complete`）让请求并发发出，遇到 429 时按 Retry-After 让
-  之后发出的所有请求一起等待，退避重试，并把服务商错误统一成 `ai_rate_limited`、`ai_provider_unavailable`、
-  `ai_timeout`、`ai_configuration_invalid`；结构化输出层（`structured.ts`，`generateStructured`）取 JSON、用 Zod 校验，回复不是合法 JSON 或不符合
-  schema 时做一轮修复，仍失败就抛 `ai_schema_invalid`。解析、批量分类、分类图标和描述都只通过
+  `openai`：传输层（`client.ts`，`AiTransport.complete`）让请求并发发出，遇到 429 时按 Retry-After（加一点随机
+  抖动，等待的请求也各自错开）让之后发出的所有请求一起等待，退避重试，并把服务商错误统一成 `ai_rate_limited`、
+  `ai_provider_unavailable`（含连不上服务商）、`ai_timeout`、`ai_configuration_invalid`，同时带回 `finishReason`；
+  结构化输出层（`structured.ts`，`generateStructured`）取 JSON、用 Zod 校验，回复不是合法 JSON 或不符合
+  schema 时做一轮修复，仍失败就抛 `ai_schema_invalid`。回复因为输出预算用完被截断（`finishReason` 为 `length`）时
+  不修复（修复轮只看得到文字、看不到图片，只能编），直接抛 `ai_output_truncated`。解析、批量分类、分类图标和描述都只通过
   `generateStructured` 调用模型，参数（token 上限、温度、超时、尝试次数）由各调用方自己定。这不是跨实例的服务商配额。
 
 ### 批量分类
@@ -276,8 +286,13 @@ src/copy/                 全部界面文案，按界面区域分文件
 
 - 网页图片经应用上传：浏览器把一张图的原始字节 POST 到 `/api/stored-files`（需要登录），服务端用 sharp 归一化
   （同时剥离 EXIF），先登记一行 `stored_files`，再写入 `stored/{storedFileId}`，返回这个 id。一步完成，没有
-  临时对象，也没有 pending 状态。单文件原图最多 20 MiB、约 48 MP，同时最多处理 2 张；一次提交归一化后的总量
-  仍限制在 3 MiB，因为它约束的是发给 AI 的载荷。
+  临时对象，也没有 pending 状态。单文件原图最多 20 MiB、约 48 MP；归一化只限宽度（≤ 1440），长截图保持长度
+  （高 ≤ 16383，WebP 的上限；总像素 ≤ 16 MP，iOS 画布的上限），浏览器压缩用同一组上限。一次提交归一化后的总量
+  限制在 6 MiB，因为它约束的是发给 AI 的载荷。
+- 解码图片（上传归一化、给 AI 读证据）共用一个进程内信号量，同时最多 2 张；信号量不可重入。读证据时校验和切片
+  是同一次解码：高超过宽两倍的长截图切成互相重叠的几块（每块高不超过宽的两倍，最多 8 块），每块前面加一句
+  "Image k, part i/n of one tall screenshot"，提示词说明跨块的是同一张票据。模型分配的 `receipt_index` 与图片序号无关，
+  切片不影响它。
 - 行先于对象写入：崩溃后只会留下一行没有对象的记录，它的 id 从未返回给客户端，不会被任何票据引用，
   由每日维护按"没有被引用"清掉。只有被提取尝试引用的文件才算在用。
 - API v1 的内联图片走同一个存储函数；之后提交失败的，丢弃它存下的文件。

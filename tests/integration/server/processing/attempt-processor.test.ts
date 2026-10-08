@@ -120,11 +120,16 @@ describe("processAttempt", () => {
   });
 
   it("keeps only the diagnostic when the parsed entries fail validation", async () => {
-    // Positive as written, but nothing once rounded to the currency's cents.
+    // A receipt the model called a success without a single row on it.
     const { outcome, attempt, entries } = await process(
-      modelReply({
+      JSON.stringify({
         outcome: "success",
-        entries: [{ item_name: "Rounding", amount: "0.001", currency: "EUR" }],
+        invalid_reason: null,
+        title: "Receipt",
+        receipt_count: 1,
+        reasoning: "test",
+        ledger_entries: [],
+        order_adjustments: [],
       })
     );
 
@@ -135,6 +140,39 @@ describe("processAttempt", () => {
       failureCode: "entry_validation_failed",
       failureMessage: null,
     });
+    expect(entries).toEqual([]);
+  });
+
+  it("records the other rows when one is nothing once rounded to the currency's cents", async () => {
+    const { outcome, entries } = await process(
+      modelReply({
+        outcome: "success",
+        entries: [
+          { item_name: "Lunch", amount: "12.50", currency: "EUR" },
+          { item_name: "Rounding", amount: "0.001", currency: "EUR" },
+        ],
+      })
+    );
+
+    expect(outcome).toEqual({ processingStatus: "completed" });
+    expect(entries.map((entry) => entry.itemName)).toEqual(["Lunch"]);
+  });
+
+  it("turns away a document in a currency the ledger cannot record, with a reason", async () => {
+    const { outcome, attempt, entries } = await process(
+      modelReply({
+        outcome: "success",
+        entries: [{ item_name: "Coffee", amount: "3.00", currency: "VND" }],
+      })
+    );
+
+    expect(outcome).toMatchObject({ processingStatus: "failed" });
+    expect(attempt).toMatchObject({
+      status: "failed",
+      failureKind: "invalid_input",
+      failureCode: "unsupported_currency",
+    });
+    expect(attempt?.failureMessage).toContain("VND");
     expect(entries).toEqual([]);
   });
 
