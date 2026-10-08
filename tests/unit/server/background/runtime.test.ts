@@ -59,7 +59,7 @@ describe("startBackgroundRuntime", () => {
     await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(0));
 
     expect(worker.stop).toHaveBeenCalledWith({ graceMs: 20_000 });
-    expect(scheduler.stop).toHaveBeenCalledTimes(1);
+    expect(scheduler.stop).toHaveBeenCalledWith({ graceMs: 20_000 });
     exit.mockRestore();
   });
 });

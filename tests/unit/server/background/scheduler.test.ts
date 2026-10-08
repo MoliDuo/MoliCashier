@@ -85,6 +85,30 @@ describe("daily scheduler", () => {
     await scheduler.stop();
   });
 
+  it("tells a sweep in flight to stop, and waits for it no longer than the grace", async () => {
+    let signal: AbortSignal | undefined;
+    const sweep = vi.fn(async (options?: { signal?: AbortSignal }) => {
+      signal = options?.signal;
+      return new Promise<never>(() => undefined);
+    });
+    const scheduler = createDailyScheduler({ bootDelayMs: 10, hourUtc: 18, sweep });
+
+    scheduler.start();
+    await vi.advanceTimersByTimeAsync(20);
+    expect(signal?.aborted).toBe(false);
+    let stopped = false;
+    const stopping = scheduler.stop({ graceMs: 1_000 }).then(() => {
+      stopped = true;
+    });
+
+    expect(signal?.aborted).toBe(true);
+    await vi.advanceTimersByTimeAsync(999);
+    expect(stopped).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    await stopping;
+    expect(logger.warn).toHaveBeenCalled();
+  });
+
   it("starts nothing after stop, and waits for a sweep in flight", async () => {
     const release = Promise.withResolvers<void>();
     const sweep = vi.fn(async () => {

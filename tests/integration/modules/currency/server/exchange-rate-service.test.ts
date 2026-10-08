@@ -58,6 +58,24 @@ describe("ensureExchangeRates", () => {
     ]);
   });
 
+  it("shares one provider request between identical requests made at the same time", async () => {
+    const fetchSpy = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValue(providerResponse({ "2024-01-19": { USD: 1.15 } }));
+
+    await Promise.all([
+      ensureExchangeRates(["2024-01-20"]),
+      ensureExchangeRates(["2024-01-20"]),
+      ensureExchangeRates(["2024-01-20"]),
+    ]);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(await storedDay("2024-01-20")).toHaveLength(2);
+
+    // Once settled, a later request for a missing day asks again.
+    await ensureExchangeRates(["2024-01-21"]);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
   it("asks the provider only for stored-less days up to today", async () => {
     await insertExchangeRates("2024-01-18", { USD: 1.1 });
     const fetchSpy = vi.spyOn(global, "fetch");

@@ -23,6 +23,8 @@ const BATCH = 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** How long a ready file may go unused before it is deleted. */
 const UNUSED_FILE_GRACE_DAYS = 7;
+/** Where stored files live in the bucket (`durableKey`). */
+const STORED_PREFIX = "stored/";
 
 export type DailyStep =
   | "expired_records"
@@ -33,10 +35,12 @@ export type DailyStep =
   | "forecast_models"
   | "forecast_judgments";
 
-export type DailyStepOutcome = "done" | "failed";
+export type DailyStepOutcome = "done" | "failed" | "skipped";
 
 export interface DailyMaintenanceOptions {
   now?: Date;
+  /** Aborts when the process is stopping; the steps not yet started are skipped. */
+  signal?: AbortSignal;
 }
 
 /**
@@ -50,6 +54,10 @@ export async function runDailyMaintenance(
   const now = options.now ?? new Date();
   const outcomes = {} as Record<DailyStep, DailyStepOutcome>;
   const step = async (name: DailyStep, run: () => Promise<void>): Promise<void> => {
+    if (options.signal?.aborted === true) {
+      outcomes[name] = "skipped";
+      return;
+    }
     try {
       await run();
       outcomes[name] = "done";
@@ -163,11 +171,12 @@ async function deleteOrphanObjects(now: Date): Promise<void> {
   const storage = getS3Storage();
   let continuationToken: string | null = null;
   do {
-    const page = await storage.listObjectsPage("", continuationToken);
+    // Only stored files are swept; whatever else the bucket holds is not listed at all.
+    const page = await storage.listObjectsPage(STORED_PREFIX, continuationToken);
     const candidates = page.objects
       .filter(
         (object) =>
-          object.key.startsWith("stored/") &&
+          object.key.startsWith(STORED_PREFIX) &&
           object.lastModified != null &&
           object.lastModified.getTime() < dayAgo
       )
