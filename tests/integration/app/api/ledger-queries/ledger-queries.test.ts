@@ -61,6 +61,11 @@ describe("session ledger query transport", () => {
     expect((await POST(request("detail", ["invalid", "invalid"]))).status).toBe(400);
   });
 
+  it("is a 404 for every read before the ledger is created", async () => {
+    expect((await POST(request("ledger", []))).status).toBe(404);
+    expect((await POST(request("detail", [crypto.randomUUID()]))).status).toBe(404);
+  });
+
   it("turns away a request without a session before reading its body", async () => {
     vi.mocked(getCurrentSession).mockResolvedValue(null);
     let pulled = false;

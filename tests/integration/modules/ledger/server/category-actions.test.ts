@@ -5,7 +5,7 @@ import { entryCategories, ledgerEntries, ledgers } from "@/persistence";
 import { sourceDocuments } from "@/persistence/schema/source-document";
 import { randomUUID } from "node:crypto";
 
-import { getEntryCategoriesAction } from "@/modules/ledger/server/list-categories";
+import { listCategoriesWithCount } from "@/modules/ledger/server/categories";
 import {
   activateTestSourceDocumentProjection,
   ensureTestLedgerBooks,
@@ -20,10 +20,10 @@ async function getTargetEntryCategoriesAction() {
   for (const document of documents) {
     await activateTestSourceDocumentProjection(db, document.id);
   }
-  return getEntryCategoriesAction();
+  return listCategoriesWithCount();
 }
 
-describe("getEntryCategoriesAction", () => {
+describe("listCategoriesWithCount", () => {
   beforeEach(async () => {
     const db = getTestDb();
     await db.insert(ledgers).values({});

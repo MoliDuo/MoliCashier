@@ -10,7 +10,6 @@ import {
   type CreateBookInput,
   type UpdateBookInput,
 } from "@/modules/ledger/contract-schemas";
-import { listBooksIncludingArchived } from "../server/list-books";
 import {
   archiveBook,
   createBook,
@@ -18,6 +17,7 @@ import {
   reorderBooks,
   restoreBook,
   updateBook,
+  listBooksIncludingArchived,
 } from "../server/books";
 import { AppError, ValidationError } from "@/lib/errors";
 import { logError } from "@/lib/error-handlers";

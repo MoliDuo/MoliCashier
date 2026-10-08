@@ -1,6 +1,14 @@
 import { getCurrentSession } from "@/modules/auth/server/current-session";
 import { getLedger } from "./server/live-ledger";
 import { NotFoundError, UnauthorizedError } from "@/lib/errors";
+import type { LedgerDto } from "./contracts";
+
+/** The ledger, or NotFoundError before it is created. The caller has settled the session. */
+export async function requireLedger(): Promise<LedgerDto> {
+  const ledger = await getLedger();
+  if (ledger == null) throw new NotFoundError("Ledger");
+  return ledger;
+}
 
 /**
  * Resolve the session and the ledger. The browser never names a ledger: there
@@ -9,9 +17,7 @@ import { NotFoundError, UnauthorizedError } from "@/lib/errors";
 export async function requireLedgerAccess() {
   const session = await getCurrentSession();
   if (session == null) throw new UnauthorizedError();
-  const ledger = await getLedger();
-  if (ledger == null) throw new NotFoundError("Ledger");
-  return { ledger };
+  return { ledger: await requireLedger() };
 }
 
 /** Run a ledger command for a signed-in session. */

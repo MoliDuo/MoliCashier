@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
-import { describe, it, expect, beforeEach, vi } from "vitest";
-import { getSourceDocumentDetailAction } from "@/modules/source-document/server/get-document-detail";
+import { describe, it, expect } from "vitest";
+import { getTargetSourceDocument } from "@/modules/source-document/server/reads/list";
 import { getTestDb } from "tests/setup";
 import { entryCategories, ledgerEntries, ledgers, sourceDocuments } from "@/persistence";
 import {
@@ -10,23 +10,12 @@ import {
   createLedgerEntryData,
 } from "tests/helpers/factories";
 import { randomUUID } from "node:crypto";
-import { UnauthorizedError } from "@/lib/errors";
 import {
   activateTestSourceDocumentProjection,
-  createTestLedger,
   ensureTestLedgerBooks,
 } from "tests/helpers/schema-setup";
 
-vi.mock("@/modules/auth/server/current-session", () => ({ getCurrentSession: vi.fn() }));
-
-import { getCurrentSession } from "@/modules/auth/server/current-session";
-import { testSession } from "tests/helpers/session";
-
-describe("getSourceDocumentDetailAction", () => {
-  beforeEach(() => {
-    vi.mocked(getCurrentSession).mockResolvedValue(testSession({ email: "test@example.com" }));
-  });
-
+describe("getTargetSourceDocument", () => {
   it("should return source document with basic data", async () => {
     const db = getTestDb();
     const ledgerData = createLedgerData();
@@ -43,7 +32,7 @@ describe("getSourceDocumentDetailAction", () => {
     });
     await activateTestSourceDocumentProjection(db, docData.id, { text: "Lunch for 25.50" });
 
-    const result = await getSourceDocumentDetailAction(docData.id);
+    const result = await getTargetSourceDocument(docData.id);
 
     expect(result).not.toBeNull();
     expect(result!.id).toBe(docData.id);
@@ -70,7 +59,7 @@ describe("getSourceDocumentDetailAction", () => {
       imageUrls: ["data:image/jpeg;base64,/9j/4AAQ..."],
     });
 
-    const result = await getSourceDocumentDetailAction(docData.id);
+    const result = await getTargetSourceDocument(docData.id);
 
     expect(result).not.toBeNull();
     expect(result!.hasImages).toBe(true);
@@ -103,7 +92,7 @@ describe("getSourceDocumentDetailAction", () => {
     await db.insert(ledgerEntries).values(entryData);
     await activateTestSourceDocumentProjection(db, docData.id);
 
-    const result = await getSourceDocumentDetailAction(docData.id);
+    const result = await getTargetSourceDocument(docData.id);
 
     expect(result).not.toBeNull();
     if (result == null) {
@@ -125,18 +114,7 @@ describe("getSourceDocumentDetailAction", () => {
     await db.insert(ledgers).values(ledgerData);
     await ensureTestLedgerBooks(db);
 
-    const result = await getSourceDocumentDetailAction(randomUUID());
+    const result = await getTargetSourceDocument(randomUUID());
     expect(result).toBeNull();
-  });
-
-  it("validates the document identity and requires a session", async () => {
-    const db = getTestDb();
-    await createTestLedger(db);
-
-    await expect(getSourceDocumentDetailAction("not-a-uuid")).rejects.toThrow("Validation failed");
-    vi.mocked(getCurrentSession).mockResolvedValueOnce(null);
-    await expect(getSourceDocumentDetailAction(randomUUID())).rejects.toBeInstanceOf(
-      UnauthorizedError
-    );
   });
 });
