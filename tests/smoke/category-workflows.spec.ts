@@ -53,8 +53,8 @@ test("AI category assignment reports its outcome and fits narrow screens", async
   await expect(page.locator("#category-assignment-status")).toHaveCount(0);
   await expect(page.getByTestId("category-assignment-entry-label")).toHaveCount(0);
 
-  // The list stays in selecting after an action; a phone's tab bar comes back
-  // once the reader leaves it.
-  await page.getByRole("button", { name: "取消", exact: true }).click();
+  // A run that started leaves selection mode, so the list reads again and a
+  // phone's tab bar comes back without the reader leaving it by hand.
+  await expect(page.getByRole("checkbox", { name: `选择${item}`, exact: true })).toHaveCount(0);
   await expect(ledgerNavigation(page)).toBeVisible();
 });
