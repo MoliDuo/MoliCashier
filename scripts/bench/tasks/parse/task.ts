@@ -3,10 +3,7 @@
  * `runParsePipeline`, the same call the app's attempt processor makes — and the
  * ledger entries it would save are compared with the annotation.
  */
-import {
-  runParsePipeline,
-  type StageContext,
-} from "@/modules/source-document/domain/parse/pipeline";
+import { runParsePipeline, type StageContext } from "@/server/processing/parse";
 import type { ParseSourceDocumentInput } from "@/modules/source-document/domain/parse/contracts";
 import type { BenchDocument } from "../../lib/schema";
 import { parseExpectSchema, type ParseExpect } from "../../lib/schema";

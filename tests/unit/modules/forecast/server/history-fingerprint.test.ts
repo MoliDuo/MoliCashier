@@ -12,7 +12,10 @@ async function fingerprintUnder(version: number) {
     ...(await importOriginal<typeof import("@/config/tuning")>()),
     FORECAST_AI_JUDGMENT_VERSION: version,
   }));
-  return import("@/modules/forecast/domain/judgment/fingerprint");
+  const { historyFingerprint } = await import("@/modules/forecast/server/history-fingerprint");
+  const { isCurrentJudgmentVersion } =
+    await import("@/modules/forecast/domain/judgment/fingerprint");
+  return { historyFingerprint, isCurrentJudgmentVersion };
 }
 
 describe("historyFingerprint", () => {

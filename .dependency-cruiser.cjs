@@ -13,6 +13,9 @@ const persistence = moduleAt("src/persistence");
 const libDb = moduleAt("src/lib/db");
 const s3 = moduleAt("src/lib/storage/s3");
 const aiRuntime = moduleAt("src/lib/ai/(?:client|structured)");
+/** src/lib/ai except the plain data shapes that persistence and domain code share with it. */
+const aiCode = "^src/lib/ai/(?!(?:types|date-organization|duplicate-suggestion)\\.[^/.]+$)";
+const logger = moduleAt("src/lib/logger");
 const serverFlows = moduleAt("src/server");
 const moduleServer = moduleAt("src/modules/[^/]+/server");
 const moduleUi = moduleAt("src/modules/[^/]+/(?:ui|hooks)");
@@ -20,7 +23,10 @@ const moduleServerActions = moduleAt("src/modules/[^/]+/server-actions");
 const app = moduleAt("src/app");
 const providerSdks = packages("pg|openai|drizzle-orm|@aws-sdk/[^/]+");
 const frameworks = packages("next|server-only");
+const uiFrameworks = packages("react|react-dom");
 const aiSdks = packages("ai|openai|@(?:ai-sdk|aws-sdk|google|anthropic-ai)/[^/]+");
+const openAiSdk = packages("openai");
+const awsSdks = packages("@aws-sdk/[^/]+");
 const dataAccess = [libDb, persistence, ...providerSdks];
 const actionsFile = "actions(?:\\.[^/.]+|/index\\.[^/.]+)$";
 const actionsBarrel = `(?:^|/)${actionsFile}`;
@@ -43,9 +49,18 @@ function sourceFiles(directory) {
 const onto = (paths) => ({ path: paths });
 
 const escape = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-const clientComponents = sourceFiles(path.join(__dirname, "src"))
-  .filter((file) => hasClientDirective(fs.readFileSync(file, "utf8")))
-  .map((file) => `^${escape(path.relative(__dirname, file).split(path.sep).join("/"))}$`);
+/**
+ * Client code: module UI and hooks, the shared components and hooks, by where they live, plus any
+ * other file that opens with `"use client"` (client components under `src/app`).
+ */
+const clientCode = [
+  "^src/modules/[^/]+/(?:ui|hooks)/",
+  "^src/components/",
+  "^src/hooks/",
+  ...sourceFiles(path.join(__dirname, "src"))
+    .filter((file) => hasClientDirective(fs.readFileSync(file, "utf8")))
+    .map((file) => `^${escape(path.relative(__dirname, file).split(path.sep).join("/"))}$`),
+];
 
 /** @type {import('dependency-cruiser').IConfiguration} */
 module.exports = {
@@ -94,10 +109,40 @@ module.exports = {
     },
     {
       name: "domain-stays-pure",
-      comment: "Domain code has no database, providers, frameworks, or server code.",
+      comment:
+        "Domain code has no database, providers, AI runtime, logger, frameworks, or server code.",
       severity: "error",
       from: { path: "^src/modules/[^/]+/domain/" },
-      to: onto([...dataAccess, ...frameworks, serverFlows, moduleServer]),
+      to: onto([
+        ...dataAccess,
+        ...frameworks,
+        ...uiFrameworks,
+        aiCode,
+        logger,
+        serverFlows,
+        moduleServer,
+      ]),
+    },
+    {
+      name: "domain-no-node-builtins",
+      comment: "Domain code does no IO: node builtins (crypto, timers, fs) belong in server code.",
+      severity: "error",
+      from: { path: "^src/modules/[^/]+/domain/" },
+      to: { dependencyTypes: ["core"] },
+    },
+    {
+      name: "openai-only-in-lib-ai",
+      comment: "Only src/lib/ai talks to the AI provider SDK.",
+      severity: "error",
+      from: { pathNot: "^src/lib/ai/" },
+      to: onto(openAiSdk),
+    },
+    {
+      name: "aws-sdk-only-in-lib-storage",
+      comment: "Only src/lib/storage talks to the object-storage SDK.",
+      severity: "error",
+      from: { pathNot: "^src/lib/storage/" },
+      to: onto(awsSdks),
     },
     {
       name: "server-flows-not-entrypoints",
@@ -123,16 +168,17 @@ module.exports = {
     },
     {
       name: "client-not-server-code",
-      comment: '"use client" files must not import server-only code.',
+      comment:
+        'Client code (UI, hooks, components, "use client" files) must not import server code.',
       severity: "error",
-      from: { path: clientComponents },
+      from: { path: clientCode },
       to: onto([libDb, persistence, serverFlows, moduleServer, s3, aiRuntime]),
     },
     {
       name: "client-not-actions-barrel",
-      comment: '"use client" files import concrete server actions, not an actions barrel.',
+      comment: "Client code imports concrete server actions, not an actions barrel.",
       severity: "error",
-      from: { path: clientComponents },
+      from: { path: clientCode },
       to: onto(actionsBarrel),
     },
     {

@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { executeParser } from "@/modules/source-document/domain/parse/parser";
+import { executeParser } from "@/server/processing/parse";
 import { ProcessingCancelledError } from "@/modules/source-document/domain/parse/contracts";
 import type { CompleteRequest } from "@/lib/ai/client";
 import type { GenerateStructured } from "@/lib/ai/structured";
-import { fakeAiTransport, generateVia, type FakeAiTransport } from "../../../../../helpers/fake-ai";
+import { fakeAiTransport, generateVia, type FakeAiTransport } from "../../../helpers/fake-ai";
 
 const SIMPLE_SUCCESS_RESPONSE = {
   outcome: "success",

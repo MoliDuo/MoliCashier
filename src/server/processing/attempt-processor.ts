@@ -12,10 +12,7 @@ import {
   getEntryFallbackDate,
   validateEntries,
 } from "@/modules/source-document/domain/parse/entry-builder";
-import {
-  executeParsePipeline,
-  withParseDeadline,
-} from "@/modules/source-document/domain/parse/pipeline";
+import { executeParsePipeline, withParseDeadline } from "./parse";
 import { toParseSourceDocumentOutput } from "@/modules/source-document/domain/parse/result-mapper";
 import {
   ProcessingCancelledError,

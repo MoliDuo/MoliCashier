@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { ProcessingCancelledError } from "@/modules/source-document/domain/parse/contracts";
-import type { ParsePipelineResult } from "@/modules/source-document/domain/parse/pipeline";
+import type { ParsePipelineResult } from "@/modules/source-document/domain/parse/contracts";
 import {
   convertToParsedEntries,
   toParseSourceDocumentOutput,

@@ -2,7 +2,7 @@ import "server-only";
 import { AppError, ValidationError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { logIdentifier } from "@/lib/security/log-identifier";
-import type { EvidenceImage } from "@/lib/ai/evidence-images";
+import type { EvidenceImage } from "@/lib/ai/types";
 import { prepareStoredImageForAI } from "@/lib/storage/image-processing";
 import { readAuthorizedFile } from "@/server/stored-files/reads";
 

@@ -40,10 +40,8 @@ import {
   resolveJudgment,
   type Judgment,
 } from "@/modules/forecast/domain/judgment/schema";
-import {
-  historyFingerprint,
-  isCurrentJudgmentVersion,
-} from "@/modules/forecast/domain/judgment/fingerprint";
+import { isCurrentJudgmentVersion } from "@/modules/forecast/domain/judgment/fingerprint";
+import { historyFingerprint } from "@/modules/forecast/server/history-fingerprint";
 import { seedOf } from "@/modules/forecast/domain/random";
 import type { HistoryRow } from "@/modules/forecast/domain/series";
 import { addCivilDays, calendarRangeOf } from "@/modules/ledger/domain/period";

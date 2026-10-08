@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { AiContentPart } from "@/lib/ai/client";
 import {
-  buildCategoryAssignmentDocumentMessage,
+  buildCategoryAssignmentDocumentText,
   buildCategoryAssignmentPrompt,
   resolveCategoryAssignmentDecisions,
   type CategoryAssignmentCandidate,
@@ -49,11 +48,6 @@ function group(
     ],
     ...overrides,
   };
-}
-
-function textOf(parts: readonly AiContentPart[]): string {
-  const [first] = parts;
-  return first != null && first.type === "text" ? first.text : "";
 }
 
 describe("buildCategoryAssignmentPrompt", () => {
@@ -131,12 +125,10 @@ describe("buildCategoryAssignmentPrompt", () => {
   });
 });
 
-describe("buildCategoryAssignmentDocumentMessage", () => {
+describe("buildCategoryAssignmentDocumentText", () => {
   it("numbers the document's entries from 1 and shows where each one sits today", () => {
-    const parts = buildCategoryAssignmentDocumentMessage({ group: group() });
+    const body = buildCategoryAssignmentDocumentText({ group: group() });
 
-    expect(parts).toHaveLength(1);
-    const body = textOf(parts);
     expect(body).toContain("### Source Document");
     expect(body).toContain("### Expense Entries");
     expect(body).toContain(
@@ -146,15 +138,13 @@ describe("buildCategoryAssignmentDocumentMessage", () => {
   });
 
   it("carries the document's own context when it has any", () => {
-    const body = textOf(
-      buildCategoryAssignmentDocumentMessage({
-        group: group({
-          title: "全家便利店",
-          documentDate: "2026-09-10",
-          inputText: "楼下买的",
-        }),
-      })
-    );
+    const body = buildCategoryAssignmentDocumentText({
+      group: group({
+        title: "全家便利店",
+        documentDate: "2026-09-10",
+        inputText: "楼下买的",
+      }),
+    });
 
     expect(body).toContain("document_title: 全家便利店");
     expect(body).toContain("document_date: 2026-09-10");
@@ -162,28 +152,22 @@ describe("buildCategoryAssignmentDocumentMessage", () => {
   });
 
   it("omits context the document does not have and says nothing about images", () => {
-    const body = textOf(
-      buildCategoryAssignmentDocumentMessage({
-        group: group({ title: "", inputText: "" }),
-      })
-    );
+    const body = buildCategoryAssignmentDocumentText({
+      group: group({ title: "", inputText: "" }),
+    });
 
     expect(body).not.toContain("document_title:");
     expect(body).not.toContain("submitted_text:");
     expect(body).not.toContain("attached_images:");
   });
 
-  it("appends the evidence as image parts after the text, in the order given", () => {
-    const parts = buildCategoryAssignmentDocumentMessage({
+  it("says how many images follow the text", () => {
+    const body = buildCategoryAssignmentDocumentText({
       group: group({ storedFileIds: ["f1", "f2"] }),
-      images: [{ dataUrl: "data:image/jpeg;base64,AAA" }, { dataUrl: "data:image/png;base64,BBB" }],
+      imageCount: 2,
     });
 
-    expect(parts).toEqual([
-      { type: "text", text: expect.stringContaining("attached_images: 2") },
-      { type: "image_url", image_url: { url: "data:image/jpeg;base64,AAA" } },
-      { type: "image_url", image_url: { url: "data:image/png;base64,BBB" } },
-    ]);
+    expect(body).toContain("attached_images: 2");
   });
 });
 

@@ -1,8 +1,9 @@
 import "server-only";
 import { generateStructured } from "@/lib/ai/structured";
-import type { EvidenceImage } from "@/lib/ai/evidence-images";
+import { evidenceImageContent } from "@/lib/ai/evidence-images";
+import type { EvidenceImage } from "@/lib/ai/types";
 import {
-  buildCategoryAssignmentDocumentMessage,
+  buildCategoryAssignmentDocumentText,
   buildCategoryAssignmentPrompt,
   categoryAssignmentResponseSchema,
   resolveCategoryAssignmentDecisions,
@@ -47,10 +48,18 @@ export async function decideEntryCategories(input: {
     messages: [
       {
         role: "user",
-        content: buildCategoryAssignmentDocumentMessage({
-          group: input.group,
-          images: input.images,
-        }),
+        // The images are passed through untouched: the caller has already validated and encoded
+        // them, a tall screenshot as its parts.
+        content: [
+          {
+            type: "text",
+            text: buildCategoryAssignmentDocumentText({
+              group: input.group,
+              imageCount: input.images.length,
+            }),
+          },
+          ...evidenceImageContent(input.images),
+        ],
       },
     ],
     maxTokens: MAX_TOKENS,

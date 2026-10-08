@@ -5,7 +5,12 @@ import {
   type ParsePipelineResult,
   type ParseSourceDocumentOutput,
 } from "./contracts";
-import type { NormalizedLedgerEntry, NormalizedOrderAdjustment } from "./parser-schema";
+import type {
+  NormalizedLedgerEntry,
+  NormalizedOrderAdjustment,
+  NormalizedParseOutput,
+} from "./parser-schema";
+import { normalizeFailureReason } from "@/modules/source-document/failure-reason-policy";
 import { roundToCurrency } from "@/lib/money/currency-precision";
 import type { DateHint } from "@/lib/ai/date-organization";
 
@@ -59,6 +64,31 @@ export function convertToParsedEntries({
     receiptIndex: entry.receipt_index,
     isAdjustment: index >= ledgerEntries.length,
   }));
+}
+
+/** What one parse reply means: the document is invalid, or these are its entries. */
+export function resolveParseOutcome(result: NormalizedParseOutput): ParsePipelineResult {
+  if (result.outcome === "invalid") {
+    const reason = normalizeFailureReason(result.invalid_reason);
+    return {
+      kind: "invalid",
+      title: result.title,
+      diagnostic: result.internal_diagnostic ?? "ai_declared_invalid",
+      ...(reason == null ? {} : { reason }),
+    };
+  }
+  return {
+    kind: "success",
+    title: result.title,
+    ledgerEntries: convertToParsedEntries({
+      ledgerEntries: result.ledger_entries,
+      orderAdjustments: result.order_adjustments,
+    }),
+    dateHints: [
+      ...result.ledger_entries.map((entry) => entry.date_hint ?? null),
+      ...result.order_adjustments.map(() => null),
+    ],
+  };
 }
 
 export function toParseSourceDocumentOutput(
