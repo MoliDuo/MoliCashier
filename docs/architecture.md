@@ -187,7 +187,9 @@ src/copy/                 全部界面文案，按界面区域分文件
   能不能走到这一步由提供方对这个客户端的访问策略控制，所以该策略要只放行预期的人。会话里记下提供方验证过的
   邮箱，只用于在设置页显示是谁登录的。
 - **会话。** 自建 `sessions` 表，cookie `__Host-cashier_session` 里是 32 字节随机令牌（httpOnly、始终 Secure、
-  SameSite=Lax、Path=/），库里存它的 HMAC。14 天滑动过期，`last_seen_at` 超过 1 天才续期。用 `getCurrentSession`
+  SameSite=Lax、Path=/），库里存它的 HMAC。14 天滑动过期，`last_seen_at` 超过 1 天才续期；无论怎么续，登录 30 天后
+  一定过期（`created_at` 判断，常量在 `src/config/tuning.ts`），之后由提供方重新确认一次。cookie 在登录时设为
+  30 天后过期，之后不再刷新，闲置过期只由数据库判断。用 `getCurrentSession`
   读取，用 `requireAuth` 或 `withAuth`（`src/modules/auth/server/session-guards.ts`）把关，吊销就是删除行。
   proxy 只检查 cookie 是否存在，`/api/auth/` 是公开路径。
 - **退出。** 只清应用自己的会话，不退出提供方，也不调用提供方的登出端点。退出后落在

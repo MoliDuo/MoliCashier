@@ -30,14 +30,13 @@ describe("proxy", () => {
       expect(proxy(createRequest("/dashboard", "token")).status).toBe(200);
     });
 
-    it("pushes the session cookie's expiry out on a page load", () => {
+    it("leaves the session cookie's expiry as sign-in set it", () => {
+      // The cookie lasts until the session's absolute expiry; refreshing it on
+      // every page load would keep it alive past that.
       const res = proxy(createRequest("/", "token", "https://cashier.example"));
-      const cookie = res.cookies.get(SESSION_COOKIE_NAME);
 
-      expect(cookie?.value).toBe("token");
-      expect(cookie?.httpOnly).toBe(true);
-      expect(cookie?.secure).toBe(true);
-      expect(cookie?.maxAge).toBe(14 * 24 * 60 * 60);
+      expect(res.cookies.get(SESSION_COOKIE_NAME)).toBeUndefined();
+      expect(res.headers.get("set-cookie")).toBeNull();
     });
 
     it("sets no cookie for a browser that has none", () => {

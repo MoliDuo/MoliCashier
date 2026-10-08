@@ -1,6 +1,4 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_MAX_AGE_DAYS } from "@/config/tuning";
-import { TIME_SECONDS } from "@/lib/constants";
 import { SESSION_COOKIE_NAME } from "@/modules/auth/constants";
 
 export default function proxy(req: NextRequest) {
@@ -18,24 +16,10 @@ export default function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
-  if (pathname.startsWith("/_next") || pathname.includes(".")) {
-    return NextResponse.next();
-  }
-
-  // Auth protection for pages is handled by the (protected) layout. A page
-  // load pushes the cookie's expiry out with the session's own sliding window,
-  // which the server renews in the database.
-  const response = NextResponse.next();
-  if (sessionToken != null && sessionToken !== "") {
-    response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "lax",
-      path: "/",
-      maxAge: SESSION_MAX_AGE_DAYS * TIME_SECONDS.DAY,
-    });
-  }
-  return response;
+  // Auth protection for pages is handled by the (protected) layout. The session
+  // cookie is left alone: it was set at sign-in to last until the session's
+  // absolute expiry, and the idle expiry is the database's to enforce.
+  return NextResponse.next();
 }
 
 export const config = {

@@ -56,6 +56,8 @@ export const SOURCE_DOC_STALE_TIME_MS = 120_000;
 
 /** How long a signed-in session survives without being renewed. */
 export const SESSION_MAX_AGE_DAYS = 14;
+/** How long a session lasts from sign-in however often it is renewed; after it the provider is asked again. */
+export const SESSION_ABSOLUTE_MAX_AGE_DAYS = 30;
 
 /**
  * How many extraction attempts run at once. Each holds its images decoded and base64-encoded in
