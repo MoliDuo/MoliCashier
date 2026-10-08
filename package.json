@@ -30,7 +30,7 @@
     "test": "tsx scripts/run-vitest.ts run --config vitest.config.mts --project=unit-node --project=unit-dom",
     "test:watch": "tsx scripts/run-vitest.ts --watch --config vitest.config.mts --project=unit-node --project=unit-dom",
     "test:all": "tsx scripts/run-vitest.ts run --config vitest.config.mts",
-    "test:integration": "tsx scripts/run-vitest.ts run --config vitest.config.mts --project=integration-node --project=integration-dom --reporter=dot",
+    "test:integration": "tsx scripts/run-vitest.ts run --config vitest.config.mts --project=integration-node --reporter=dot",
     "test:coverage": "tsx scripts/run-vitest.ts run --config vitest.config.mts --coverage",
     "docker:local": "docker compose -f docker-compose.local.yml up -d",
     "docker:down": "docker compose -f docker-compose.local.yml down",

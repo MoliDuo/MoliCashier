@@ -5,17 +5,17 @@
 
 ## 命令
 
-| 命令                       | 内容                                          | 需要             |
-| -------------------------- | --------------------------------------------- | ---------------- |
-| `npm test`                 | 单元测试（unit-node、unit-dom）               | Node.js 24       |
-| `npm run test:watch`       | 监视模式的单元测试                            | Node.js 24       |
-| `npm run test:integration` | 集成测试（integration-node、integration-dom） | Docker           |
-| `npm run test:all`         | 全部 Vitest 项目                              | Docker           |
-| `npm run test:coverage`    | 全部项目加覆盖率阈值（`vitest.config.mts`）   | Docker           |
-| `npm run test:prepare`     | 只检查一次测试容器能否启动并释放              | Docker           |
-| `npm run test:smoke`       | Playwright smoke，桌面与移动 Chromium         | Docker、Chromium |
-| `npm run test:demo`        | 在 demo 工作区上跑 `@demo` 用例               | Docker、Chromium |
-| `npm run check`            | 提交前的完整门禁，包含 `test:coverage`        | Docker           |
+| 命令                       | 内容                                        | 需要             |
+| -------------------------- | ------------------------------------------- | ---------------- |
+| `npm test`                 | 单元测试（unit-node、unit-dom）             | Node.js 24       |
+| `npm run test:watch`       | 监视模式的单元测试                          | Node.js 24       |
+| `npm run test:integration` | 集成测试（integration-node）                | Docker           |
+| `npm run test:all`         | 全部 Vitest 项目                            | Docker           |
+| `npm run test:coverage`    | 全部项目加覆盖率阈值（`vitest.config.mts`） | Docker           |
+| `npm run test:prepare`     | 只检查一次测试容器能否启动并释放            | Docker           |
+| `npm run test:smoke`       | Playwright smoke，桌面与移动 Chromium       | Docker、Chromium |
+| `npm run test:demo`        | 在 demo 工作区上跑 `@demo` 用例             | Docker、Chromium |
+| `npm run check`            | 提交前的完整门禁，包含 `test:coverage`      | Docker           |
 
 `npm run check` 分两个阶段（`scripts/run-check.ts`）：先并行跑 `format:check`、`check:architecture`、
 `check:dead-code`、`lint` 和 `tsc`（`next typegen && tsc --noEmit`），任何一项失败就停，不再进入测试；全部通过后并行跑
@@ -72,7 +72,7 @@
 - 每个测试文件用 `CREATE DATABASE … TEMPLATE` 建一份自己的库 `test_<run-id>_p<pool>_w<worker>`，布局与生产一致
   （表在 `public`，迁移记录在 `drizzle`），文件结束时等它的连接关闭后删除。没有文件会重放迁移。
 - unit-node、unit-dom 和 integration-node 在同一个 `sequence.groupOrder` 里并行，共用一个 worker 上限（Vitest
-  要求同组一致），单元测试在容器启动时就开始跑；integration-dom 在它们之后单独跑。
+  要求同组一致），单元测试在容器启动时就开始跑。
 - 测试容器是一次性的：数据目录在 tmpfs 上，并关闭 `fsync`、`synchronous_commit` 和 `full_page_writes`。
 - 每个用例之前，setup 在 `session_replication_role = replica` 下逐表 `DELETE`，一次往返清空这份库里的所有表（包括
   用例自己建的表），外键和变更日志触发器都不触发，效果等同 `TRUNCATE … CASCADE`，但不用重写表文件。无权设置这个
