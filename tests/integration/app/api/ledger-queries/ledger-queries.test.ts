@@ -11,6 +11,7 @@ import {
   ensureTestLedgerBooks,
 } from "tests/helpers/schema-setup";
 import { insertExchangeRates } from "tests/helpers/exchange-rates";
+import { logger } from "@/lib/logger";
 
 vi.mock("@/modules/auth/server/current-session", () => ({ getCurrentSession: vi.fn() }));
 
@@ -99,6 +100,26 @@ describe("session ledger query transport", () => {
       body: "{",
     });
     expect((await POST(malformed)).status).toBe(400);
+  });
+
+  it("does not log a request the reader dropped while its body was read", async () => {
+    const errorLog = vi.spyOn(logger, "error");
+    const dropped = Object.assign(new Error("aborted"), { code: "ECONNRESET" });
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.error(dropped);
+      },
+    });
+    const abandoned = new Request("http://localhost/api/ledger-queries", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      duplex: "half",
+    } as RequestInit);
+
+    expect((await POST(abandoned)).status).toBe(500);
+    expect(errorLog).not.toHaveBeenCalled();
+    errorLog.mockRestore();
   });
 
   it("validates each supported read without leaking internal error data", async () => {

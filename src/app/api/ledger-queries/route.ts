@@ -226,8 +226,15 @@ export async function POST(request: Request) {
         : error instanceof z.ZodError || error instanceof SyntaxError
           ? 400
           : 500;
+    // A reader that moved on mid-request (a quick tab or period switch) drops the connection while
+    // the body is read; nothing failed on this side, so it is not logged as a server error.
+    const clientGone =
+      request.signal.aborted ||
+      (error instanceof Error && (error as Error & { code?: unknown }).code === "ECONNRESET");
     // Only the query's name: its arguments carry search terms and ids.
-    if (status === 500) logError(`ledger-queries:${queryName ?? "unknown"}`, error);
+    if (status === 500 && !clientGone) {
+      logError(`ledger-queries:${queryName ?? "unknown"}`, error);
+    }
     return NextResponse.json(
       { error: status === 500 ? "INTERNAL_ERROR" : "QUERY_FAILED" },
       { status, headers }
