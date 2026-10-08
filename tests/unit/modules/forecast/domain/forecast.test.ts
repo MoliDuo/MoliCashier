@@ -243,6 +243,55 @@ describe("forecastPeriod", () => {
     ]);
   });
 
+  it("does not expect again tomorrow a bill already recorded today", () => {
+    const rent = ["2026-07-15", "2026-08-15", "2026-09-15", "2026-10-15"].map((date) => ({
+      date,
+      categoryId: "home",
+      currency: "CNY",
+      amount: "1200",
+      documentId: `rent-${date}`,
+      label: `${Number(date.slice(5, 7))}月房租`,
+    }));
+    const food = spending("2026-07-01", 107, "food", "30");
+
+    const forecast = forecastPeriod({
+      rows: [...rent, ...food],
+      today: "2026-10-15",
+      period: { from: "2026-10-01", end: "2026-10-31" },
+      previous: null,
+      options: OPTIONS,
+    })!;
+
+    expect(forecast.upcoming).toEqual([]);
+    // Today's rent is spent, and counted once.
+    expect(forecast.categories.find((category) => category.key === "home")).toEqual({
+      key: "home",
+      spent: "1200",
+      forecast: { p10: 1200, p50: 1200, p90: 1200 },
+    });
+  });
+
+  it("leaves a large refund out of the everyday days it learns from", () => {
+    // ¥30 of shopping a day, and a ¥2,000 deposit refunded on September 20th.
+    const rows: HistoryRow[] = [
+      ...spending("2026-08-01", 70, "shop", "30"),
+      { date: "2026-09-20", categoryId: "shop", currency: "CNY", amount: "-2000", documentId: "r" },
+    ];
+
+    const forecast = forecastPeriod({
+      rows,
+      today: "2026-10-10",
+      period: { from: "2026-10-01", end: "2026-10-31" },
+      previous: null,
+      options: OPTIONS,
+    })!;
+
+    // Twenty-one more days at ¥30 on every path: the refund is not drawn as a day ahead.
+    const shop = forecast.categories.find((category) => category.key === "shop")!;
+    expect(shop.forecast.p10).toBeCloseTo(270 + 21 * 30);
+    expect(shop.forecast.p90).toBeCloseTo(270 + 21 * 30);
+  });
+
   it("leaves large one-off purchases out of the days ahead, counting them once recorded", () => {
     // A month of ¥30 food and ¥40 shopping every third day, then tuition and a sofa in September.
     const rows: HistoryRow[] = [

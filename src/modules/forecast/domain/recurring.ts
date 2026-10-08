@@ -59,21 +59,19 @@ export function billKey(label: string): string {
     .trim();
 }
 
-/**
- * The bills in the history that come back weekly, fortnightly or monthly at a
- * steady amount, and are still coming: the latest is no more than one gap and
- * its slack before `today`.
- *
- * Documents are the unit: a bill is one receipt, however many lines it has.
- * Its category is that of its largest line.
- */
-export function detectRecurringBills(rows: readonly HistoryRow[], today: string): RecurringBill[] {
-  const documents = new Map<
-    string,
-    { date: string; label: string; amount: number; largest: number; categoryKey: string }
-  >();
+interface BillDocument {
+  date: string;
+  label: string;
+  amount: number;
+  largest: number;
+  categoryKey: string;
+}
+
+/** The named documents in `rows` dated on or before `through`, each as one purchase filed under its largest line. */
+function documentsOf(rows: readonly HistoryRow[], through: string): Map<string, BillDocument> {
+  const documents = new Map<string, BillDocument>();
   for (const row of rows) {
-    if (row.documentId == null || row.label == null || row.date > today) continue;
+    if (row.documentId == null || row.label == null || row.date > through) continue;
     const amount = Number(row.amount);
     const document = documents.get(row.documentId);
     if (document == null) {
@@ -92,6 +90,19 @@ export function detectRecurringBills(rows: readonly HistoryRow[], today: string)
       document.categoryKey = categoryKeyOf(row.categoryId);
     }
   }
+  return documents;
+}
+
+/**
+ * The bills in the history that come back weekly, fortnightly or monthly at a
+ * steady amount, and are still coming: the latest is no more than one gap and
+ * its slack before `today`.
+ *
+ * Documents are the unit: a bill is one receipt, however many lines it has.
+ * Its category is that of its largest line.
+ */
+export function detectRecurringBills(rows: readonly HistoryRow[], today: string): RecurringBill[] {
+  const documents = documentsOf(rows, today);
 
   const groups = new Map<string, { categoryKey: string; byDate: Map<string, Occurrence> }>();
   for (const [documentId, document] of documents) {
@@ -124,6 +135,32 @@ export function detectRecurringBills(rows: readonly HistoryRow[], today: string)
     if (bill != null) bills.push(bill);
   }
   return bills.sort((a, b) => b.amount - a.amount || a.label.localeCompare(b.label));
+}
+
+/**
+ * The bills with one recorded on `day` already — a document with the same
+ * name and category — moved on to it, so the occurrence that came today is
+ * not expected again tomorrow on top of being counted as spent.
+ */
+export function withRecordedOn(
+  bills: readonly RecurringBill[],
+  rows: readonly HistoryRow[],
+  day: string
+): RecurringBill[] {
+  const recorded = new Set<string>();
+  for (const document of documentsOf(
+    rows.filter((row) => row.date === day),
+    day
+  ).values()) {
+    if (document.amount > 0)
+      recorded.add(`${document.categoryKey}\u0000${billKey(document.label)}`);
+  }
+  if (recorded.size === 0) return [...bills];
+  return bills.map((bill) =>
+    bill.lastDate < day && recorded.has(`${bill.categoryKey}\u0000${billKey(bill.label)}`)
+      ? { ...bill, lastDate: day }
+      : bill
+  );
 }
 
 function recurringBillOf(

@@ -2,6 +2,7 @@ import { addCivilDays } from "@/modules/ledger/domain/period";
 import { forecastPeriod, type ForecastOptions } from "../forecast";
 import type { HistoryRow } from "../series";
 import { judgedSpendingAhead } from "./apply";
+import { isCurrentJudgmentVersion } from "./fingerprint";
 import type { Judgment } from "./schema";
 
 /** How the AI's past judgments did, and the statistical model on the same days. */
@@ -24,14 +25,21 @@ export interface JudgmentScore {
   statistical: number;
 }
 
-/** The past judgments to score: those whose next `horizon` days are over, the most recent first. */
-export function scorableJudgments<T extends { asOf: string }>(
+/**
+ * The past judgments to score: those made under the current prompt whose next
+ * `horizon` days are over, the most recent first. A judgment made the old way
+ * says nothing about how the analyst judges now.
+ */
+export function scorableJudgments<T extends { asOf: string; inputFingerprint: string }>(
   judgments: readonly T[],
   today: string,
   horizon: number
 ): T[] {
   return judgments
-    .filter((item) => addCivilDays(item.asOf, horizon) < today)
+    .filter(
+      (item) =>
+        isCurrentJudgmentVersion(item.inputFingerprint) && addCivilDays(item.asOf, horizon) < today
+    )
     .sort((a, b) => b.asOf.localeCompare(a.asOf))
     .slice(0, MAX_ORIGINS);
 }

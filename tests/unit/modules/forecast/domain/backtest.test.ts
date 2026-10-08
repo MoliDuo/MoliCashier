@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { runBacktest, type BacktestOptions } from "@/modules/forecast/domain/backtest";
+import {
+  networkShareOf,
+  runBacktest,
+  type BacktestOptions,
+} from "@/modules/forecast/domain/backtest";
 import { seededRandom } from "@/modules/forecast/domain/random";
 import { weekdayOf, type HistoryRow } from "@/modules/forecast/domain/series";
 import { trainForecast } from "@/modules/forecast/domain/training";
@@ -128,5 +132,20 @@ describe("trainForecast", () => {
       networkShare: 0,
       backtest: null,
     });
+  });
+});
+
+describe("networkShareOf", () => {
+  it("gives the network a share in proportion to how much better it did, and none otherwise", () => {
+    expect(networkShareOf(3, 1)).toBe(0.75);
+    expect(networkShareOf(1, 1)).toBe(0);
+    expect(networkShareOf(1, 2)).toBe(0);
+    expect(networkShareOf(1, null)).toBe(0);
+  });
+
+  it("gives no share when either loss is not a number", () => {
+    expect(networkShareOf(1, Number.NaN)).toBe(0);
+    expect(networkShareOf(Number.NaN, 1)).toBe(0);
+    expect(networkShareOf(Number.POSITIVE_INFINITY, 1)).toBe(0);
   });
 });
