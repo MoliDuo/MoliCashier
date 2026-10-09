@@ -25,10 +25,8 @@ import {
   type NormalizedParseOutput,
 } from "@/modules/source-document/domain/parse/parser-schema";
 import { resolveParseOutcome } from "@/modules/source-document/domain/parse/result-mapper";
-import { AI_ATTEMPT_DEADLINE_MS } from "@/config/tuning";
+import { AI_ATTEMPT_DEADLINE_MS, PARSE_AI_MAX_TOKENS, PARSE_AI_TIMEOUT_MS } from "@/config/tuning";
 
-/** The parse reply is a whole receipt, so it gets the generous output budget. */
-const PARSER_MAX_TOKENS = 8192;
 /**
  * The provider's default, kept on purpose rather than forced: the model accepts lower values (the
  * category step uses 0.1, preference learning and forecast judgment 0.2), but parsing moves to a
@@ -76,7 +74,8 @@ export async function executeParser(
       schema: parserOutputSchema,
       system: prompt,
       messages: [{ role: "user", content: buildMessageContent(input.text, images) }],
-      maxTokens: PARSER_MAX_TOKENS,
+      maxTokens: PARSE_AI_MAX_TOKENS,
+      timeoutMs: PARSE_AI_TIMEOUT_MS,
       temperature: PARSER_TEMPERATURE,
       ...(signal == null ? {} : { signal }),
     });
