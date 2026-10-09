@@ -41,6 +41,14 @@ export const AI_RETRY_DELAY_MS = process.env.NODE_ENV === "test" ? 0 : 1_000;
  * parse that runs longer fails as `processing_timeout`.
  */
 export const AI_ATTEMPT_DEADLINE_MS = 5 * 60_000;
+/**
+ * The most tokens one parse may spend, the model's reasoning included. The reply lists every line
+ * of the receipt, and the deployed model is a reasoning model whose thinking counts against the same
+ * budget: at 8192 a long receipt was cut off and failed as `ai_provider_unavailable`.
+ */
+export const PARSE_AI_MAX_TOKENS = 32_768;
+/** How long one parse request may take; a long receipt runs past the default. Still within the deadline above. */
+export const PARSE_AI_TIMEOUT_MS = 180_000;
 
 export const AI_CATEGORY_REQUEST_TIMEOUT_MS = 60_000;
 /** The most entries one category assignment can be started over. */

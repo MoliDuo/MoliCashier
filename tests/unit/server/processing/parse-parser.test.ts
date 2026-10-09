@@ -88,7 +88,7 @@ describe("executeParser — single-pass receipt parser", () => {
 
   // === Request shape ===
 
-  it("asks for the generous output budget and passes the abort signal through", async () => {
+  it("asks for a budget a long receipt and the model's reasoning fit in, with the abort signal", async () => {
     const controller = new AbortController();
     await executeParser(
       { evidence: { images: [{ dataUrl: "data:image/jpeg;base64,abc" }] }, originalCategories: [] },
@@ -98,7 +98,8 @@ describe("executeParser — single-pass receipt parser", () => {
 
     expect(mockAI.transport.complete).toHaveBeenCalledTimes(1);
     expect(getFirstCompleteCall(mockAI.transport)).toMatchObject({
-      maxTokens: 8192,
+      maxTokens: 32_768,
+      timeoutMs: 180_000,
       temperature: 1,
       signal: controller.signal,
     });
