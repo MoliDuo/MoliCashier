@@ -96,16 +96,6 @@ export const forecastCopy = {
   yearly: "每年",
   irregular: "不定期",
   oneOff: "一次性",
-  trendRising: (v: { percent: string | number }) => `+${v.percent}%`,
-  trendFalling: (v: { percent: string | number }) => `−${v.percent}%`,
-  trendRisingLabel: "最近在涨",
-  trendFallingLabel: "最近在降",
-  trendSteadyLabel: "最近平稳",
-  phasesTitle: "生活阶段",
-  phaseRange: (v: { from: string | number; to: string | number }) => `${v.from}–${v.to}`,
-  phaseSince: (v: { from: string | number }) => `${v.from} 起`,
-  phaseDaily: (v: { amount: string | number }) => `日常 ${v.amount}/天`,
-  phaseCurrent: "现在",
   anomaly: (v: {
     date: string | number;
     category: string | number;

@@ -13,7 +13,11 @@ import { forecastInputSchema } from "@/modules/forecast/contract-schemas";
 import type { ForecastDto, ForecastRangeDto } from "@/modules/forecast/contracts";
 import { forecastPeriod, type PeriodForecast } from "@/modules/forecast/domain/forecast";
 import { prepareHistory, type PreparedHistory } from "@/modules/forecast/domain/history";
-import { applyJudgment } from "@/modules/forecast/domain/judgment/apply";
+import {
+  expectedCharges,
+  judgedDocumentsIn,
+  withExpectedCharges,
+} from "@/modules/forecast/domain/judgment/apply";
 import { boundJudgment } from "@/modules/forecast/domain/judgment/bounds";
 import { seedOf } from "@/modules/forecast/domain/random";
 import { UNCATEGORIZED_KEY } from "@/modules/forecast/domain/series";
@@ -22,7 +26,7 @@ import { addCivilDays, periodKey, resolveComparison } from "@/modules/ledger/dom
 import { ledgerToday } from "@/modules/ledger/server/query-period";
 import { getLedgerSettings } from "@/modules/ledger/server/settings";
 import { readForecastHistory, readHistoryMark, type ForecastHistory } from "./forecast-history";
-import { judgmentAccuracy, refreshJudgmentInBackground } from "./judge-ledger";
+import { refreshJudgmentInBackground } from "./judge-ledger";
 import { latestJudgment } from "./judgments";
 import { forecastScope } from "./scope";
 
@@ -37,8 +41,9 @@ function rangeDto(quantiles: Quantiles): ForecastRangeDto {
 
 /**
  * What a read of one scope's period worked out, kept for the reads after it:
- * the history, prepared, and the statistical forecast. The judgment and its
- * score are read afresh every time, since they change in the background.
+ * the history, prepared with the judgment in use, and the statistical
+ * forecast. The judgment is read afresh every time, since it changes in the
+ * background, and is part of the key.
  */
 interface MemoEntry {
   history: ForecastHistory;
@@ -61,11 +66,10 @@ function remember(key: string, entry: MemoEntry): void {
  * period that is still running. The period is resolved here, from the
  * ledger's today, exactly as 统计's own read resolves it.
  *
- * When the AI analyst has judged the ledger in the last couple of days, the
- * figures come from its judgment instead — every category's everyday day,
- * what it expects to come, the phases of life — with what was spent read
- * now. A judgment that no longer stands for the history is asked for again
- * in the background.
+ * When the AI analyst has judged the ledger in the last week or so, the
+ * purchases it judged not everyday are left out of what the statistical model
+ * learns from, and the charges it expects before the period ends are added on
+ * their days. A judgment due again is asked for in the background.
  */
 export async function getPeriodForecast(
   input: unknown,
@@ -81,15 +85,30 @@ export async function getPeriodForecast(
   if (window.mode !== "same_period") return null;
 
   const scope = forecastScope(bookId);
+  const latest = await latestJudgment(scope, {
+    from: addCivilDays(today, -FORECAST_AI_MAX_AGE_DAYS),
+    to: today,
+  });
   // Read before the history, so a change landing in between is only ever remembered under the older mark.
-  const memoKey = `${scope}|${periodKey(period)}|${today}|${await readHistoryMark()}`;
+  const memoKey = [
+    scope,
+    periodKey(period),
+    today,
+    await readHistoryMark(),
+    latest == null ? "" : `${latest.asOf}@${latest.createdAt.getTime()}`,
+  ].join("|");
   const remembered = memo.get(memoKey);
   const historyStart = addCivilDays(today, -(FORECAST_HISTORY_DAYS - 1));
   const history =
     remembered?.history ?? (await readForecastHistory({ from: historyStart, to: today }, bookId));
   const prepared =
     remembered == null
-      ? prepareHistory(history.rows, today, FORECAST_MIN_HISTORY_DAYS)
+      ? prepareHistory(
+          history.rows,
+          today,
+          FORECAST_MIN_HISTORY_DAYS,
+          new Set(latest?.judgment.documents.map((document) => document.documentId))
+        )
       : remembered.prepared;
   const forecast =
     remembered != null
@@ -111,10 +130,7 @@ export async function getPeriodForecast(
   // Too little history: nothing to forecast, and nothing for the analyst to judge.
   if (prepared == null) return null;
 
-  const [latest, settings] = await Promise.all([
-    latestJudgment(scope, { from: addCivilDays(today, -FORECAST_AI_MAX_AGE_DAYS), to: today }),
-    getLedgerSettings(),
-  ]);
+  const settings = await getLedgerSettings();
   // The judgment is of the ledger, not of this period, so it is kept current
   // even on a period's last day, when there is nothing left to forecast.
   refreshJudgmentInBackground({
@@ -126,94 +142,60 @@ export async function getPeriodForecast(
     language: settings?.aiLanguage,
   });
   if (forecast == null) return null;
-  const judged =
+
+  const judgment =
     latest == null
       ? null
-      : applyJudgment({
-          judgment: boundJudgment(
-            latest.judgment,
-            history.rows,
+      : boundJudgment(latest.judgment, history.rows, today, FORECAST_AI_AMOUNT_CAP_MULTIPLE);
+  const shown =
+    judgment == null || latest == null
+      ? forecast
+      : withExpectedCharges(
+          forecast,
+          expectedCharges({
+            judgment,
+            asOf: latest.asOf,
+            rows: history.rows,
+            forecast,
             today,
-            FORECAST_AI_AMOUNT_CAP_MULTIPLE
-          ),
-          rows: history.rows,
-          today,
-          period: { from: window.range.from, end: window.periodEnd },
-        });
+            end: window.periodEnd,
+          }),
+          today
+        );
 
-  const statistical: ForecastDto = {
+  return {
     asOf: today,
     periodEnd: window.periodEnd,
     currency: history.mainCurrency,
-    spent: forecast.spent,
-    total: rangeDto(forecast.total),
-    running: forecast.running.map(rangeDto),
-    categories: forecast.categories.map((category) => ({
+    spent: shown.spent,
+    total: rangeDto(shown.total),
+    running: shown.running.map(rangeDto),
+    categories: shown.categories.map((category) => ({
       ...categoryOf(category.key),
       spent: category.spent,
       forecast: rangeDto(category.forecast),
-      trend: null,
     })),
     lifeChange:
-      forecast.lifeChange == null
+      shown.lifeChange == null
         ? null
         : {
-            date: forecast.lifeChange.date,
-            dailyBefore: money(forecast.lifeChange.dailyBefore),
-            dailyAfter: money(forecast.lifeChange.dailyAfter),
+            date: shown.lifeChange.date,
+            dailyBefore: money(shown.lifeChange.dailyBefore),
+            dailyAfter: money(shown.lifeChange.dailyAfter),
           },
-    anomalies: forecast.anomalies.map((anomaly) => ({
+    anomalies: shown.anomalies.map((anomaly) => ({
       date: anomaly.date,
       ...categoryOf(anomaly.key),
       amount: money(anomaly.amount),
       typical: money(anomaly.typical),
     })),
-    judgment: null,
-  };
-  if (judged == null || latest == null) return statistical;
-  const accuracy = judgmentAccuracy(scope, history.rows, today);
-  // The analyst's past judgments, scored, did worse than the statistical model on the same days.
-  if (accuracy != null && accuracy.error > accuracy.statisticalError) return statistical;
-
-  const phases = judged.phases;
-  const current = phases.at(-1);
-  const before = phases.at(-2);
-  return {
-    ...statistical,
-    spent: judged.spent,
-    total: rangeDto(judged.total),
-    running: judged.running.map(rangeDto),
-    categories: judged.categories.map((category) => ({
-      ...categoryOf(category.key),
-      spent: category.spent,
-      forecast: rangeDto(category.forecast),
-      trend:
-        category.trend == null
-          ? null
-          : {
-              direction: category.trend.direction,
-              change: Number(category.trend.change.toFixed(3)),
-            },
-    })),
-    // The current phase's first day stands where the detected change stood, on the chart too.
-    lifeChange:
-      current == null || before == null
+    judgment:
+      latest == null
         ? null
         : {
-            date: current.from,
-            dailyBefore: money(before.daily ?? 0),
-            dailyAfter: money(current.daily ?? 0),
+            asOf: latest.asOf,
+            documents: judgedDocumentsIn(latest.judgment, history.rows, window.range.from, today),
           },
-    judgment: {
-      asOf: latest.asOf,
-      phases: phases.map((phase) => ({
-        from: phase.from,
-        to: phase.to,
-        label: phase.label,
-        daily: phase.daily == null ? null : money(phase.daily),
-      })),
-      documents: judged.documents,
-    },
   };
 
   function categoryOf(key: string) {

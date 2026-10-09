@@ -1,16 +1,13 @@
 import "server-only";
 import {
-  FORECAST_AI_ACCURACY_HORIZON_DAYS,
-  FORECAST_AI_AMOUNT_CAP_MULTIPLE,
-  FORECAST_AI_BACKFILL_WEEKS,
   FORECAST_AI_EXPECTED_DAYS,
   FORECAST_AI_INPUT_MAX_CHARS,
   FORECAST_AI_INPUT_TEXT_CHARS,
   FORECAST_AI_MAX_ATTEMPTS,
   FORECAST_AI_MAX_TOKENS,
   FORECAST_AI_REASONING_EFFORT,
+  FORECAST_AI_JUDGE_EVERY_DAYS,
   FORECAST_AI_REFRESH_MINUTES,
-  FORECAST_AI_RETENTION_DAYS,
   FORECAST_AI_TIMEOUT_MS,
   FORECAST_REFERENCE_PATHS,
   FORECAST_CHANGE_DISCOUNT,
@@ -23,17 +20,9 @@ import { runtimeEnv } from "@/lib/env/runtime";
 import { logger } from "@/lib/logger";
 import { forecastPeriod } from "@/modules/forecast/domain/forecast";
 import {
-  scorableJudgments,
-  scoreJudgment,
-  summarizeScores,
-  type JudgmentAccuracy,
-  type JudgmentScore,
-} from "@/modules/forecast/domain/judgment/accuracy";
-import {
   buildJudgmentDigest,
   type DigestReference,
 } from "@/modules/forecast/domain/judgment/digest";
-import { boundJudgment } from "@/modules/forecast/domain/judgment/bounds";
 import { buildJudgmentPrompt } from "@/modules/forecast/domain/judgment/prompt";
 import {
   judgmentResponseSchema,
@@ -44,24 +33,22 @@ import { isCurrentJudgmentVersion } from "@/modules/forecast/domain/judgment/fin
 import { historyFingerprint } from "@/modules/forecast/server/history-fingerprint";
 import { seedOf } from "@/modules/forecast/domain/random";
 import type { HistoryRow } from "@/modules/forecast/domain/series";
-import { addCivilDays, calendarRangeOf } from "@/modules/ledger/domain/period";
+import { addCivilDays, calendarRangeOf, civilDaysBetween } from "@/modules/ledger/domain/period";
 import { ledgerToday } from "@/modules/ledger/server/query-period";
 import { getLedgerSettings } from "@/modules/ledger/server/settings";
 import { readForecastHistory, type ForecastHistory } from "./forecast-history";
 import { readJudgmentLedger } from "./judgment-history";
-import { judgedDays, judgmentsSince, saveJudgment, type StoredJudgment } from "./judgments";
+import { latestJudgment, saveJudgment, type StoredJudgment } from "./judgments";
 
 const TEMPERATURE = 0.2;
 const MINUTE_MS = 60_000;
 
-// Like the trained models, the bookkeeping of runs lives on `globalThis`: the nightly step runs from
-// instrumentation and the page's reads from route bundles. The judgments themselves are in the database.
+// The bookkeeping of runs lives on `globalThis`: the nightly step runs from instrumentation and the
+// page's reads from route bundles. The judgments themselves are in the database.
 
 interface Registry {
   running: Map<string, Promise<void>>;
   attemptedAt: Map<string, number>;
-  accuracy: Map<string, { today: string; value: JudgmentAccuracy | null }>;
-  scoring: Map<string, Promise<void>>;
 }
 
 const REGISTRY_KEY = Symbol.for("cashier.forecast.judgments");
@@ -71,12 +58,10 @@ function registry(): Registry {
   return (holder[REGISTRY_KEY] ??= {
     running: new Map(),
     attemptedAt: new Map(),
-    accuracy: new Map(),
-    scoring: new Map(),
   });
 }
 
-/** The statistical model's settings for the reference the AI is handed and for scoring: fewer paths than the page. */
+/** The statistical model's settings for the reference the AI is handed: fewer paths than the page. */
 const STATISTICAL = {
   halfLifeDays: FORECAST_HALF_LIFE_DAYS,
   changeDiscount: FORECAST_CHANGE_DISCOUNT,
@@ -126,7 +111,6 @@ async function judge(input: {
   bookId: string | undefined;
   history: ForecastHistory;
   asOf: string;
-  backfilled: boolean;
   language: string | undefined;
 }): Promise<Judgment> {
   const { scope, bookId, history, asOf } = input;
@@ -159,7 +143,6 @@ async function judge(input: {
     reasoningEffort: FORECAST_AI_REASONING_EFFORT,
   });
   const judgment = resolveJudgment(response, digest.refs, {
-    earliest: digest.earliest ?? asOf,
     asOf,
     expectedDays: FORECAST_AI_EXPECTED_DAYS,
   });
@@ -168,18 +151,14 @@ async function judge(input: {
     asOf,
     inputFingerprint: historyFingerprint(history.rows, asOf),
     model: runtimeEnv.aiModel,
-    backfilled: input.backfilled,
     judgment,
   });
   logger.info(
     {
-      backfilled: input.backfilled,
       digestChars: digest.text.length,
       ...digest.levels,
-      phases: judgment.phases.length,
       documents: judgment.documents.length,
       expected: judgment.expected.length,
-      categories: judgment.categories.length,
     },
     "Forecast judged"
   );
@@ -199,9 +178,8 @@ function judgeOnce(scope: string, run: () => Promise<void>): Promise<void> {
 
 /**
  * Runs `run` as the judgment of `scope` once any already running for it is
- * over, whatever became of that one. The nightly run has more to do than a
- * read's judgment of today — the backfill — so waiting on a read's run and
- * calling it done would skip the backfill until the next night.
+ * over, whatever became of that one, so the nightly run decides for itself
+ * whether a read's run left anything to do.
  */
 async function judgeAfterRunning(scope: string, run: () => Promise<void>): Promise<void> {
   for (;;) {
@@ -212,19 +190,21 @@ async function judgeAfterRunning(scope: string, run: () => Promise<void>): Promi
 }
 
 /**
- * Whether today still lacks a judgment: none, one of another day, or one made under an older prompt.
+ * Whether a judgment is due: none, one a week old or more, or one made under an older prompt.
  * Entries recorded since do not count; each judgment reads the whole ledger and costs real money, so
- * a scope is judged once a day and the day's new entries wait for the next one.
+ * a scope is judged once a week and the week's new entries wait for the next one.
  */
 function isStale(latest: StoredJudgment | null, today: string): boolean {
   return (
-    latest == null || latest.asOf !== today || !isCurrentJudgmentVersion(latest.inputFingerprint)
+    latest == null ||
+    civilDaysBetween(latest.asOf, today) >= FORECAST_AI_JUDGE_EVERY_DAYS ||
+    !isCurrentJudgmentVersion(latest.inputFingerprint)
   );
 }
 
 /**
- * Starts today's judgment of `scope` in the background when there is none
- * yet and none was asked for in the last half hour, so a failing provider is
+ * Starts a judgment of `scope` as of today in the background when one is due
+ * and none was asked for in the last half hour, so a failing provider is
  * not asked on every read. The read goes on with what it has.
  */
 export function refreshJudgmentInBackground(input: {
@@ -239,92 +219,19 @@ export function refreshJudgmentInBackground(input: {
   if (!isStale(latest, today)) return;
   const last = Math.max(registry().attemptedAt.get(scope) ?? 0, latest?.createdAt.getTime() ?? 0);
   if (Date.now() - last < FORECAST_AI_REFRESH_MINUTES * MINUTE_MS) return;
-  judgeOnce(scope, async () => {
-    await judge({ ...input, asOf: today, backfilled: false });
-    registry().accuracy.delete(scope);
-  }).catch((error: unknown) => {
-    logger.warn(
-      { errorName: error instanceof Error ? error.name : "UnknownError" },
-      "Forecast judgment failed"
-    );
-  });
+  judgeOnce(scope, () => judge({ ...input, asOf: today }).then(() => undefined)).catch(
+    (error: unknown) => {
+      logger.warn(
+        { errorName: error instanceof Error ? error.name : "UnknownError" },
+        "Forecast judgment failed"
+      );
+    }
+  );
 }
 
 /**
- * How the AI's past judgments of `scope` did, if scored today; when not yet,
- * the scoring starts in the background for the next read and this answers
- * null.
- */
-export function judgmentAccuracy(
-  scope: string,
-  rows: readonly HistoryRow[],
-  today: string
-): JudgmentAccuracy | null {
-  const cached = registry().accuracy.get(scope);
-  if (cached?.today === today) return cached.value;
-  scoreInBackground(scope, rows, today);
-  return null;
-}
-
-function scoreInBackground(scope: string, rows: readonly HistoryRow[], today: string): void {
-  scoreScope(scope, rows, today).catch((error: unknown) => {
-    logger.warn(
-      { errorName: error instanceof Error ? error.name : "UnknownError" },
-      "Forecast judgment scoring failed"
-    );
-  });
-}
-
-/** Scores the past judgments of `scope`, letting other work run between them. */
-function scoreScope(scope: string, rows: readonly HistoryRow[], today: string): Promise<void> {
-  const { scoring, accuracy } = registry();
-  const existing = scoring.get(scope);
-  if (existing != null) return existing;
-  const run = (async () => {
-    const judgments = scorableJudgments(
-      await judgmentsSince(scope, addCivilDays(today, -FORECAST_AI_RETENTION_DAYS)),
-      today,
-      FORECAST_AI_ACCURACY_HORIZON_DAYS
-    );
-    const scores: JudgmentScore[] = [];
-    for (const { asOf, judgment } of judgments) {
-      await new Promise<void>((resolve) => setImmediate(resolve));
-      scores.push(
-        scoreJudgment({
-          asOf,
-          // Scored as the page would have shown it: held to what had been seen by then.
-          judgment: boundJudgment(judgment, rows, asOf, FORECAST_AI_AMOUNT_CAP_MULTIPLE),
-          rows,
-          horizon: FORECAST_AI_ACCURACY_HORIZON_DAYS,
-          statistical: STATISTICAL,
-        })
-      );
-    }
-    const value = summarizeScores(scores, FORECAST_AI_ACCURACY_HORIZON_DAYS);
-    accuracy.set(scope, { today, value });
-    if (value != null) {
-      logger.info(
-        {
-          origins: value.origins,
-          error: Number(value.error.toFixed(3)),
-          statisticalError: Number(value.statisticalError.toFixed(3)),
-        },
-        "Forecast judgments scored"
-      );
-    }
-  })().finally(() => scoring.delete(scope));
-  scoring.set(scope, run);
-  return run;
-}
-
-/**
- * The nightly judgment of every book together: today's, unless today already
- * has one; then the Mondays of the last twelve weeks that were never judged,
- * each from only what was recorded by then, so the AI's record can be scored
- * from the first day; then the score. Mondays, not the days a whole number of
- * weeks before today, so the set moves only once a week and its new day was
- * judged when it was today: after the first night nothing is left to backfill.
- * A failure stops the run and fails the step; what was judged by then is kept.
+ * The nightly judgment of every book together, when one is due. A failure
+ * fails the step; the next night, or the next read, asks again.
  */
 export async function judgeForecasts(): Promise<void> {
   const settings = await getLedgerSettings();
@@ -336,26 +243,20 @@ export async function judgeForecasts(): Promise<void> {
     to: today,
   });
   if (history.rows.length === 0) return;
-  const earliest = history.rows.reduce(
-    (first, row) => (row.date < first ? row.date : first),
-    today
-  );
-  const base = { scope, bookId: undefined, history, language: settings.aiLanguage };
 
   await judgeAfterRunning(scope, async () => {
-    const [latest] = await judgmentsSince(scope, today);
-    if (isStale(latest ?? null, today)) {
-      await judge({ ...base, asOf: today, backfilled: false });
-    }
-    const monday = calendarRangeOf("week", today).from;
-    const pastDays = Array.from({ length: FORECAST_AI_BACKFILL_WEEKS }, (_, index) =>
-      addCivilDays(monday, -7 * (index + 1))
-    ).filter((day) => day > addCivilDays(earliest, FORECAST_MIN_HISTORY_DAYS));
-    const judged = await judgedDays(scope, pastDays);
-    for (const day of pastDays.filter((candidate) => !judged.has(candidate)).reverse()) {
-      await judge({ ...base, asOf: day, backfilled: true });
+    const latest = await latestJudgment(scope, {
+      from: addCivilDays(today, -(FORECAST_AI_JUDGE_EVERY_DAYS - 1)),
+      to: today,
+    });
+    if (isStale(latest, today)) {
+      await judge({
+        scope,
+        bookId: undefined,
+        history,
+        asOf: today,
+        language: settings.aiLanguage,
+      });
     }
   });
-  registry().accuracy.delete(scope);
-  await scoreScope(scope, history.rows, today);
 }

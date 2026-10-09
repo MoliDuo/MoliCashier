@@ -1,5 +1,5 @@
 "use client";
-import { ArrowDownRight, ArrowRight, ArrowUpRight, ChevronRight } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { useState } from "react";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { textRoleClassName } from "@/components/typography";
@@ -7,11 +7,7 @@ import { Button } from "@/components/ui/button";
 import { formatCurrencyAmount } from "@/lib/format/currency";
 import { cn } from "@/lib/utils";
 import { AmountText } from "@/modules/currency/ui/amount-text";
-import type {
-  ForecastCategoryDto,
-  ForecastDto,
-  ForecastJudgmentDto,
-} from "@/modules/forecast/contracts";
+import type { ForecastDto, ForecastJudgmentDto } from "@/modules/forecast/contracts";
 import { StatsPanel } from "./StatsPanel";
 import { DISPLAY_LOCALE } from "@/lib/constants";
 import { forecastCopy, statsTabCopy } from "@/copy/stats";
@@ -28,8 +24,7 @@ interface StatsCategoryForecastProps {
 /**
  * Where each category is heading by the end of the period: what it has cost
  * so far, the middle outcome, and the spread that four in five outcomes fall
- * in. All rows share one scale, so a long bar is a big category. With the
- * AI's judgment, each category also shows which way it is heading.
+ * in. All rows share one scale, so a long bar is a big category.
  */
 export function StatsCategoryForecast({
   forecast,
@@ -63,7 +58,6 @@ export function StatsCategoryForecast({
             high: money(category.forecast.p90),
           });
           const spent = forecastCopy.spent({ amount: money(category.spent) });
-          const trend = trendOf(category);
           const low = share(category.forecast.p10);
           const high = share(category.forecast.p90);
           return (
@@ -71,9 +65,7 @@ export function StatsCategoryForecast({
               type="button"
               key={category.id ?? "__uncategorized__"}
               disabled={onCategoryClick == null}
-              aria-label={[name, trend?.label, expected, range, spent]
-                .filter((part) => part != null)
-                .join(", ")}
+              aria-label={[name, expected, range, spent].join(", ")}
               className={cn(
                 "group grid w-full items-center gap-3 text-left",
                 onCategoryClick != null
@@ -93,26 +85,10 @@ export function StatsCategoryForecast({
 
               <span className="min-w-0 space-y-1.5">
                 {/* On a phone the spent line drops under the name: beside it, the name
-                    was squeezed to nothing between the trend and the amount. */}
+                    was squeezed to nothing beside the amount. */}
                 <span className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
-                  <span className="flex min-w-0 items-baseline gap-1.5">
-                    <span className={textRoleClassName("bodyStrong", "truncate")}>{name}</span>
-                    {trend != null ? (
-                      <span
-                        aria-hidden="true"
-                        className={textRoleClassName(
-                          "meta",
-                          cn(
-                            "inline-flex shrink-0 items-center gap-0.5 self-center tabular-nums",
-                            trend.direction === "rising" && "text-danger",
-                            trend.direction === "falling" && "text-success"
-                          )
-                        )}
-                      >
-                        <trend.Icon className="size-3.5" />
-                        {trend.text}
-                      </span>
-                    ) : null}
+                  <span className={textRoleClassName("bodyStrong", "min-w-0 truncate")}>
+                    {name}
                   </span>
                   <span className={textRoleClassName("meta", "shrink-0 tabular-nums")}>
                     {spent}
@@ -180,35 +156,5 @@ export function cadenceName(
       return forecastCopy.yearly;
     case "irregular":
       return forecastCopy.irregular;
-  }
-}
-
-/** The arrow, the change and the words for a category's trend; null without a judgment. */
-function trendOf(category: ForecastCategoryDto) {
-  const trend = category.trend;
-  if (trend == null) return null;
-  const percent = Math.round(Math.abs(trend.change) * 100);
-  switch (trend.direction) {
-    case "rising":
-      return {
-        direction: trend.direction,
-        Icon: ArrowUpRight,
-        text: forecastCopy.trendRising({ percent }),
-        label: forecastCopy.trendRisingLabel,
-      };
-    case "falling":
-      return {
-        direction: trend.direction,
-        Icon: ArrowDownRight,
-        text: forecastCopy.trendFalling({ percent }),
-        label: forecastCopy.trendFallingLabel,
-      };
-    case "steady":
-      return {
-        direction: trend.direction,
-        Icon: ArrowRight,
-        text: null,
-        label: forecastCopy.trendSteadyLabel,
-      };
   }
 }

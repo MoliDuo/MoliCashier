@@ -9,13 +9,6 @@ export interface ForecastCategoryDto extends ForecastCategoryRef {
   spent: string;
   /** Where the whole period ends up for the category, spent days included. */
   forecast: ForecastRangeDto;
-  /**
-   * Which way the category's everyday spending is heading: the last two weeks
-   * against the usual day of the current phase of life, as a share (0.25
-   * reads "+25%"). Null without a judgment, or while the phase is too short
-   * to have a usual day.
-   */
-  trend: { direction: "rising" | "falling" | "steady"; change: number } | null;
 }
 
 /** Who a recurring bill, an unusual day and a category row belong to. */
@@ -26,21 +19,10 @@ interface ForecastCategoryRef {
   icon: string | null;
 }
 
-/** A stretch of life as the AI split the ledger. */
-export interface ForecastPhaseDto {
-  from: string;
-  /** Its last day; yesterday for the current one. */
-  to: string;
-  label: string;
-  /** Everyday spending a day across it, purchases judged not everyday left out; null for one begun today. */
-  daily: string | null;
-}
-
 /** What the AI analyst judged. */
 export interface ForecastJudgmentDto {
   /** The day it judged. */
   asOf: string;
-  phases: ForecastPhaseDto[];
   /** The purchases of the period so far it judged not everyday. */
   documents: {
     documentId: string;
@@ -83,8 +65,9 @@ export interface ForecastDto {
   /** The days so far that cost a category far more than usual, the most unusual first. */
   anomalies: ForecastAnomalyDto[];
   /**
-   * The AI analyst's judgment the figures were computed from; null when there
-   * is none recent enough and the statistical model answered instead.
+   * The AI analyst's judgment the figures were adjusted by — its not-everyday
+   * purchases left out of what the model learnt, its expected charges added;
+   * null when there is none recent enough.
    */
   judgment: ForecastJudgmentDto | null;
 }

@@ -34,6 +34,18 @@ describe("prepareHistory", () => {
     expect(history.series.length).toBe(90);
     expect(prepareHistory(ROWS, "2026-06-05", 7)).toBeNull();
   });
+
+  it("leaves the documents judged not everyday out of the everyday days, but still finds the bills", () => {
+    const lunch = (day: number) => `lunch-${day}`;
+    const judged = new Set([lunch(10), lunch(11), "rent-2026-07-05"]);
+    const history = prepareHistory(ROWS, "2026-08-30", 7, judged)!;
+
+    const days = history.series.byCategory.get("lunch")!;
+    expect(days[10]).toBe(0);
+    expect(days[11]).toBe(0);
+    expect(days[12]).toBe(20);
+    expect(history.bills.map((bill) => bill.label)).toEqual(["房租"]);
+  });
 });
 
 describe("simulateOutlook", () => {

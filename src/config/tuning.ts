@@ -128,24 +128,21 @@ export const FORECAST_AI_INPUT_TEXT_CHARS = 160;
 export const FORECAST_AI_EXPECTED_DAYS = 90;
 /**
  * Leads the fingerprint a judgment is stored with. Raise it whenever the analyst's prompt or what it is asked
- * for changes, so today's judgment, made the old way, is redone on the next read or night instead of tomorrow.
+ * for changes, so the judgment made the old way is redone on the next read or night instead of next week.
  */
-export const FORECAST_AI_JUDGMENT_VERSION = 2;
-/** A scope still without today's judgment, say after a failure, is not asked again sooner than this after the last attempt. */
+export const FORECAST_AI_JUDGMENT_VERSION = 3;
+/** How often a scope is judged: each judgment reads the whole ledger with a reasoning model. */
+export const FORECAST_AI_JUDGE_EVERY_DAYS = 7;
+/** A scope whose judgment is due, say after a failure, is not asked again sooner than this after the last attempt. */
 export const FORECAST_AI_REFRESH_MINUTES = 30;
-/** A judgment older than this many days is not used for the page's forecast. */
-export const FORECAST_AI_MAX_AGE_DAYS = 2;
-/** The past Mondays judged once the AI analyst starts, so its record is known from the first day. */
-export const FORECAST_AI_BACKFILL_WEEKS = 12;
-/** How far ahead a past judgment is scored against what was then spent. */
-export const FORECAST_AI_ACCURACY_HORIZON_DAYS = 14;
+/** A judgment older than this many days is not used for the page's forecast: a week, and two nights' grace. */
+export const FORECAST_AI_MAX_AGE_DAYS = 9;
 /**
- * The most a category's judged everyday day may cost, as a multiple of the 99th percentile of its past days
- * with spending; something the AI expects is held to the same multiple of the category's largest past day.
- * A misread answer — a month's spending given as a day's — then cannot multiply the forecast.
+ * Something the AI expects is held to this multiple of its category's largest past day, so a misread
+ * answer — a year's fees given as one charge — cannot multiply the forecast.
  */
 export const FORECAST_AI_AMOUNT_CAP_MULTIPLE = 1.5;
-/** How long judgments are kept for scoring. */
+/** How long judgments are kept. */
 export const FORECAST_AI_RETENTION_DAYS = 400;
 /**
  * The most tokens one judgment may spend, the model's reasoning included: a reasoning model that runs out
