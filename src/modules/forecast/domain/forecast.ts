@@ -2,7 +2,6 @@ import { add, compare } from "@/lib/money/decimal";
 import { addCivilDays, civilDaysBetween } from "@/modules/ledger/domain/period";
 import { findAnomalies, type Anomaly } from "./anomalies";
 import { dayWeights, prepareHistory, type PreparedHistory } from "./history";
-import type { NetworkModel } from "./nn/network";
 import { simulateOutlook } from "./outlook";
 import { seededRandom } from "./random";
 import { upcomingDates, type Cadence } from "./recurring";
@@ -24,9 +23,6 @@ export interface ForecastOptions {
   seed: number;
   /** Fewer recorded days than this before today are too few to forecast from. */
   minHistoryDays: number;
-  /** The trained network, and the share of the paths it plays; null leaves it out. */
-  network: NetworkModel | null;
-  networkShare: number;
 }
 
 export interface CategoryForecast {
@@ -48,8 +44,6 @@ export interface UpcomingBill {
 }
 
 export interface PeriodForecast {
-  /** The first day the models learnt from. */
-  historyFrom: string;
   spent: string;
   /** Where the whole period ends up, spent days included. */
   total: Quantiles;
@@ -57,8 +51,6 @@ export interface PeriodForecast {
   running: Quantiles[];
   /** Every category spent in so far or expected to be, the largest expected first. */
   categories: CategoryForecast[];
-  /** The previous period's whole total, and the share of outcomes that end above it. */
-  exceedPrevious: { total: string; probability: number } | null;
   /** When the current way of spending began, if the history shows it begin. */
   lifeChange: LifeChangeSummary | null;
   /** The recurring bills expected after today through the period's end, soonest first. */
@@ -97,12 +89,11 @@ export function forecastPeriod(input: {
   rows: readonly HistoryRow[];
   today: string;
   period: { from: string; end: string };
-  previous: { from: string; to: string } | null;
   options: ForecastOptions;
   /** `rows` already prepared as of `today` with `options.minHistoryDays`, when the caller has it. */
   prepared?: PreparedHistory | null;
 }): PeriodForecast | null {
-  const { rows, today, period, previous, options } = input;
+  const { rows, today, period, options } = input;
   const remaining = civilDaysBetween(today, period.end);
   if (remaining <= 0) return null;
   const history =
@@ -113,8 +104,6 @@ export function forecastPeriod(input: {
 
   const simulation = simulateOutlook(history, {
     weights: dayWeights(history, options.halfLifeDays, options.changeDiscount),
-    network: options.network,
-    networkShare: options.networkShare,
     end: period.end,
     paths: options.paths,
     random: seededRandom(options.seed),
@@ -122,14 +111,11 @@ export function forecastPeriod(input: {
 
   const spentByKey = new Map<string, string>();
   let spent = "0";
-  let previousTotal = "0";
   for (const row of rows) {
     if (row.date >= period.from && row.date <= today) {
       const key = categoryKeyOf(row.categoryId);
       spentByKey.set(key, add(spentByKey.get(key) ?? "0", row.amount));
       spent = add(spent, row.amount);
-    } else if (previous != null && row.date >= previous.from && row.date <= previous.to) {
-      previousTotal = add(previousTotal, row.amount);
     }
   }
 
@@ -157,26 +143,11 @@ export function forecastPeriod(input: {
   }
   categories.sort((a, b) => b.forecast.p50 - a.forecast.p50 || a.key.localeCompare(b.key));
 
-  const previousNumber = Number(previousTotal);
-  const exceedPrevious =
-    previous == null || previousNumber <= 0
-      ? null
-      : {
-          total: previousTotal,
-          probability:
-            totals.reduce(
-              (count, total) => count + (spentNumber + total > previousNumber ? 1 : 0),
-              0
-            ) / totals.length,
-        };
-
   return {
-    historyFrom: history.earliest,
     spent,
     total: quantilesOf(totals, spentNumber),
     running: simulation.running.map((column) => quantilesOf(column, spentNumber)),
     categories,
-    exceedPrevious,
     lifeChange:
       history.change == null
         ? null

@@ -88,13 +88,33 @@ describe("applyJudgment", () => {
       { from: "2026-08-01", to: "2026-08-31", label: "两人同住", daily: 20 },
       { from: "2026-09-01", to: "2026-10-09", label: "读博", daily: 30 },
     ]);
+    // The analyst said rising, but the last two weeks cost what the phase's usual day does.
     const food = forecast.categories.find((category) => category.key === "food")!;
-    expect(food.trend).toEqual({ direction: "rising", change: 0 });
-    // No judgment of its own, no trend.
+    expect(food.trend).toEqual({ direction: "steady", change: 0 });
+    // Nothing everyday of its own, no trend.
     expect(forecast.categories.find((category) => category.key === "edu")!.trend).toBeNull();
   });
 
-  it("has no trend figure while the current phase is too short to have a usual day", () => {
+  it("reads the arrow from the same figure as the percentage, whatever the analyst said", () => {
+    // ¥30 a day through September 25th, then ¥15 a day for the last two weeks.
+    const cheaper = [
+      ...daily("2026-09-01", 25, "food", "30"),
+      ...daily("2026-09-26", 14, "food", "15"),
+    ];
+    const forecast = applyJudgment({
+      judgment: { ...judgment, phases: [{ from: "2026-09-01", label: "读博" }] },
+      rows: cheaper,
+      today: "2026-10-10",
+      period: { from: "2026-10-01", end: "2026-10-31" },
+    })!;
+
+    const trend = forecast.categories.find((category) => category.key === "food")!.trend!;
+    expect(trend.direction).toBe("falling");
+    // ¥15 against the phase's ¥960 over 39 days.
+    expect(trend.change).toBeCloseTo(15 / (960 / 39) - 1);
+  });
+
+  it("has no trend while the current phase is too short to have a usual day", () => {
     const forecast = applyJudgment({
       judgment: { ...judgment, phases: [{ from: "2026-09-25", label: "读博" }] },
       rows,
@@ -102,10 +122,7 @@ describe("applyJudgment", () => {
       period: { from: "2026-10-01", end: "2026-10-31" },
     })!;
 
-    expect(forecast.categories.find((category) => category.key === "food")!.trend).toEqual({
-      direction: "rising",
-      change: null,
-    });
+    expect(forecast.categories.find((category) => category.key === "food")!.trend).toBeNull();
   });
 
   it("says nothing for a period with no days left", () => {

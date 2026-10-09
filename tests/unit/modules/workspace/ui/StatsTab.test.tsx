@@ -77,8 +77,6 @@ describe("StatsTab", () => {
       asOf: "2026-08-24",
       periodEnd: "2026-08-31",
       currency: "CNY",
-      historyFrom: "2026-01-01",
-      halfLifeDays: 30,
       spent: "120",
       total: { p10: "150.00", p50: "170.00", p90: "200.00" },
       running: [],
@@ -92,11 +90,8 @@ describe("StatsTab", () => {
           trend: null,
         },
       ],
-      exceedPrevious: null,
       lifeChange: null,
-      largePurchaseFrom: null,
       anomalies: [],
-      model: null,
       judgment: null,
     };
     vi.mocked(fetchEnhancedStats).mockResolvedValue(running);
@@ -116,8 +111,6 @@ describe("StatsTab", () => {
       asOf: "2026-08-23",
       periodEnd: "2026-08-31",
       currency: "CNY",
-      historyFrom: "2026-01-01",
-      halfLifeDays: 30,
       spent: "0",
       total: { p10: "0", p50: "0", p90: "0" },
       running: [],
@@ -131,11 +124,8 @@ describe("StatsTab", () => {
           trend: null,
         },
       ],
-      exceedPrevious: null,
       lifeChange: null,
-      largePurchaseFrom: null,
       anomalies: [],
-      model: null,
       judgment: null,
     });
     renderStatsTab();

@@ -7,8 +7,8 @@ import type { JudgedDocument, Judgment, JudgmentTrend } from "./schema";
 /** How a category is heading against the current phase's usual level. */
 export interface CategoryTrend {
   direction: JudgmentTrend;
-  /** The last two weeks against the phase's usual day, as a share: 0.25 reads "+25%". Null while the phase is too short to tell. */
-  change: number | null;
+  /** The last two weeks against the phase's usual day, as a share: 0.25 reads "+25%". */
+  change: number;
 }
 
 export interface JudgedCategoryForecast {
@@ -41,6 +41,8 @@ export interface JudgedPeriodForecast {
 const TREND_DAYS = 14;
 /** A phase shorter than this has no usual level apart from its recent days. */
 const TREND_MIN_PHASE_DAYS = 28;
+/** A change smaller than this share either way reads as steady. */
+const TREND_STEADY_SHARE = 0.1;
 /** A category expected to cost less than this, with nothing spent yet, is left off the list. */
 const NEGLIGIBLE_AMOUNT = 0.005;
 
@@ -115,10 +117,7 @@ export function applyJudgment(input: {
       key,
       spent: categorySpent,
       forecast,
-      trend:
-        level == null
-          ? null
-          : { direction: level.trend, change: trendChange(everyday, key, current, today) },
+      trend: categoryTrend(everyday, key, current, today),
     });
   }
   categories.sort((a, b) => b.forecast.p50 - a.forecast.p50 || a.key.localeCompare(b.key));
@@ -177,13 +176,17 @@ function summarizePhases(
   });
 }
 
-/** The last two weeks of a category's everyday spending against the current phase's usual day. */
-function trendChange(
+/**
+ * The last two weeks of a category's everyday spending against the current
+ * phase's usual day. The direction is read from the same figure as the
+ * percentage, so the arrow and the number shown beside it always agree.
+ */
+function categoryTrend(
   everyday: readonly HistoryRow[],
   key: string,
   phase: JudgedPhaseSummary | null,
   today: string
-): number | null {
+): CategoryTrend | null {
   if (phase == null) return null;
   const phaseDays = civilDaysBetween(phase.from, today);
   if (phaseDays < TREND_MIN_PHASE_DAYS) return null;
@@ -196,7 +199,10 @@ function trendChange(
     if (row.date >= recentFrom) recentTotal += Number(row.amount);
   }
   if (phaseTotal <= 0) return null;
-  return recentTotal / TREND_DAYS / (phaseTotal / phaseDays) - 1;
+  const change = recentTotal / TREND_DAYS / (phaseTotal / phaseDays) - 1;
+  const direction =
+    change >= TREND_STEADY_SHARE ? "rising" : change <= -TREND_STEADY_SHARE ? "falling" : "steady";
+  return { direction, change };
 }
 
 /** What the judgment of `asOf` expected the `days` days after it to cost: every category's middle day, and what was expected in them. */

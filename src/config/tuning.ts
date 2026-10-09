@@ -107,34 +107,19 @@ export const AI_CORRECTIONS_RETENTION_DAYS = 180;
 
 /** How far back the 统计 forecast reads; older days have faded to nothing by then anyway. */
 export const FORECAST_HISTORY_DAYS = 730;
-/** How fast the forecast lets the past fade: a day this many days old counts half as much as yesterday. */
-export const FORECAST_HALF_LIFE_DAYS = 30;
+/**
+ * How fast the forecast lets the past fade: a day this many days old counts half as much as yesterday.
+ * Back-tests over 14 / 30 / 60 / 120 days and no fading picked 14 for every book with enough history.
+ */
+export const FORECAST_HALF_LIFE_DAYS = 14;
 /** How many times the forecast plays out the rest of a period. */
 export const FORECAST_SIMULATION_PATHS = 1000;
 /** Fewer recorded days than this before today are too few for the forecast to learn from. */
 export const FORECAST_MIN_HISTORY_DAYS = 7;
 /** What a day from before the current way of spending began counts for in the forecast, against a day since. */
 export const FORECAST_CHANGE_DISCOUNT = 0.2;
-/** The half-lives the nightly contest tries for the forecast; null counts every day the same. */
-export const FORECAST_HALF_LIFE_CANDIDATES: readonly (number | null)[] = [14, 30, 60, 120, null];
-/** How many past days the contest stands on, how far apart, and how far ahead each one forecasts. */
-export const FORECAST_BACKTEST_ORIGINS = 6;
-export const FORECAST_BACKTEST_SPACING_DAYS = 7;
-export const FORECAST_BACKTEST_HORIZON_DAYS = 14;
-/** Fewer paths than the page's forecast: the contest compares models, it does not draw fans. */
-export const FORECAST_BACKTEST_PATHS = 300;
-/** The forecast network's shape and training: small, strongly regularized, stopped early. */
-export const FORECAST_NETWORK = {
-  hidden: [16, 8],
-  maxEpochs: 40,
-  patience: 6,
-  batchSize: 64,
-  learningRate: 0.01,
-  l2: 1e-4,
-  validationDays: 21,
-} as const;
-/** A trained forecast older than this many days is retrained before it is trusted again. */
-export const FORECAST_MODEL_MAX_AGE_DAYS = 2;
+/** Fewer paths than the page's forecast for the statistical reference the AI is handed and for scoring it: no fans are drawn from them. */
+export const FORECAST_REFERENCE_PATHS = 300;
 /** The most characters of ledger the forecast judgment sends the AI; older documents are summarized first beyond it. */
 export const FORECAST_AI_INPUT_MAX_CHARS = 120_000;
 /** How much of a document's original input the judgment shows the AI. */

@@ -187,20 +187,20 @@ export function cadenceName(
 function trendOf(category: ForecastCategoryDto) {
   const trend = category.trend;
   if (trend == null) return null;
-  const percent = trend.change == null ? null : Math.round(Math.abs(trend.change) * 100);
+  const percent = Math.round(Math.abs(trend.change) * 100);
   switch (trend.direction) {
     case "rising":
       return {
         direction: trend.direction,
         Icon: ArrowUpRight,
-        text: percent == null ? null : forecastCopy.trendRising({ percent }),
+        text: forecastCopy.trendRising({ percent }),
         label: forecastCopy.trendRisingLabel,
       };
     case "falling":
       return {
         direction: trend.direction,
         Icon: ArrowDownRight,
-        text: percent == null ? null : forecastCopy.trendFalling({ percent }),
+        text: forecastCopy.trendFalling({ percent }),
         label: forecastCopy.trendFallingLabel,
       };
     case "steady":

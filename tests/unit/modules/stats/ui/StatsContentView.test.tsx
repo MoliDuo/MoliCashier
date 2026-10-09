@@ -159,17 +159,12 @@ describe("StatsContentView", () => {
       asOf: "2026-08-06",
       periodEnd: "2026-08-31",
       currency: "CNY",
-      historyFrom: "2026-01-02",
-      halfLifeDays: 30,
       spent: "4120",
       total: { p10: "5000.00", p50: "5200.00", p90: "5500.00" },
       running: [],
       categories: [],
-      exceedPrevious: null,
       lifeChange: null,
-      largePurchaseFrom: null,
       anomalies: [],
-      model: null,
       judgment: {
         asOf: "2026-08-06",
         phases: [
@@ -177,7 +172,6 @@ describe("StatsContentView", () => {
           { from: "2026-08-01", to: "2026-08-05", label: "读博", daily: "120.00" },
         ],
         documents: [{ documentId: "d1", kind: "recurring", cadence: "semester" }],
-        accuracy: null,
       },
     };
     render(<StatsContentView {...baseProps} stats={stats} forecast={forecast} />);

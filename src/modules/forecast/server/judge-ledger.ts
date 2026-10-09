@@ -12,7 +12,7 @@ import {
   FORECAST_AI_REFRESH_MINUTES,
   FORECAST_AI_RETENTION_DAYS,
   FORECAST_AI_TIMEOUT_MS,
-  FORECAST_BACKTEST_PATHS,
+  FORECAST_REFERENCE_PATHS,
   FORECAST_CHANGE_DISCOUNT,
   FORECAST_HALF_LIFE_DAYS,
   FORECAST_HISTORY_DAYS,
@@ -76,11 +76,11 @@ function registry(): Registry {
   });
 }
 
-/** The statistical model's settings for the reference the AI is handed and for scoring: no network, fewer paths. */
+/** The statistical model's settings for the reference the AI is handed and for scoring: fewer paths than the page. */
 const STATISTICAL = {
   halfLifeDays: FORECAST_HALF_LIFE_DAYS,
   changeDiscount: FORECAST_CHANGE_DISCOUNT,
-  paths: FORECAST_BACKTEST_PATHS,
+  paths: FORECAST_REFERENCE_PATHS,
   seed: seedOf("judgment"),
   minHistoryDays: FORECAST_MIN_HISTORY_DAYS,
 };
@@ -92,8 +92,7 @@ function statisticalReference(rows: readonly HistoryRow[], asOf: string): Digest
     rows,
     today: asOf,
     period: { from: month.from, end: month.to === asOf ? addCivilDays(asOf, 30) : month.to },
-    previous: null,
-    options: { ...STATISTICAL, network: null, networkShare: 0 },
+    options: STATISTICAL,
   });
   if (forecast == null) return null;
   const bills = new Map<string, DigestReference["bills"][number]>();
