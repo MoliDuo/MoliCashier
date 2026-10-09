@@ -98,11 +98,8 @@ describe("getPeriodForecast", () => {
       asOf: "2026-10-10",
       periodEnd: "2026-10-31",
       currency: "CNY",
-      historyFrom: "2026-09-01",
-      halfLifeDays: 30,
       // Nine days of ¥30 and the ¥16 in ringgit.
       spent: "286",
-      exceedPrevious: { total: "900" },
       // Five weeks of the same ¥30 a day: too few, and too even, to show a change.
       lifeChange: null,
     });
@@ -114,7 +111,6 @@ describe("getPeriodForecast", () => {
     const middle = Number(forecast!.total.p50);
     expect(middle).toBeGreaterThanOrEqual(286 + 21 * 30);
     expect(middle).toBeLessThanOrEqual(286 + 21 * 46);
-    expect(forecast!.exceedPrevious!.probability).toBe(1);
   });
 
   it("reads every book together without one, an uncategorized trip included", async () => {

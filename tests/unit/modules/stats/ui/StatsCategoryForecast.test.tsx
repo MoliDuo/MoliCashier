@@ -8,8 +8,6 @@ function forecastFixture(overrides: Partial<ForecastDto> = {}): ForecastDto {
     asOf: "2026-10-04",
     periodEnd: "2026-10-31",
     currency: "CNY",
-    historyFrom: "2026-01-02",
-    halfLifeDays: 30,
     spent: "400",
     total: { p10: "2000.00", p50: "2400.00", p90: "2900.00" },
     running: [],
@@ -31,11 +29,8 @@ function forecastFixture(overrides: Partial<ForecastDto> = {}): ForecastDto {
         trend: null,
       },
     ],
-    exceedPrevious: { total: "2200", probability: 0.684 },
     lifeChange: null,
-    largePurchaseFrom: null,
     anomalies: [],
-    model: null,
     judgment: null,
     ...overrides,
   };
@@ -66,10 +61,7 @@ describe("StatsCategoryForecast", () => {
 
   it("renders nothing with no categories, and no buttons without a drilldown", () => {
     const { container, rerender } = render(
-      <StatsCategoryForecast
-        forecast={forecastFixture({ exceedPrevious: null })}
-        currencySymbol="CNY"
-      />
+      <StatsCategoryForecast forecast={forecastFixture()} currencySymbol="CNY" />
     );
     expect(screen.getAllByRole("button").every((button) => button.hasAttribute("disabled"))).toBe(
       true
@@ -79,31 +71,6 @@ describe("StatsCategoryForecast", () => {
       <StatsCategoryForecast forecast={forecastFixture({ categories: [] })} currencySymbol="CNY" />
     );
     expect(container).toBeEmptyDOMElement();
-  });
-
-  it("carries no footnote about how the forecast was made or how well it did", () => {
-    const accuracy = {
-      origins: 6,
-      horizonDays: 14,
-      error: 0.114,
-      statisticalError: 0.13,
-      networkError: 0.1,
-      typicalDayError: 0.3,
-    };
-    render(
-      <StatsCategoryForecast
-        forecast={forecastFixture({
-          largePurchaseFrom: "1250.00",
-          model: { trainedFor: "2026-10-04", networkShare: 0.62, accuracy },
-        })}
-        currencySymbol="CNY"
-      />
-    );
-
-    expect(screen.queryByText(/天前的一天只算昨天的一半/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/一次性大额不预测/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/平均差约/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/神经网络|统计模型/)).not.toBeInTheDocument();
   });
 
   it("computes from the AI's judgment: trends", () => {
@@ -132,7 +99,6 @@ describe("StatsCategoryForecast", () => {
             asOf: "2026-10-04",
             phases: [],
             documents: [],
-            accuracy: { origins: 10, horizonDays: 14, error: 0.083, statisticalError: 0.21 },
           },
         })}
         currencySymbol="CNY"

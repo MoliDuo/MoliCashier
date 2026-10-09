@@ -9,8 +9,6 @@ const OPTIONS: ForecastOptions = {
   paths: 400,
   seed: 7,
   minHistoryDays: 7,
-  network: null,
-  networkShare: 0,
 };
 
 /** `amount` in `category` every `every` days from `from`, `count` times. */
@@ -38,7 +36,6 @@ describe("forecastPeriod", () => {
       rows,
       today: "2026-10-10",
       period: { from: "2026-10-01", end: "2026-10-31" },
-      previous: { from: "2026-09-01", to: "2026-09-30" },
       options: OPTIONS,
     })!;
 
@@ -55,8 +52,6 @@ describe("forecastPeriod", () => {
         forecast: { p10: 930, p50: 930, p90: 930 },
       },
     ]);
-    // September came to 900, and every outcome ends above it.
-    expect(forecast.exceedPrevious).toEqual({ total: "900", probability: 1 });
   });
 
   it("follows the way life goes now rather than the average of all of it", () => {
@@ -70,7 +65,6 @@ describe("forecastPeriod", () => {
       rows,
       today: "2026-10-03",
       period: { from: "2026-10-01", end: "2026-10-31" },
-      previous: null,
       options: OPTIONS,
     })!;
 
@@ -81,7 +75,6 @@ describe("forecastPeriod", () => {
     const perDay = (forecast.total.p50 - Number(forecast.spent)) / 28;
     expect(perDay).toBeLessThan(40);
     expect(perDay).toBeGreaterThanOrEqual(20);
-    expect(forecast.exceedPrevious).toBeNull();
   });
 
   it("lets the time before a change still count for something, as asked", () => {
@@ -93,7 +86,6 @@ describe("forecastPeriod", () => {
       rows,
       today: "2026-10-03",
       period: { from: "2026-10-01", end: "2026-10-31" },
-      previous: null,
     };
 
     const discounted = forecastPeriod({ ...input, options: OPTIONS })!;
@@ -113,7 +105,6 @@ describe("forecastPeriod", () => {
       rows,
       today: "2026-10-01",
       period: { from: "2026-10-01", end: "2026-10-31" },
-      previous: null,
       options: OPTIONS,
     })!;
 
@@ -131,7 +122,6 @@ describe("forecastPeriod", () => {
       rows,
       today: "2026-10-01",
       period: { from: "2026-10-01", end: "2026-10-31" },
-      previous: null,
       options: OPTIONS,
     })!;
     const coffee = forecast.categories[0]!;
@@ -154,7 +144,6 @@ describe("forecastPeriod", () => {
       rows,
       today: "2026-10-01",
       period: { from: "2026-10-01", end: "2026-10-07" },
-      previous: null,
       options: OPTIONS,
     })!;
 
@@ -173,7 +162,6 @@ describe("forecastPeriod", () => {
       rows,
       today: "2026-10-01",
       period: { from: "2026-10-01", end: "2026-10-31" },
-      previous: null,
     };
 
     const first = forecastPeriod({ ...input, options: OPTIONS });
@@ -185,19 +173,11 @@ describe("forecastPeriod", () => {
     const rows = spending("2026-09-25", 7, "food", "30");
     const period = { from: "2026-10-01", end: "2026-10-31" };
 
-    expect(
-      forecastPeriod({ rows, today: "2026-10-31", period, previous: null, options: OPTIONS })
-    ).toBeNull();
-    expect(
-      forecastPeriod({ rows, today: "2026-10-01", period, previous: null, options: OPTIONS })
-    ).toBeNull();
-    expect(
-      forecastPeriod({ rows: [], today: "2026-10-10", period, previous: null, options: OPTIONS })
-    ).toBeNull();
+    expect(forecastPeriod({ rows, today: "2026-10-31", period, options: OPTIONS })).toBeNull();
+    expect(forecastPeriod({ rows, today: "2026-10-01", period, options: OPTIONS })).toBeNull();
+    expect(forecastPeriod({ rows: [], today: "2026-10-10", period, options: OPTIONS })).toBeNull();
     // A week of history is enough.
-    expect(
-      forecastPeriod({ rows, today: "2026-10-02", period, previous: null, options: OPTIONS })
-    ).not.toBeNull();
+    expect(forecastPeriod({ rows, today: "2026-10-02", period, options: OPTIONS })).not.toBeNull();
   });
 
   it("adds the rent on its day for certain, and names a day that cost far more than usual", () => {
@@ -218,7 +198,6 @@ describe("forecastPeriod", () => {
       rows: [...rent, ...food],
       today: "2026-10-10",
       period: { from: "2026-10-01", end: "2026-10-31" },
-      previous: { from: "2026-09-01", to: "2026-09-30" },
       options: OPTIONS,
     })!;
 
@@ -258,7 +237,6 @@ describe("forecastPeriod", () => {
       rows: [...rent, ...food],
       today: "2026-10-15",
       period: { from: "2026-10-01", end: "2026-10-31" },
-      previous: null,
       options: OPTIONS,
     })!;
 
@@ -282,7 +260,6 @@ describe("forecastPeriod", () => {
       rows,
       today: "2026-10-10",
       period: { from: "2026-10-01", end: "2026-10-31" },
-      previous: null,
       options: OPTIONS,
     })!;
 
@@ -306,7 +283,6 @@ describe("forecastPeriod", () => {
       rows,
       today: "2026-10-10",
       period: { from: "2026-10-01", end: "2026-10-31" },
-      previous: null,
       options: OPTIONS,
     })!;
 

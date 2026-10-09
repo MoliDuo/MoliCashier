@@ -13,6 +13,7 @@ import {
   ledgers,
   sourceDocuments,
 } from "@/persistence";
+import type { JudgmentAccuracy } from "@/modules/forecast/domain/judgment/accuracy";
 import { getPeriodForecast } from "@/modules/forecast/server/get-forecast";
 import { judgeForecasts } from "@/modules/forecast/server/judge-ledger";
 import { addCivilDays } from "@/modules/ledger/domain/period";
@@ -188,10 +189,15 @@ describe("the AI analyst's nightly judgment", () => {
       dailyBefore: "30.00",
       dailyAfter: "30.00",
     });
-    expect(forecast.largePurchaseFrom).toBeNull();
     // Eleven past Mondays have had their fortnight; September 28th has not.
-    expect(forecast.judgment!.accuracy).toMatchObject({ origins: 11, horizonDays: 14 });
-    expect(forecast.judgment!.accuracy!.error).toBeGreaterThan(0);
+    const accuracy = (
+      globalThis as Record<
+        symbol,
+        { accuracy: Map<string, { value: JudgmentAccuracy | null }> } | undefined
+      >
+    )[REGISTRY_KEY]!.accuracy.get("all")!.value;
+    expect(accuracy).toMatchObject({ origins: 11, horizonDays: 14 });
+    expect(accuracy!.error).toBeGreaterThan(0);
 
     // A second night has nothing new to judge.
     const calls = transport.complete.mock.calls.length;
@@ -258,7 +264,6 @@ describe("the AI analyst's nightly judgment", () => {
 
     const outcomes = await runDailyMaintenance({ now: new Date() });
     expect(outcomes.forecast_judgments).toBe("failed");
-    expect(outcomes.forecast_models).toBe("done");
     // The log says why, by a code that survives the production build.
     expect(warn).toHaveBeenCalledWith(
       expect.objectContaining({ step: "forecast_judgments", errorCode: "ai_provider_unavailable" }),

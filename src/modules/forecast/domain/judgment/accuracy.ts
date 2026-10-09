@@ -56,7 +56,7 @@ export function scoreJudgment(input: {
   judgment: Judgment;
   rows: readonly HistoryRow[];
   horizon: number;
-  statistical: Omit<ForecastOptions, "network" | "networkShare">;
+  statistical: ForecastOptions;
 }): JudgmentScore {
   const { asOf, rows, horizon } = input;
   const end = addCivilDays(asOf, horizon);
@@ -94,14 +94,13 @@ function statisticalAhead(
   rows: readonly HistoryRow[],
   asOf: string,
   end: string,
-  options: Omit<ForecastOptions, "network" | "networkShare">
+  options: ForecastOptions
 ): number | null {
   const forecast = forecastPeriod({
     rows: rows.filter((row) => row.date <= asOf),
     today: asOf,
     period: { from: asOf, end },
-    previous: null,
-    options: { ...options, network: null, networkShare: 0 },
+    options,
   });
   return forecast == null ? null : forecast.total.p50 - Number(forecast.spent);
 }

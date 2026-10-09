@@ -16,7 +16,6 @@ import { runWithConcurrency } from "@/lib/concurrency";
 import { AI_CORRECTIONS_RETENTION_DAYS, FORECAST_AI_RETENTION_DAYS } from "@/config/tuning";
 import { runPreferenceLearning } from "@/modules/ledger/server/preference-learning";
 import { refreshExchangeRates } from "@/modules/currency/server/exchange-rates";
-import { trainForecasts } from "@/modules/forecast/server/train-forecasts";
 import { judgeForecasts } from "@/modules/forecast/server/judge-ledger";
 
 const BATCH = 1000;
@@ -32,7 +31,6 @@ export type DailyStep =
   | "unused_files"
   | "orphan_objects"
   | "preference_learning"
-  | "forecast_models"
   | "forecast_judgments";
 
 export type DailyStepOutcome = "done" | "failed" | "skipped";
@@ -82,8 +80,6 @@ export async function runDailyMaintenance(
   await step("preference_learning", async () => {
     await runPreferenceLearning({ now });
   });
-  // After the exchange rates, so the history it trains on is converted at today's rates.
-  await step("forecast_models", trainForecasts);
   // The AI analyst's judgment, with the statistical model's first pass and the record of its past judgments.
   await step("forecast_judgments", judgeForecasts);
   return outcomes;
