@@ -20,31 +20,21 @@ const rows: HistoryRow[] = [
 ];
 
 const judgment: Judgment = {
-  phases: [{ from: "2026-07-01", label: "在家" }],
-  documents: [],
+  documents: [{ documentId: "t", kind: "recurring", cadence: "semester" }],
   expected: [
     { label: "学费", key: "edu", date: "2027-02-20", amount: 4500, cadence: "semester", seen: 1 },
     { label: "学费", key: "edu", date: "2027-03-20", amount: 90000, cadence: "semester", seen: 0 },
     { label: "新车", key: "car", date: "2027-01-01", amount: 90000, cadence: "irregular", seen: 0 },
   ],
-  categories: [
-    // A month's food given as a day's.
-    { key: "food", low: 25, mid: 900, high: 1200, trend: "steady" },
-    { key: "fun", low: 1, mid: 2, high: 3, trend: "steady" },
-  ],
 };
 
 describe("boundJudgment", () => {
-  it("holds everyday levels and expected purchases to what the history has seen", () => {
+  it("holds expected purchases to what the history has seen", () => {
     const bounded = boundJudgment(judgment, rows, "2026-10-09", 1.5);
 
-    expect(bounded.categories).toEqual([
-      { key: "food", low: 25, mid: 45, high: 45, trend: "steady" },
-      // Nothing seen to hold it to.
-      { key: "fun", low: 1, mid: 2, high: 3, trend: "steady" },
-    ]);
+    // A car has nothing seen to hold it to.
     expect(bounded.expected.map((item) => item.amount)).toEqual([4500, 6000, 90000]);
-    expect(bounded.phases).toBe(judgment.phases);
+    expect(bounded.documents).toBe(judgment.documents);
   });
 
   it("reads only the days before the day judged", () => {

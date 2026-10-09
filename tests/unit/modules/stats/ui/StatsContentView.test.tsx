@@ -139,7 +139,7 @@ describe("StatsContentView", () => {
     expect(screen.queryByRole("heading", { name: "最大几笔" })).not.toBeInTheDocument();
   });
 
-  it("shows the AI's phases of life, and what it judged a big purchase to be", () => {
+  it("shows what the AI judged a big purchase to be", () => {
     const stats = buildEnhancedStatsFixture({
       largestEntries: [
         {
@@ -167,22 +167,12 @@ describe("StatsContentView", () => {
       anomalies: [],
       judgment: {
         asOf: "2026-08-06",
-        phases: [
-          { from: "2026-02-01", to: "2026-07-31", label: "独居", daily: "80.00" },
-          { from: "2026-08-01", to: "2026-08-05", label: "读博", daily: "120.00" },
-        ],
         documents: [{ documentId: "d1", kind: "recurring", cadence: "semester" }],
       },
     };
     render(<StatsContentView {...baseProps} stats={stats} forecast={forecast} />);
 
-    const phases = screen.getByRole("heading", { name: "生活阶段" });
-    const largest = screen.getByRole("heading", { name: "最大几笔" });
-    // The life phases close the page, after the panels about this period.
-    expect(largest.compareDocumentPosition(phases) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByText("现在")).toBeInTheDocument();
-    expect(screen.getByText("日常 ¥120/天")).toBeInTheDocument();
-    expect(screen.getByText("2026/2/1–2026/7/31")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "生活阶段" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Tuition/ })).toHaveAccessibleName(/每学期/);
   });
 });

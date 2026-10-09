@@ -15,7 +15,6 @@ import { StatsChart } from "./StatsChart";
 import { StatsCumulativeChart } from "./StatsCumulativeChart";
 import { StatsHighlights } from "./StatsHighlights";
 import { StatsLargestEntries } from "./StatsLargestEntries";
-import { StatsLifePhases } from "./StatsLifePhases";
 import { StatsPanel } from "./StatsPanel";
 import { StatsRanking } from "./StatsRanking";
 import { StatsSummary } from "./StatsSummary";
@@ -303,10 +302,6 @@ export function StatsContentView({
               periodLabel={periodLabel}
               {...(onDateDrilldown !== undefined ? { onDateDrilldown } : {})}
             />
-          ) : null}
-
-          {forecast?.judgment != null ? (
-            <StatsLifePhases phases={forecast.judgment.phases} currencySymbol={currencySymbol} />
           ) : null}
         </div>
       </div>

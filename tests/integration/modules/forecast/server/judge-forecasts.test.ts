@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { asc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getTestDb } from "tests/setup";
 import { createTestBooks } from "tests/helpers/schema-setup";
 import { createLedgerData } from "tests/helpers/factories";
@@ -13,7 +13,6 @@ import {
   ledgers,
   sourceDocuments,
 } from "@/persistence";
-import type { JudgmentAccuracy } from "@/modules/forecast/domain/judgment/accuracy";
 import { getPeriodForecast } from "@/modules/forecast/server/get-forecast";
 import { judgeForecasts } from "@/modules/forecast/server/judge-ledger";
 import { addCivilDays } from "@/modules/ledger/domain/period";
@@ -49,25 +48,32 @@ function digestOf(request: CompleteRequest): string {
 
 /**
  * An analyst that reads the digest it is given as a person would: the
- * tuition is a semester's, the next one is expected in December, food runs
- * at ¥30 a day, and life changed on September 1st.
+ * tuition is a semester's and the lamp a one-off, the next tuition is due in
+ * December, and the term's books on October 20th.
  */
 function analyst(request: CompleteRequest): string {
   const digest = digestOf(request);
   if (!digest.startsWith("Today: ")) throw new Error("not a forecast judgment");
   const tuition = /\n(d\d+) \S+ 学费 /.exec(digest)?.[1];
-  const food = /\n(c\d+) 餐饮/.exec(digest)![1];
+  const lamp = /\n(d\d+) \S+ 台灯 /.exec(digest)?.[1];
   const education = /\n(c\d+) 教育/.exec(digest)![1];
   return JSON.stringify({
-    phases: [
-      { from: "2026-06-11", label: "在家" },
-      { from: "2026-09-01", label: "读博" },
+    documents: [
+      ...(tuition == null ? [] : [{ ref: tuition, kind: "recurring", cadence: "semester" }]),
+      ...(lamp == null ? [] : [{ ref: lamp, kind: "one_off" }]),
     ],
-    documents: tuition == null ? [] : [{ ref: tuition, kind: "recurring", cadence: "semester" }],
     expected:
       tuition == null
         ? []
         : [
+            {
+              label: "教材",
+              category: education,
+              date: "2026-10-20",
+              amount: 300,
+              cadence: "semester",
+              basis: [tuition],
+            },
             {
               label: "学费",
               category: education,
@@ -77,11 +83,10 @@ function analyst(request: CompleteRequest): string {
               basis: [tuition],
             },
           ],
-    categories: [{ category: food, low: 25, mid: 30, high: 40, trend: "steady" }],
   });
 }
 
-describe("the AI analyst's nightly judgment", () => {
+describe("the AI analyst's weekly judgment", () => {
   let transport: FakeAiTransport;
   let record: (
     date: string,
@@ -118,15 +123,18 @@ describe("the AI analyst's nightly judgment", () => {
       });
     };
 
-    // ¥30 of food a day from June 11th through October 9th, and a semester's tuition on September 8th.
+    // ¥30 of food a day from June 11th through October 9th, a semester's tuition on September 8th,
+    // and a ¥100 lamp filed under food on September 20th: too small for the statistical model to
+    // take for a one-off.
     for (let day = 0; day < 121; day++) {
       await record(addCivilDays("2026-06-11", day), "30", "food", "午饭");
     }
     await record("2026-09-08", "4000", "education", "学费");
+    await record("2026-09-20", "100", "food", "台灯");
 
     transport = fakeAiTransport(analyst);
     setAiTransportForTests(transport);
-    // Noon on the 10th in Shanghai.
+    // Noon on Saturday the 10th in Shanghai.
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-10T04:00:00Z"));
   });
@@ -136,15 +144,14 @@ describe("the AI analyst's nightly judgment", () => {
     setAiTransportForTests(null);
   });
 
-  it("judges today and the Mondays of the past twelve weeks, and the forecast is computed from it", async () => {
+  it("judges the ledger, and the forecast leaves out its one-offs and adds what it expects", async () => {
     const outcomes = await runDailyMaintenance({ now: new Date() });
     expect(outcomes.forecast_judgments).toBe("done");
 
     const rows = await getTestDb()
       .select({ asOf: forecastJudgments.asOf, backfilled: forecastJudgments.backfilled })
-      .from(forecastJudgments)
-      .orderBy(asc(forecastJudgments.asOf));
-    expect(rows).toHaveLength(13);
+      .from(forecastJudgments);
+    expect(rows).toEqual([{ asOf: "2026-10-10", backfilled: false }]);
     // A reasoning model spends its reasoning from the same budget, so the request leaves room for it.
     expect(transport.complete.mock.calls[0]![0]).toMatchObject({
       maxTokens: FORECAST_AI_MAX_TOKENS,
@@ -152,52 +159,27 @@ describe("the AI analyst's nightly judgment", () => {
       maxAttempts: FORECAST_AI_MAX_ATTEMPTS,
       reasoningEffort: FORECAST_AI_REASONING_EFFORT,
     });
-    expect(rows.at(-1)).toEqual({ asOf: "2026-10-10", backfilled: false });
-    // The 10th is a Saturday; the backfill counts back from Monday the 5th.
-    expect(rows[0]).toEqual({ asOf: "2026-07-13", backfilled: true });
-    expect(rows.at(-2)).toEqual({ asOf: "2026-09-28", backfilled: true });
-    // A past day is judged from only what was recorded by then.
-    const july = transport.complete.mock.calls
-      .map(([request]) => digestOf(request))
-      .find((digest) => digest.startsWith("Today: 2026-07-13."))!;
-    expect(july).not.toContain("学费");
-    expect(july).not.toContain("2026-07-14");
 
     const forecast = (await getPeriodForecast({ period: THIS_MONTH }, "Asia/Shanghai"))!;
 
-    expect(forecast.judgment).toMatchObject({
-      asOf: "2026-10-10",
-      phases: [
-        { from: "2026-06-11", to: "2026-08-31", label: "在家", daily: "30.00" },
-        // The tuition is not everyday spending, so September's day stays at ¥30.
-        { from: "2026-09-01", to: "2026-10-09", label: "读博", daily: "30.00" },
-      ],
-      documents: [],
-    });
-    // Nine days of ¥30, then twenty-one more.
+    expect(forecast.judgment).toEqual({ asOf: "2026-10-10", documents: [] });
+    // Nine days of ¥30 so far.
     expect(forecast.spent).toBe("270");
     expect(forecast.categories).toEqual([
+      // Twenty-one more days of ¥30: the lamp is not drawn as an everyday day.
       expect.objectContaining({
         name: "餐饮",
         spent: "270",
-        forecast: { p10: "795.00", p50: "900.00", p90: "1110.00" },
-        trend: { direction: "steady", change: 0 },
+        forecast: { p10: "900.00", p50: "900.00", p90: "900.00" },
+      }),
+      // The books on the 20th; December's tuition is after the period.
+      expect.objectContaining({
+        name: "教育",
+        spent: "0",
+        forecast: { p10: "300.00", p50: "300.00", p90: "300.00" },
       }),
     ]);
-    expect(forecast.lifeChange).toEqual({
-      date: "2026-09-01",
-      dailyBefore: "30.00",
-      dailyAfter: "30.00",
-    });
-    // Eleven past Mondays have had their fortnight; September 28th has not.
-    const accuracy = (
-      globalThis as Record<
-        symbol,
-        { accuracy: Map<string, { value: JudgmentAccuracy | null }> } | undefined
-      >
-    )[REGISTRY_KEY]!.accuracy.get("all")!.value;
-    expect(accuracy).toMatchObject({ origins: 11, horizonDays: 14 });
-    expect(accuracy!.error).toBeGreaterThan(0);
+    expect(forecast.total.p50).toBe("1200.00");
 
     // A second night has nothing new to judge.
     const calls = transport.complete.mock.calls.length;
@@ -205,47 +187,52 @@ describe("the AI analyst's nightly judgment", () => {
     expect(transport.complete.mock.calls.length).toBe(calls);
   });
 
-  it("judges once a day: the next night judges only that day, with nothing to backfill", async () => {
+  it("judges once a week", async () => {
     await runDailyMaintenance({ now: new Date() });
     const calls = transport.complete.mock.calls.length;
 
-    // A restart the same day has nothing to judge either.
-    await runDailyMaintenance({ now: new Date() });
-    expect(transport.complete.mock.calls.length).toBe(calls);
+    for (const day of ["2026-10-11", "2026-10-16"]) {
+      vi.setSystemTime(new Date(`${day}T04:00:00Z`));
+      await runDailyMaintenance({ now: new Date() });
+      expect(transport.complete.mock.calls.length).toBe(calls);
+    }
 
-    vi.setSystemTime(new Date("2026-10-11T04:00:00Z"));
+    vi.setSystemTime(new Date("2026-10-17T04:00:00Z"));
     await runDailyMaintenance({ now: new Date() });
     expect(transport.complete.mock.calls.length).toBe(calls + 1);
-    expect(digestOf(transport.complete.mock.calls.at(-1)![0])).toMatch(/^Today: 2026-10-11\./);
+    expect(digestOf(transport.complete.mock.calls.at(-1)![0])).toMatch(/^Today: 2026-10-17\./);
   });
 
-  it("leaves the day's new entries to the next day's judgment", async () => {
+  it("leaves the week's new entries to the next judgment, and does not count a charge twice", async () => {
     await runDailyMaintenance({ now: new Date() });
     const calls = transport.complete.mock.calls.length;
-    await record("2026-10-10", "88", "food", "火锅");
+    // The books, bought six days early.
+    await record("2026-10-14", "280", "education", "教材");
 
-    // Hours later the page still uses the morning's judgment, with the new spending counted.
-    vi.setSystemTime(new Date("2026-10-10T10:00:00Z"));
+    vi.setSystemTime(new Date("2026-10-14T10:00:00Z"));
     const later = (await getPeriodForecast({ period: THIS_MONTH }, "Asia/Shanghai"))!;
-    expect(later.spent).toBe("358");
     expect(later.judgment!.asOf).toBe("2026-10-10");
+    expect(later.categories.find((category) => category.name === "教育")).toMatchObject({
+      spent: "280",
+      forecast: { p50: "280.00" },
+    });
     await settleJudgments();
     expect(transport.complete.mock.calls.length).toBe(calls);
 
-    // The next day's first read judges again in the background, the new entry included.
-    vi.setSystemTime(new Date("2026-10-11T04:00:00Z"));
+    // A week on, the first read judges again in the background, the books included.
+    vi.setSystemTime(new Date("2026-10-17T04:00:00Z"));
     await getPeriodForecast({ period: THIS_MONTH }, "Asia/Shanghai");
     await vi.waitFor(() => expect(transport.complete.mock.calls.length).toBe(calls + 1));
-    expect(digestOf(transport.complete.mock.calls.at(-1)![0])).toContain("火锅");
+    expect(digestOf(transport.complete.mock.calls.at(-1)![0])).toContain("教材");
   });
 
-  it("judges today again once the analyst's prompt has changed", async () => {
+  it("judges again once the analyst's prompt has changed", async () => {
     await runDailyMaintenance({ now: new Date() });
     const calls = transport.complete.mock.calls.length;
-    // As stored before the version led the fingerprint.
+    // As stored under an older prompt.
     await getTestDb()
       .update(forecastJudgments)
-      .set({ inputFingerprint: "0123456789abcdef0123456789abcdef" })
+      .set({ inputFingerprint: "v2:0123456789abcdef" })
       .where(eq(forecastJudgments.asOf, "2026-10-10"));
 
     vi.setSystemTime(new Date("2026-10-10T04:31:00Z"));
@@ -254,7 +241,7 @@ describe("the AI analyst's nightly judgment", () => {
     expect(digestOf(transport.complete.mock.calls.at(-1)![0])).toMatch(/^Today: 2026-10-10\./);
   });
 
-  it("falls back to the statistical model when the AI cannot be reached", async () => {
+  it("falls back to the statistical model alone when the AI cannot be reached", async () => {
     setAiTransportForTests(
       fakeAiTransport(() => {
         throw new AppError("provider down", "ai_provider_unavailable", 503);
@@ -272,31 +259,18 @@ describe("the AI analyst's nightly judgment", () => {
 
     const forecast = (await getPeriodForecast({ period: THIS_MONTH }, "Asia/Shanghai"))!;
     expect(forecast.judgment).toBeNull();
-    expect(forecast.categories[0]!.trend).toBeNull();
-    expect(Number(forecast.total.p50)).toBeGreaterThan(270);
+    expect(forecast.categories.map((category) => category.name)).toEqual(["餐饮"]);
+    // The lamp is drawn as a food day now and then.
+    expect(Number(forecast.categories[0]!.forecast.p90)).toBeGreaterThan(900);
   });
 
-  it("judges again the past Mondays whose judgment was made under an older prompt", async () => {
-    await runDailyMaintenance({ now: new Date() });
-    const calls = transport.complete.mock.calls.length;
-    await getTestDb()
-      .update(forecastJudgments)
-      .set({ inputFingerprint: "v0:0123456789abcdef" })
-      .where(eq(forecastJudgments.asOf, "2026-09-14"));
-
-    await runDailyMaintenance({ now: new Date() });
-
-    expect(transport.complete.mock.calls.length).toBe(calls + 1);
-    expect(digestOf(transport.complete.mock.calls.at(-1)![0])).toMatch(/^Today: 2026-09-14\./);
-  });
-
-  it("still backfills when a read is judging today as the night begins", async () => {
-    // The read's judgment of today is held at the provider until the night has started.
+  it("does not judge again when a read is judging as the night begins", async () => {
+    // The read's judgment is held at the provider until the night has started.
     let release: () => void = () => undefined;
     const held = new Promise<void>((resolve) => (release = resolve));
     setAiTransportForTests(
       fakeAiTransport(async (request) => {
-        if (/^Today: 2026-10-10\./.test(digestOf(request))) await held;
+        await held;
         return analyst(request);
       })
     );
@@ -307,30 +281,13 @@ describe("the AI analyst's nightly judgment", () => {
     await night;
 
     const rows = await getTestDb().select().from(forecastJudgments);
-    expect(rows).toHaveLength(13);
+    expect(rows).toHaveLength(1);
   });
 
-  it("answers from the statistical model when the analyst's scored record is worse", async () => {
-    // An analyst that keeps expecting ¥44 a day of food that runs at ¥30.
-    setAiTransportForTests(
-      fakeAiTransport((request) => {
-        const answer = JSON.parse(analyst(request)) as {
-          categories: { low: number; mid: number; high: number }[];
-        };
-        answer.categories = answer.categories.map((category) => ({
-          ...category,
-          low: 40,
-          mid: 44,
-          high: 44,
-        }));
-        return JSON.stringify(answer);
-      })
-    );
+  it("keeps a judgment readable by the release before, which still needs phases and levels", async () => {
     await runDailyMaintenance({ now: new Date() });
 
-    const forecast = (await getPeriodForecast({ period: THIS_MONTH }, "Asia/Shanghai"))!;
-
-    expect(forecast.judgment).toBeNull();
-    expect(forecast.categories[0]!.trend).toBeNull();
+    const [row] = await getTestDb().select().from(forecastJudgments);
+    expect(row!.judgment).toMatchObject({ phases: [], categories: [] });
   });
 });

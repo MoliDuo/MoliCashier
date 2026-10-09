@@ -4,19 +4,14 @@ import { addCivilDays } from "@/modules/ledger/domain/period";
 /**
  * The AI analyst's contract: what it answers, and how the answer, written
  * against the short references the digest gave it, becomes a judgment
- * against the ledger's own ids. The AI only judges — which purchases are not
- * everyday ones, what is coming, how much each category's everyday spending
- * runs to a day, how life has gone in stretches. Every sum is the code's.
+ * against the ledger's own ids. The AI only judges which purchases are not
+ * everyday ones and which large or recurring charges are coming; the
+ * statistical model forecasts everyday spending, and every sum is the code's.
  */
 
 export const JUDGMENT_CADENCES = ["weekly", "monthly", "semester", "yearly", "irregular"] as const;
 export type JudgmentCadence = (typeof JUDGMENT_CADENCES)[number];
 
-export const JUDGMENT_TRENDS = ["rising", "falling", "steady"] as const;
-export type JudgmentTrend = (typeof JUDGMENT_TRENDS)[number];
-
-/** The longest phase label kept; a longer one is cut. */
-const PHASE_LABEL_MAX = 12;
 /** The longest label kept for something expected. */
 const EXPECTED_LABEL_MAX = 24;
 
@@ -26,15 +21,12 @@ const amount = z.number().finite();
 const item = z.record(z.string(), z.unknown());
 
 export const judgmentResponseSchema = z.object({
-  phases: z.array(item).max(40),
   documents: z.array(item).max(2000),
   expected: z.array(item).max(200),
-  categories: z.array(item).max(400),
 });
 
 export type JudgmentResponse = z.infer<typeof judgmentResponseSchema>;
 
-const phaseSchema = z.object({ from: civilDate, label: z.string().trim().min(1) });
 const documentSchema = z.object({
   ref: z.string(),
   kind: z.enum(["one_off", "recurring"]),
@@ -48,19 +40,6 @@ const expectedSchema = z.object({
   cadence: z.enum(JUDGMENT_CADENCES),
   basis: z.array(z.string()).max(100).default([]),
 });
-const categorySchema = z.object({
-  category: z.string(),
-  low: amount,
-  mid: amount,
-  high: amount,
-  trend: z.enum(JUDGMENT_TRENDS),
-});
-
-/** A stretch of life, from its first day until the next one begins. */
-export interface JudgedPhase {
-  from: string;
-  label: string;
-}
 
 /** A purchase the AI judged not to be everyday spending. */
 export interface JudgedDocument {
@@ -81,20 +60,9 @@ export interface JudgedExpected {
   seen: number;
 }
 
-/** How much a category's everyday spending runs to a day from now on, and which way it is heading. */
-export interface JudgedCategory {
-  key: string;
-  low: number;
-  mid: number;
-  high: number;
-  trend: JudgmentTrend;
-}
-
 export interface Judgment {
-  phases: JudgedPhase[];
   documents: JudgedDocument[];
   expected: JudgedExpected[];
-  categories: JudgedCategory[];
 }
 
 /** The short names the digest gave documents and categories, mapped back to ids and category keys. */
@@ -106,13 +74,12 @@ export interface JudgmentRefs {
 /**
  * The answer as a judgment of the day `asOf`, with every item that does not
  * hold up left out: a reference the digest never gave, a date out of range, a
- * negative or non-finite amount. The phases come out in order, one per day;
- * a category's three levels in order, low to high.
+ * negative or non-finite amount.
  */
 export function resolveJudgment(
   response: JudgmentResponse,
   refs: JudgmentRefs,
-  window: { earliest: string; asOf: string; expectedDays: number }
+  window: { asOf: string; expectedDays: number }
 ): Judgment {
   const parse = <T>(schema: z.ZodType<T>, items: readonly unknown[]): T[] =>
     items.flatMap((value) => {
@@ -120,13 +87,6 @@ export function resolveJudgment(
       return parsed.success ? [parsed.data] : [];
     });
   const lastExpected = addCivilDays(window.asOf, window.expectedDays);
-
-  const phases = new Map<string, JudgedPhase>();
-  for (const phase of parse(phaseSchema, response.phases)) {
-    if (phase.from > window.asOf) continue;
-    const from = phase.from < window.earliest ? window.earliest : phase.from;
-    phases.set(from, { from, label: phase.label.slice(0, PHASE_LABEL_MAX) });
-  }
 
   const documents = new Map<string, JudgedDocument>();
   for (const document of parse(documentSchema, response.documents)) {
@@ -155,27 +115,15 @@ export function resolveJudgment(
   }
   expected.sort((a, b) => a.date.localeCompare(b.date) || b.amount - a.amount);
 
-  const categories = new Map<string, JudgedCategory>();
-  for (const category of parse(categorySchema, response.categories)) {
-    const key = refs.categories.get(category.category);
-    if (key == null) continue;
-    const [low, mid, high] = [category.low, category.mid, category.high]
-      .map((value) => Math.max(0, value))
-      .sort((a, b) => a - b) as [number, number, number];
-    categories.set(key, { key, low, mid, high, trend: category.trend });
-  }
-
-  return {
-    phases: [...phases.values()].sort((a, b) => a.from.localeCompare(b.from)),
-    documents: [...documents.values()],
-    expected,
-    categories: [...categories.values()],
-  };
+  return { documents: [...documents.values()], expected };
 }
 
-/** A stored judgment, read back: the same shape, checked again since the column holds whatever was written. */
+/**
+ * A stored judgment, read back: the same shape, checked again since the column holds whatever was
+ * written. Judgments made before the analyst stopped judging phases and everyday levels carry those
+ * too; they are read past.
+ */
 export const storedJudgmentSchema: z.ZodType<Judgment> = z.object({
-  phases: z.array(z.object({ from: civilDate, label: z.string() })),
   documents: z.array(
     z.object({
       documentId: z.string(),
@@ -191,15 +139,6 @@ export const storedJudgmentSchema: z.ZodType<Judgment> = z.object({
       amount,
       cadence: z.enum(JUDGMENT_CADENCES),
       seen: z.number().int().nonnegative(),
-    })
-  ),
-  categories: z.array(
-    z.object({
-      key: z.string(),
-      low: amount,
-      mid: amount,
-      high: amount,
-      trend: z.enum(JUDGMENT_TRENDS),
     })
   ),
 });

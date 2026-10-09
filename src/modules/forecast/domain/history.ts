@@ -25,7 +25,8 @@ export interface PreparedHistory {
   earliest: string;
   /**
    * Every category's days from `earliest` through yesterday, with the
-   * recurring bills and the large one-off purchases taken out.
+   * recurring bills, the large one-off purchases and the documents judged not
+   * everyday taken out.
    */
   series: DailySeries;
   signals: DailySignals;
@@ -89,14 +90,18 @@ function purchaseOf(row: HistoryRow): string {
  * category, with the bills that come back on a schedule taken out (they are
  * added back on their days, for certain, rather than left to chance), the
  * large one-off purchases taken out (they are not forecast at all), and the
- * latest change in the way of spending found.
+ * latest change in the way of spending found. The documents in `notEveryday`
+ * — those the AI analyst judged one-off or recurring — are taken out of the
+ * everyday days too, after the bills are found, so a bill both found is still
+ * added on its day.
  *
  * Returns null with fewer than `minHistoryDays` days recorded before today.
  */
 export function prepareHistory(
   rows: readonly HistoryRow[],
   today: string,
-  minHistoryDays: number
+  minHistoryDays: number,
+  notEveryday: ReadonlySet<string> = new Set()
 ): PreparedHistory | null {
   const earliest = rows.reduce<string | null>(
     (first, row) => (row.date < today && (first == null || row.date < first) ? row.date : first),
@@ -115,7 +120,13 @@ export function prepareHistory(
   const largeFrom = largePurchaseThreshold(regular, today);
   const large = largeFrom == null ? new Set<string>() : largePurchases(regular, largeFrom);
   const everyday =
-    large.size === 0 ? regular : regular.filter((row) => !large.has(purchaseOf(row)));
+    large.size === 0 && notEveryday.size === 0
+      ? regular
+      : regular.filter(
+          (row) =>
+            !large.has(purchaseOf(row)) &&
+            (row.documentId == null || !notEveryday.has(row.documentId))
+        );
   const series = buildDailySeries(everyday, earliest, addCivilDays(today, -1));
   // The way of spending is read from the everyday days too: a month of moving-in purchases is not a new way of life.
   const signals = dailySignals(everyday, earliest, series.length);

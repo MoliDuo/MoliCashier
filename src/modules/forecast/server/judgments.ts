@@ -1,7 +1,6 @@
 import "server-only";
-import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, desc, eq, gte, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { isCurrentJudgmentVersion } from "@/modules/forecast/domain/judgment/fingerprint";
 import { storedJudgmentSchema, type Judgment } from "@/modules/forecast/domain/judgment/schema";
 import { forecastJudgments } from "@/persistence";
 
@@ -44,47 +43,30 @@ export async function latestJudgment(
   return row == null ? null : toStored(row);
 }
 
-/** Every judgment of `scope` from `from` on, newest first. */
-export async function judgmentsSince(scope: string, from: string): Promise<StoredJudgment[]> {
-  const rows = await db
-    .select()
-    .from(forecastJudgments)
-    .where(and(eq(forecastJudgments.scope, scope), gte(forecastJudgments.asOf, from)))
-    .orderBy(desc(forecastJudgments.asOf));
-  return rows.flatMap((row) => toStored(row) ?? []);
-}
-
-/** Which of `days` already have a judgment of `scope` made under the current prompt; one made the old way is judged again. */
-export async function judgedDays(scope: string, days: readonly string[]): Promise<Set<string>> {
-  if (days.length === 0) return new Set();
-  const rows = await db
-    .select({ asOf: forecastJudgments.asOf, inputFingerprint: forecastJudgments.inputFingerprint })
-    .from(forecastJudgments)
-    .where(and(eq(forecastJudgments.scope, scope), inArray(forecastJudgments.asOf, [...days])));
-  return new Set(
-    rows.filter((row) => isCurrentJudgmentVersion(row.inputFingerprint)).map((row) => row.asOf)
-  );
-}
-
-/** Keeps a judgment, replacing one of the same scope and day. */
+/**
+ * Keeps a judgment, replacing one of the same scope and day. The empty phases
+ * and everyday levels keep the judgment readable by the release before this
+ * one, which still requires them; nothing reads them now. The judgments are
+ * no longer backfilled.
+ */
 export async function saveJudgment(input: {
   scope: string;
   asOf: string;
   inputFingerprint: string;
   model: string;
-  backfilled: boolean;
   judgment: Judgment;
 }): Promise<void> {
+  const judgment = { phases: [], categories: [], ...input.judgment };
   await db
     .insert(forecastJudgments)
-    .values(input)
+    .values({ ...input, backfilled: false, judgment })
     .onConflictDoUpdate({
       target: [forecastJudgments.scope, forecastJudgments.asOf],
       set: {
         inputFingerprint: input.inputFingerprint,
         model: input.model,
-        backfilled: input.backfilled,
-        judgment: input.judgment,
+        backfilled: false,
+        judgment,
         createdAt: new Date(),
       },
     });
